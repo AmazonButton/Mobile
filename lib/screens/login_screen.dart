@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../constants/app_colors.dart';
+import 'package:flutter/services.dart';
 import 'dashboard_screen.dart';
 import 'signup_screen.dart';
 
@@ -11,42 +11,31 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  void _navigateToSignUp() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const SignUpScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              ),
-            ),
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      ),
-    );
-  }
-  final TextEditingController _accountController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final FocusNode _accountFocusNode = FocusNode();
-  final FocusNode _passwordFocusNode = FocusNode();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
 
-  bool _obscurePassword = true;
+  final FocusNode _emailFocusNode = FocusNode();
+  final FocusNode _phoneFocusNode = FocusNode();
+
   bool _rememberMe = false;
   bool _isLoading = false;
 
-  // Validation States
-  String? _accountError;
+  // Validation States cho Email
+  String? _emailError;
   String? _suggestedEmail;
-  bool _hasAccountBlurred = false;
+  bool _hasEmailBlurred = false;
+
+  // Validation States cho Số điện thoại
+  String? _phoneError;
+  bool _hasPhoneBlurred = false;
+
+  // Màu sắc chủ đạo theo yêu cầu: Tone Xanh dương nhạt & Navy thanh lịch
+  static const Color primaryBlue = Color(0xFF1D5B9F);
+  static const Color primaryLight = Color(0xFFE3F2FD);
+  static const Color textDark = Color(0xFF102A43);
+  static const Color textMuted = Color(0xFF627D98);
+  static const Color borderLight = Color(0xFFE2E8F0);
+  static const Color inputBg = Color(0xFFF9FAFB);
 
   static const List<String> _popularDomains = [
     'gmail.com',
@@ -95,7 +84,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (localPart.isEmpty || domainPart.isEmpty) return null;
 
-    // Nếu đã gõ đúng domain phổ biến thì không cần gợi ý
     if (_popularDomains.contains(domainPart)) return null;
 
     String? bestMatch;
@@ -103,7 +91,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     for (final popularDomain in _popularDomains) {
       final distance = _levenshtein(domainPart, popularDomain);
-      // Gõ sai nhẹ: khoảng cách chỉnh sửa 1 hoặc 2 ký tự
       if (distance <= 2 && distance < lowestDistance) {
         lowestDistance = distance;
         bestMatch = popularDomain;
@@ -118,175 +105,145 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _applySuggestion(String suggested) {
     setState(() {
-      _accountController.text = suggested;
-      _accountController.selection = TextSelection.fromPosition(
+      _emailController.text = suggested;
+      _emailController.selection = TextSelection.fromPosition(
         TextPosition(offset: suggested.length),
       );
       _suggestedEmail = null;
-      _accountError = null;
-      _validateAccount();
+      _emailError = null;
+      _validateEmail();
     });
   }
-
-  // Password criteria states
-  bool _hasMinLength = false;
-  bool _hasUppercase = false;
-  bool _hasLowercase = false;
-  bool _hasDigit = false;
-  bool _hasSpecialChar = false;
 
   @override
   void initState() {
     super.initState();
-    _accountFocusNode.addListener(_onAccountFocusChange);
-    _accountController.addListener(_onAccountChanged);
-    _passwordController.addListener(_onPasswordChanged);
+    _emailFocusNode.addListener(_onEmailFocusChange);
+    _phoneFocusNode.addListener(_onPhoneFocusChange);
+
+    _emailController.addListener(_onEmailChanged);
+    _phoneController.addListener(_onPhoneChanged);
   }
 
   @override
   void dispose() {
-    _accountFocusNode.removeListener(_onAccountFocusChange);
-    _accountFocusNode.dispose();
-    _passwordFocusNode.dispose();
-    _accountController.dispose();
-    _passwordController.dispose();
+    _emailFocusNode.removeListener(_onEmailFocusChange);
+    _phoneFocusNode.removeListener(_onPhoneFocusChange);
+
+    _emailFocusNode.dispose();
+    _phoneFocusNode.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
-  void _onAccountFocusChange() {
-    if (!_accountFocusNode.hasFocus) {
-      // onBlur: Thực hiện validate tài khoản khi rời khỏi ô input
-      final rawText = _accountController.text.trim();
-      final isPhone = RegExp(r'^[0-9+]').hasMatch(rawText);
-
-      setState(() {
-        _hasAccountBlurred = true;
-        if (!isPhone && rawText.contains('@')) {
+  void _onEmailFocusChange() {
+    setState(() {
+      if (!_emailFocusNode.hasFocus) {
+        // onBlur: Kiểm tra định dạng Email khi người dùng rời khỏi ô input
+        final rawText = _emailController.text.trim();
+        _hasEmailBlurred = true;
+        if (rawText.contains('@')) {
           _suggestedEmail = _checkEmailTypo(rawText);
         }
-        _validateAccount();
-      });
-    }
+        _validateEmail();
+      }
+    });
   }
 
-  void _onAccountChanged() {
-    final rawText = _accountController.text.trim();
-    final isPhone = RegExp(r'^[0-9+]').hasMatch(rawText);
-
+  void _onEmailChanged() {
+    final rawText = _emailController.text.trim();
     setState(() {
-      if (!isPhone && rawText.contains('@')) {
+      if (rawText.contains('@')) {
         _suggestedEmail = _checkEmailTypo(rawText);
       } else {
         _suggestedEmail = null;
       }
 
-      if (_hasAccountBlurred) {
-        _validateAccount();
+      if (_hasEmailBlurred) {
+        _validateEmail();
       }
     });
   }
 
-  void _validateAccount() {
-    final rawText = _accountController.text.trim();
+  void _validateEmail() {
+    final rawText = _emailController.text.trim();
     if (rawText.isEmpty) {
-      _accountError = 'Vui lòng nhập Email hoặc Số điện thoại';
+      _emailError = 'Vui lòng nhập địa chỉ Email';
       return;
     }
 
-    // Tự động phân loại: nếu bắt đầu bằng số 0 hoặc toàn chữ số -> SĐT
-    final isPhone = RegExp(r'^[0-9+]').hasMatch(rawText);
-
-    if (isPhone) {
-      if (!rawText.startsWith('0')) {
-        _accountError = 'Số điện thoại phải bắt đầu bằng số 0';
-      } else if (!RegExp(r'^0\d{9}$').hasMatch(rawText)) {
-        _accountError = 'Số điện thoại phải gồm đúng 10 chữ số';
-      } else {
-        _accountError = null;
-      }
+    // Strict Regex Validation
+    if (!_strictEmailRegex.hasMatch(rawText) ||
+        rawText.contains('@.') ||
+        rawText.startsWith('@') ||
+        rawText.contains('..')) {
+      _emailError = 'Email không đúng định dạng (VD: example@domain.com)';
     } else {
-      // Strict Regex Validation:
-      // Quét chặt chẽ các trường hợp thiếu thành phần: @.vn, abc@.com, abc@domain...
-      if (!_strictEmailRegex.hasMatch(rawText) ||
-          rawText.contains('@.') ||
-          rawText.startsWith('@') ||
-          rawText.contains('..')) {
-        _accountError = 'Email không đúng định dạng (VD: example@domain.com)';
-      } else {
-        _accountError = null;
-      }
+      _emailError = null;
     }
   }
 
-  void _onPasswordChanged() {
-    final text = _passwordController.text;
+  void _onPhoneFocusChange() {
     setState(() {
-      _hasMinLength = text.length >= 8;
-      _hasUppercase = RegExp(r'[A-Z]').hasMatch(text);
-      _hasLowercase = RegExp(r'[a-z]').hasMatch(text);
-      _hasDigit = RegExp(r'[0-9]').hasMatch(text);
-      _hasSpecialChar = RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(text);
+      if (!_phoneFocusNode.hasFocus) {
+        _hasPhoneBlurred = true;
+        _validatePhone(_phoneController.text);
+      }
     });
   }
 
-  int get _passwordScore {
-    int score = 0;
-    if (_hasMinLength) score++;
-    if (_hasUppercase) score++;
-    if (_hasLowercase) score++;
-    if (_hasDigit) score++;
-    if (_hasSpecialChar) score++;
-    return score;
+  void _onPhoneChanged() {
+    setState(() {
+      _validatePhone(_phoneController.text);
+    });
   }
 
-  double get _passwordStrengthProgress {
-    final score = _passwordScore;
-    if (_passwordController.text.isEmpty) return 0.0;
-    if (score <= 2) return 0.33;
-    if (score <= 4) return 0.66;
-    return 1.0;
-  }
+  void _validatePhone(String value) {
+    final raw = value.trim();
 
-  Color get _passwordStrengthColor {
-    final score = _passwordScore;
-    if (_passwordController.text.isEmpty) return const Color(0xFFE5E7EB);
-    if (score <= 2) return const Color(0xFFEF4444); // Đỏ - Yếu
-    if (score <= 4) return const Color(0xFFF59E0B); // Vàng - Trung bình
-    return const Color(0xFF10B981); // Xanh lá - Mạnh
-  }
-
-  String get _passwordStrengthLabel {
-    final score = _passwordScore;
-    if (_passwordController.text.isEmpty) return '';
-    if (score <= 2) return 'Yếu';
-    if (score <= 4) return 'Trung bình';
-    return 'Mạnh';
-  }
-
-  bool get _isAccountValid {
-    final text = _accountController.text.trim();
-    if (text.isEmpty) return false;
-    final isPhone = RegExp(r'^[0-9+]').hasMatch(text);
-    if (isPhone) {
-      return RegExp(r'^0\d{9}$').hasMatch(text);
+    if (raw.isEmpty) {
+      _phoneError = _hasPhoneBlurred ? 'Vui lòng nhập số điện thoại' : null;
+      return;
     }
-    // Strict Regex Validation:
+
+    // 1. Nhập số đầu phải là số 0, nếu không phải số 0 cảnh báo ngay
+    if (!raw.startsWith('0')) {
+      _phoneError = 'Số điện thoại phải bắt đầu bằng số 0';
+      return;
+    }
+
+    // 2. Không được vượt quá 10 số, nếu vượt thông báo ngay cho người dùng
+    if (raw.length > 10) {
+      _phoneError = 'Số điện thoại không được vượt quá 10 số (hiện có ${raw.length} số)';
+      return;
+    }
+
+    // 3. Khi người dùng đã rời khỏi ô và chưa đủ 10 số
+    if (_hasPhoneBlurred && raw.length < 10) {
+      _phoneError = 'Số điện thoại phải gồm đúng 10 số (hiện có ${raw.length}/10)';
+      return;
+    }
+
+    _phoneError = null;
+  }
+
+  bool get _isEmailValid {
+    final text = _emailController.text.trim();
+    if (text.isEmpty) return false;
     return _strictEmailRegex.hasMatch(text) &&
         !text.contains('@.') &&
         !text.startsWith('@') &&
         !text.contains('..');
   }
 
-  bool get _isPasswordValid {
-    return _hasMinLength &&
-        _hasUppercase &&
-        _hasLowercase &&
-        _hasDigit &&
-        _hasSpecialChar;
+  bool get _isPhoneValid {
+    final text = _phoneController.text.trim();
+    return text.length == 10 && text.startsWith('0') && RegExp(r'^0\d{9}$').hasMatch(text);
   }
 
   bool get _isFormValid {
-    return _isAccountValid && _isPasswordValid;
+    return _isEmailValid && _isPhoneValid;
   }
 
   void _navigateToDashboard() {
@@ -305,6 +262,30 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  void _navigateToSignUp() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const SignUpScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              ),
+            ),
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
+    );
+  }
+
   void _handleLogin() {
     if (!_isFormValid) return;
     setState(() => _isLoading = true);
@@ -319,662 +300,648 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFD),
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: [0.0, 0.35, 1.0],
+              colors: [
+                Color(0xFFEBF4FE), // Xanh nhạt sang trọng
+                Color(0xFFF7FAFD), // Chuyển màu nhẹ nhàng
+                Colors.white,      // Trắng sáng vùng dưới
+              ],
+            ),
+          ),
+          child: Column(
+            children: [
+              // Khối màu xanh cực nhạt / dải gradient trên cùng làm nổi bật header
+              Container(
+                height: 4,
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [primaryLight, primaryBlue, Color(0xFFF5862B)],
+                  ),
                 ),
-                child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 28),
+              ),
 
-                      // ── 1. Header (Căn giữa logo & SmartOrder: flex-row, items-center, justify-center) ──
-                      Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Image.asset(
-                              'assets/smart_order_button_logo.png',
-                              height: 46,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Image.asset(
-                                'assets/fpt_toggle_button.png',
-                                height: 46,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error2, stackTrace2) =>
-                                    const Icon(
-                                  Icons.radio_button_checked,
-                                  color: AppColors.accent,
-                                  size: 38,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'SmartOrder',
-                              style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF1E212D),
-                                letterSpacing: -0.4,
-                              ),
-                            ),
-                          ],
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
                         ),
-                      ),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const SizedBox(height: 28),
 
-                      const SizedBox(height: 32),
-
-                      // ── 2. Welcome Heading (Margin-bottom hợp lý với Form) ──
-                      const Text(
-                        'Chào mừng trở lại',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF111827),
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // ── 3. Input Tài khoản (Email hoặc SĐT - Chuẩn h-13 52px) ──
-                      Container(
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF9FAFB),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: _accountError != null
-                                ? const Color(0xFFEF4444)
-                                : (_suggestedEmail != null
-                                    ? const Color(0xFF2563EB)
-                                    : const Color(0xFFE5E7EB)),
-                            width: 1.2,
-                          ),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.mail_outline_rounded,
-                              size: 22,
-                              color: _accountError != null
-                                  ? const Color(0xFFEF4444)
-                                  : (_suggestedEmail != null
-                                      ? const Color(0xFF2563EB)
-                                      : const Color(0xFF9CA3AF)),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _accountController,
-                                focusNode: _accountFocusNode,
-                                keyboardType: TextInputType.emailAddress,
-                                textAlignVertical: TextAlignVertical.center,
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  color: Color(0xFF111827),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                decoration: const InputDecoration(
-                                  isCollapsed: true,
-                                  hintText: 'Email hoặc Số điện thoại',
-                                  hintStyle: TextStyle(
-                                    fontSize: 14.5,
-                                    color: Color(0xFF9CA3AF),
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                  border: InputBorder.none,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // ── Vùng cố định hiển thị lỗi & Gợi ý Typo (Chống giật layout - min-height 24px) ──
-                      SizedBox(
-                        height: 24,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: _accountError != null
-                              ? AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 250),
-                                  curve: Curves.easeInOut,
-                                  opacity: 1.0,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(left: 4, top: 4),
-                                    child: Text(
-                                      _accountError!,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFFEF4444), // text-red-500
-                                        fontWeight: FontWeight.w500,
+                              // ── 1. Header: Căn giữa logo và chữ "SmartOrder" ──
+                              Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Image.asset(
+                                      'assets/smart_order_button_logo.png',
+                                      height: 46,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) =>
+                                          Image.asset(
+                                        'assets/fpt_toggle_button.png',
+                                        height: 46,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error2, stackTrace2) =>
+                                            const Icon(
+                                          Icons.radio_button_checked,
+                                          color: primaryBlue,
+                                          size: 38,
+                                        ),
                                       ),
                                     ),
+                                    const SizedBox(width: 12),
+                                    const Text(
+                                      'SmartOrder',
+                                      style: TextStyle(
+                                        fontSize: 26,
+                                        fontWeight: FontWeight.w800,
+                                        color: textDark,
+                                        letterSpacing: -0.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 32),
+
+                              // ── 2. Welcome Heading (Margin-bottom hợp lý với Form) ──
+                              const Text(
+                                'Chào mừng trở lại',
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  color: textDark,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // ── 3. Input Email (Chuẩn h-13 52px, Strict Regex & Typo Suggestion) ──
+                              Container(
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: _emailFocusNode.hasFocus ? Colors.white : inputBg,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: _emailError != null
+                                        ? const Color(0xFFEF4444)
+                                        : (_emailFocusNode.hasFocus
+                                            ? primaryBlue
+                                            : (_suggestedEmail != null
+                                                ? primaryBlue
+                                                : borderLight)),
+                                    width: _emailFocusNode.hasFocus || _emailError != null ? 1.6 : 1.2,
                                   ),
-                                )
-                              : (_suggestedEmail != null
-                                  ? AnimatedOpacity(
-                                      duration: const Duration(milliseconds: 250),
-                                      curve: Curves.easeInOut,
-                                      opacity: 1.0,
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(left: 4, top: 3),
-                                        child: GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () => _applySuggestion(_suggestedEmail!),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.auto_fix_high_rounded,
-                                                size: 14,
-                                                color: Color(0xFF2563EB), // text-blue-500
+                                  boxShadow: _emailFocusNode.hasFocus
+                                      ? [
+                                          BoxShadow(
+                                            color: primaryBlue.withValues(alpha: 0.10),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.email_outlined,
+                                      size: 22,
+                                      color: _emailError != null
+                                          ? const Color(0xFFEF4444)
+                                          : (_suggestedEmail != null
+                                              ? primaryBlue
+                                              : textMuted),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _emailController,
+                                        focusNode: _emailFocusNode,
+                                        keyboardType: TextInputType.emailAddress,
+                                        textAlignVertical: TextAlignVertical.center,
+                                        style: const TextStyle(
+                                          fontSize: 14.5,
+                                          color: textDark,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          isCollapsed: true,
+                                          hintText: 'Địa chỉ Email',
+                                          hintStyle: TextStyle(
+                                            fontSize: 14.5,
+                                            color: Color(0xFF9FB3C8),
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                          border: InputBorder.none,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              // ── Vùng cố định lỗi & gợi ý Email (Chống giật layout - min-height 24px) ──
+                              SizedBox(
+                                height: 24,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: _emailError != null
+                                      ? AnimatedOpacity(
+                                          duration: const Duration(milliseconds: 250),
+                                          curve: Curves.easeInOut,
+                                          opacity: 1.0,
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(left: 4, top: 4),
+                                            child: Text(
+                                              _emailError!,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Color(0xFFEF4444),
+                                                fontWeight: FontWeight.w500,
                                               ),
-                                              const SizedBox(width: 4),
-                                              Flexible(
-                                                child: Text.rich(
-                                                  TextSpan(
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      color: Color(0xFF2563EB), // text-blue-500
-                                                      fontFamily: 'Be Vietnam Pro',
-                                                    ),
+                                            ),
+                                          ),
+                                        )
+                                      : (_suggestedEmail != null
+                                          ? AnimatedOpacity(
+                                              duration: const Duration(milliseconds: 250),
+                                              curve: Curves.easeInOut,
+                                              opacity: 1.0,
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(left: 4, top: 3),
+                                                child: GestureDetector(
+                                                  behavior: HitTestBehavior.opaque,
+                                                  onTap: () => _applySuggestion(_suggestedEmail!),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
                                                     children: [
-                                                      const TextSpan(text: 'Có phải ý bạn là '),
-                                                      TextSpan(
-                                                        text: _suggestedEmail!,
-                                                        style: const TextStyle(
-                                                          fontWeight: FontWeight.w700,
-                                                          decoration: TextDecoration.underline,
+                                                      const Icon(
+                                                        Icons.auto_fix_high_rounded,
+                                                        size: 14,
+                                                        color: primaryBlue,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Flexible(
+                                                        child: Text.rich(
+                                                          TextSpan(
+                                                            style: const TextStyle(
+                                                              fontSize: 12,
+                                                              color: primaryBlue,
+                                                              fontFamily: 'Be Vietnam Pro',
+                                                            ),
+                                                            children: [
+                                                              const TextSpan(text: 'Có phải ý bạn là '),
+                                                              TextSpan(
+                                                                text: _suggestedEmail!,
+                                                                style: const TextStyle(
+                                                                  fontWeight: FontWeight.w700,
+                                                                  decoration: TextDecoration.underline,
+                                                                ),
+                                                              ),
+                                                              const TextSpan(text: '?'),
+                                                            ],
+                                                          ),
+                                                          overflow: TextOverflow.ellipsis,
                                                         ),
                                                       ),
-                                                      const TextSpan(text: '?'),
                                                     ],
                                                   ),
-                                                  overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  : const SizedBox.shrink()),
-                        ),
-                      ),
-
-                      const SizedBox(height: 4),
-
-                      // ── 4. Input Mật khẩu (Chuẩn h-13 52px, items-center) ──
-                      Container(
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF9FAFB),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color(0xFFE5E7EB),
-                            width: 1.2,
-                          ),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.lock_outline_rounded,
-                              size: 22,
-                              color: Color(0xFF9CA3AF),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _passwordController,
-                                focusNode: _passwordFocusNode,
-                                obscureText: _obscurePassword,
-                                textAlignVertical: TextAlignVertical.center,
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  color: Color(0xFF111827),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                decoration: const InputDecoration(
-                                  isCollapsed: true,
-                                  hintText: 'Mật khẩu',
-                                  hintStyle: TextStyle(
-                                    fontSize: 14.5,
-                                    color: Color(0xFF9CA3AF),
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                  border: InputBorder.none,
+                                            )
+                                          : const SizedBox.shrink()),
                                 ),
                               ),
-                            ),
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                setState(() =>
-                                    _obscurePassword = !_obscurePassword);
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  size: 22,
-                                  color: const Color(0xFF9CA3AF),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
 
-                      const SizedBox(height: 8),
+                              const SizedBox(height: 4),
 
-                      // ── 5. Password Strength Meter (Thanh tiến trình mượt 300ms) ──
-                      if (_passwordController.text.isNotEmpty) ...[
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(2),
-                                child: Container(
-                                  height: 4,
-                                  color: const Color(0xFFE5E7EB),
-                                  child: LayoutBuilder(
-                                    builder: (context, boxConstraints) {
-                                      return Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                              milliseconds: 300),
-                                          curve: Curves.easeInOut,
-                                          height: 4,
-                                          width: boxConstraints.maxWidth *
-                                              _passwordStrengthProgress,
-                                          decoration: BoxDecoration(
-                                            color: _passwordStrengthColor,
-                                            borderRadius:
-                                                BorderRadius.circular(2),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            AnimatedDefaultTextStyle(
-                              duration: const Duration(milliseconds: 300),
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: _passwordStrengthColor,
-                                fontFamily: 'Be Vietnam Pro',
-                              ),
-                              child: Text(_passwordStrengthLabel),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-
-                        // ── 6. Requirement Checklist (Dấu tick xanh lá mượt mà) ──
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9FAFB),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFF3F4F6)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _ChecklistItem(
-                                label: 'Tối thiểu 8 ký tự',
-                                isMet: _hasMinLength,
-                              ),
-                              const SizedBox(height: 6),
-                              _ChecklistItem(
-                                label: 'Có chữ hoa & chữ thường (A-Z, a-z)',
-                                isMet: _hasUppercase && _hasLowercase,
-                              ),
-                              const SizedBox(height: 6),
-                              _ChecklistItem(
-                                label: 'Có ít nhất 1 chữ số (0-9)',
-                                isMet: _hasDigit,
-                              ),
-                              const SizedBox(height: 6),
-                              _ChecklistItem(
-                                label: 'Có ký tự đặc biệt (!@#\$%^&*...)',
-                                isMet: _hasSpecialChar,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-
-                      const SizedBox(height: 14),
-
-                      // ── 7. Checkbox & Quên mật khẩu (Cùng baseline chính xác) ──
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () =>
-                                  setState(() => _rememberMe = !_rememberMe),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: Checkbox(
-                                      value: _rememberMe,
-                                      onChanged: (val) {
-                                        setState(
-                                            () => _rememberMe = val ?? false);
-                                      },
-                                      activeColor: const Color(0xFF131722),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      side: const BorderSide(
-                                        color: Color(0xFFD1D5DB),
-                                        width: 1.5,
-                                      ),
-                                      materialTapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Flexible(
-                                    child: Text(
-                                      'Duy trì đăng nhập',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Color(0xFF4B5563),
-                                        fontWeight: FontWeight.w400,
-                                        height: 1.2,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {},
-                            child: const Text(
-                              'Quên mật khẩu?',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF111827),
-                                height: 1.2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // ── 8. Nút Đăng nhập (Disabled state mờ khi chưa valid) ──
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        height: 52,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: _isFormValid
-                              ? const [
-                                  BoxShadow(
-                                    color: Color(0x3D131722),
-                                    blurRadius: 16,
-                                    offset: Offset(0, 6),
-                                    spreadRadius: 0,
-                                  ),
-                                ]
-                              : [],
-                        ),
-                        child: ElevatedButton(
-                          onPressed: (_isFormValid && !_isLoading)
-                              ? _handleLogin
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF131722),
-                            disabledBackgroundColor: const Color(0x52131722),
-                            foregroundColor: Colors.white,
-                            disabledForegroundColor: const Color(0xA6FFFFFF),
-                            elevation: 0,
-                            shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text(
-                                  'Đăng nhập',
-                                  style: TextStyle(
-                                    fontSize: 15.5,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // ── Divider: Hoặc tiếp tục với ──
-                      Row(
-                        children: const [
-                          Expanded(
-                            child: Divider(
-                              color: Color(0xFFE5E7EB),
-                              thickness: 1,
-                            ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 14),
-                            child: Text(
-                              'Hoặc tiếp tục với',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: Color(0xFF9CA3AF),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Divider(
-                              color: Color(0xFFE5E7EB),
-                              thickness: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // ── 9. Social Login Buttons (Đồng bộ 52px, items-center) ──
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _SocialButton(
-                              label: 'Google',
-                              iconWidget: Container(
-                                width: 22,
-                                height: 22,
+                              // ── 4. Input Số điện thoại (Thay thế mật khẩu - Validator số 0 đầu & tối đa 10 số) ──
+                              Container(
+                                height: 52,
                                 decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.red.shade50,
+                                  color: _phoneFocusNode.hasFocus ? Colors.white : inputBg,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: _phoneError != null
+                                        ? const Color(0xFFEF4444)
+                                        : (_phoneFocusNode.hasFocus ? primaryBlue : borderLight),
+                                    width: _phoneFocusNode.hasFocus || _phoneError != null ? 1.6 : 1.2,
+                                  ),
+                                  boxShadow: _phoneFocusNode.hasFocus
+                                      ? [
+                                          BoxShadow(
+                                            color: primaryBlue.withValues(alpha: 0.10),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ]
+                                      : null,
                                 ),
-                                alignment: Alignment.center,
-                                child: const Text(
-                                  'G',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFFEA4335),
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.phone_outlined,
+                                      size: 22,
+                                      color: _phoneError != null
+                                          ? const Color(0xFFEF4444)
+                                          : (_phoneFocusNode.hasFocus ? primaryBlue : textMuted),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _phoneController,
+                                        focusNode: _phoneFocusNode,
+                                        keyboardType: TextInputType.phone,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly, // Chỉ cho nhập số
+                                          LengthLimitingTextInputFormatter(15), // Giới hạn hợp lý để bắt sự kiện vượt 10
+                                        ],
+                                        textAlignVertical: TextAlignVertical.center,
+                                        style: const TextStyle(
+                                          fontSize: 14.5,
+                                          color: textDark,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          isCollapsed: true,
+                                          hintText: 'Số điện thoại (bắt đầu bằng 0)',
+                                          hintStyle: TextStyle(
+                                            fontSize: 14.5,
+                                            color: Color(0xFF9FB3C8),
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                          border: InputBorder.none,
+                                        ),
+                                      ),
+                                    ),
+                                    // Hiển thị bộ đếm số lượng ký tự và icon trạng thái
+                                    if (_phoneController.text.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 6),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (_phoneError != null)
+                                              const Icon(
+                                                Icons.error_outline_rounded,
+                                                size: 15,
+                                                color: Color(0xFFEF4444),
+                                              )
+                                            else if (_phoneController.text.length == 10 && _phoneController.text.startsWith('0'))
+                                              const Icon(
+                                                Icons.check_circle_rounded,
+                                                size: 15,
+                                                color: Color(0xFF10B981),
+                                              ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${_phoneController.text.length}/10',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: _phoneError != null
+                                                    ? const Color(0xFFEF4444)
+                                                    : (_phoneController.text.length == 10
+                                                        ? const Color(0xFF10B981)
+                                                        : textMuted),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+
+                              // ── Vùng cố định lỗi Số điện thoại (Chống giật layout - min-height 24px) ──
+                              SizedBox(
+                                height: 24,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: AnimatedOpacity(
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeInOut,
+                                    opacity: _phoneError != null ? 1.0 : 0.0,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(left: 4, top: 4),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.error_outline_rounded,
+                                            size: 13,
+                                            color: Color(0xFFEF4444),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              _phoneError ?? '',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Color(0xFFEF4444), // text-red-500
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
-                              onTap: _navigateToDashboard,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: _SocialButton(
-                              label: 'Apple',
-                              iconWidget: const Icon(
-                                Icons.apple,
-                                size: 22,
-                                color: Color(0xFF111827),
-                              ),
-                              onTap: _navigateToDashboard,
-                            ),
-                          ),
-                        ],
-                      ),
 
-                      const Spacer(),
+                              const SizedBox(height: 10),
 
-                      // ── 10. Footer (Nhóm sát nhau, font-weight rõ nét) ──
-                      Center(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _navigateToSignUp,
-                          child: const Text.rich(
-                            TextSpan(
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF6B7280),
-                                fontFamily: 'Be Vietnam Pro',
-                              ),
+                            // ── 5. Checkbox & Quên thông tin (Cùng baseline chính xác) ──
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                TextSpan(text: 'Chưa có tài khoản? '),
-                                TextSpan(
-                                  text: 'Đăng ký',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF111827),
+                                Expanded(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () =>
+                                        setState(() => _rememberMe = !_rememberMe),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: Checkbox(
+                                            value: _rememberMe,
+                                            onChanged: (val) {
+                                              setState(
+                                                  () => _rememberMe = val ?? false);
+                                            },
+                                            activeColor: primaryBlue,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            side: const BorderSide(
+                                              color: Color(0xFFD1D5DB),
+                                              width: 1.5,
+                                            ),
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize.shrinkWrap,
+                                            visualDensity: VisualDensity.compact,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Flexible(
+                                          child: Text(
+                                            'Duy trì đăng nhập',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFF4B5563),
+                                              fontWeight: FontWeight.w400,
+                                              height: 1.2,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {},
+                                  child: const Text(
+                                    'Quên thông tin?',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: primaryBlue,
+                                      height: 1.2,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
 
-                      const SizedBox(height: 10),
+                            const SizedBox(height: 24),
 
-                      Center(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _navigateToDashboard,
-                          child: const Text(
-                            'Tiếp tục với tư cách Khách →',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF111827),
+                            // ── 6. Nút Đăng nhập (Màu xanh chủ đạo, bo góc 16px, đổ bóng có chiều sâu) ──
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              height: 52,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: _isFormValid
+                                    ? [
+                                        BoxShadow(
+                                          color: primaryBlue.withValues(alpha: 0.28),
+                                          blurRadius: 18,
+                                          offset: const Offset(0, 7),
+                                          spreadRadius: 0,
+                                        ),
+                                      ]
+                                    : [],
+                              ),
+                              child: ElevatedButton(
+                                onPressed: (_isFormValid && !_isLoading)
+                                    ? _handleLogin
+                                    : null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: primaryBlue,
+                                  disabledBackgroundColor:
+                                      primaryBlue.withValues(alpha: 0.35),
+                                  foregroundColor: Colors.white,
+                                  disabledForegroundColor:
+                                      Colors.white.withValues(alpha: 0.65),
+                                  elevation: 0,
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Đăng nhập',
+                                        style: TextStyle(
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -0.2,
+                                        ),
+                                      ),
+                              ),
                             ),
-                          ),
+
+                            const SizedBox(height: 24),
+
+                            // ── Divider: Hoặc tiếp tục với ──
+                            Row(
+                              children: const [
+                                Expanded(
+                                  child: Divider(
+                                    color: borderLight,
+                                    thickness: 1,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 14),
+                                  child: Text(
+                                    'Hoặc tiếp tục với',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: textMuted,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Divider(
+                                    color: borderLight,
+                                    thickness: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // ── 7. Social Login Buttons (Đồng bộ 52px, items-center) ──
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _SocialButton(
+                                    label: 'Google',
+                                    iconWidget: Container(
+                                      width: 22,
+                                      height: 22,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.red.shade50,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: const Text(
+                                        'G',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(0xFFEA4335),
+                                        ),
+                                      ),
+                                    ),
+                                    onTap: _navigateToDashboard,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: _SocialButton(
+                                    label: 'Apple',
+                                    iconWidget: const Icon(
+                                      Icons.apple,
+                                      size: 22,
+                                      color: textDark,
+                                    ),
+                                    onTap: _navigateToDashboard,
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const Spacer(),
+
+                            // ── 8. Footer (Nhóm sát nhau, font-weight rõ nét) ──
+                            Center(
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: _navigateToSignUp,
+                                child: const Text.rich(
+                                  TextSpan(
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: textMuted,
+                                      fontFamily: 'Be Vietnam Pro',
+                                    ),
+                                    children: [
+                                      TextSpan(text: 'Chưa có tài khoản? '),
+                                      TextSpan(
+                                        text: 'Đăng ký',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: primaryBlue,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            Center(
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: _navigateToDashboard,
+                                child: const Text(
+                                  'Tiếp tục với tư cách Khách →',
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: textDark,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 18),
+                          ],
                         ),
                       ),
-
-                      const SizedBox(height: 18),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
-            );
-          },
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
-
-class _ChecklistItem extends StatelessWidget {
-  final String label;
-  final bool isMet;
-
-  const _ChecklistItem({
-    required this.label,
-    required this.isMet,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isMet ? const Color(0xFF10B981) : const Color(0xFFE5E7EB),
-          ),
-          alignment: Alignment.center,
-          child: Icon(
-            isMet ? Icons.check : Icons.circle,
-            size: isMet ? 11 : 4,
-            color: isMet ? Colors.white : const Color(0xFF9CA3AF),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isMet ? FontWeight.w600 : FontWeight.w400,
-              color: isMet ? const Color(0xFF065F46) : const Color(0xFF6B7280),
-              fontFamily: 'Be Vietnam Pro',
-            ),
-            child: Text(label),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _SocialButton extends StatelessWidget {
@@ -999,7 +966,7 @@ class _SocialButton extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: const Color(0xFFE5E7EB),
+            color: const Color(0xFFE2E8F0),
             width: 1.2,
           ),
         ),
@@ -1015,7 +982,7 @@ class _SocialButton extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111827),
+                color: Color(0xFF102A43),
               ),
             ),
           ],
