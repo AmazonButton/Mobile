@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pinput/pinput.dart';
 
@@ -27,7 +26,6 @@ class _ForgotInfoScreenState extends State<ForgotInfoScreen>
   static const Color textDark = Color(0xFF102A43);
   static const Color textMuted = Color(0xFF627D98);
   static const Color errorRed = Color(0xFFEF4444);
-  static const Color successGreen = Color(0xFF10B981);
 
   static final RegExp _emailRegex = RegExp(
     r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\.[a-zA-Z]{2,}$',
