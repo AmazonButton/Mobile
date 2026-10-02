@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dashboard_screen.dart';
 import 'signup_screen.dart';
+import 'forgot_info_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -345,43 +347,21 @@ class _LoginScreenState extends State<LoginScreen> {
                             children: [
                               const SizedBox(height: 28),
 
-                              // ── 1. Header: Căn giữa logo và chữ "SmartOrder" ──
+                              // ── 1. Header: Logo brand căn giữa ──
                               Center(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Image.asset(
-                                      'assets/smart_order_button_logo.png',
-                                      height: 46,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          Image.asset(
-                                        'assets/fpt_toggle_button.png',
-                                        height: 46,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (context, error2, stackTrace2) =>
-                                            const Icon(
-                                          Icons.radio_button_checked,
-                                          color: primaryBlue,
-                                          size: 38,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Text(
-                                      'SmartOrder',
-                                      style: TextStyle(
-                                        fontSize: 26,
-                                        fontWeight: FontWeight.w800,
-                                        color: textDark,
-                                        letterSpacing: -0.4,
-                                      ),
-                                    ),
-                                  ],
+                                child: Image.asset(
+                                  'assets/logo-brand.png',
+                                  height: 56,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(
+                                    Icons.radio_button_checked,
+                                    color: primaryBlue,
+                                    size: 46,
+                                  ),
                                 ),
                               ),
+
 
                               const SizedBox(height: 32),
 
@@ -736,7 +716,27 @@ class _LoginScreenState extends State<LoginScreen> {
                                 const SizedBox(width: 8),
                                 GestureDetector(
                                   behavior: HitTestBehavior.opaque,
-                                  onTap: () {},
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      PageRouteBuilder(
+                                        pageBuilder: (context, animation, secondaryAnimation) =>
+                                            const ForgotInfoScreen(),
+                                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                          return SlideTransition(
+                                            position: Tween<Offset>(
+                                              begin: const Offset(1, 0),
+                                              end: Offset.zero,
+                                            ).animate(CurvedAnimation(
+                                              parent: animation,
+                                              curve: Curves.easeOutCubic,
+                                            )),
+                                            child: child,
+                                          );
+                                        },
+                                        transitionDuration: const Duration(milliseconds: 300),
+                                      ),
+                                    );
+                                  },
                                   child: const Text(
                                     'Quên thông tin?',
                                     style: TextStyle(
