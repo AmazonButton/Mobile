@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:pinput/pinput.dart';
 import '../../constants/app_colors.dart';
 import '../dashboard_screen.dart';
 
@@ -31,6 +33,15 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
   // Stored onboarding data
   String _confirmedFullName = '';
   String _confirmedPhone = '';
+
+  // ── Step 2 OTP Controllers & State ──
+  final TextEditingController _otpController = TextEditingController();
+  final FocusNode _otpFocusNode = FocusNode();
+  int _otpCountdown = 60;
+  Timer? _otpTimer;
+  bool _isOtpVerifying = false;
+  String? _otpError;
+  bool _isOtpSuccess = false;
 
   static const List<Map<String, dynamic>> _stepsMeta = [
     {
@@ -67,6 +78,7 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
     _phoneFocus.addListener(_onPhoneFocusChange);
     _fullNameController.addListener(_onNameChanged);
     _phoneController.addListener(_onPhoneChanged);
+    _otpController.addListener(() => setState(() {}));
   }
 
   @override
@@ -78,10 +90,14 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
     _phoneController.dispose();
     _fullNameFocus.dispose();
     _phoneFocus.dispose();
+
+    _otpTimer?.cancel();
+    _otpController.dispose();
+    _otpFocusNode.dispose();
     super.dispose();
   }
 
-  // ── Validation Logic ──
+  // ── Step 1 Validation Logic ──
   void _onNameFocusChange() {
     setState(() {
       if (!_fullNameFocus.hasFocus) {
@@ -189,7 +205,99 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
       _confirmedFullName = _fullNameController.text.trim();
       _confirmedPhone = _phoneController.text.trim();
       _goToStep(1); // Advance to Step 2
+      _startOtpCountdown();
     });
+  }
+
+  // ── Step 2 OTP Methods ──
+  void _startOtpCountdown() {
+    _otpTimer?.cancel();
+    _otpCountdown = 60;
+    _otpError = null;
+    _isOtpSuccess = false;
+    _otpController.clear();
+    _otpTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_otpCountdown > 0) {
+        setState(() => _otpCountdown--);
+      } else {
+        timer.cancel();
+      }
+    });
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _otpFocusNode.requestFocus();
+    });
+  }
+
+  void _handleResendOtp() {
+    if (_otpCountdown > 0) return;
+    _startOtpCountdown();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.mark_email_read_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Mã OTP mới đã được gửi lại tới $_confirmedPhone',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'Be Vietnam Pro',
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _handleChangePhone() {
+    _otpTimer?.cancel();
+    _goToStep(0);
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _phoneFocus.requestFocus();
+    });
+  }
+
+  Future<void> _verifyOtp(String pin) async {
+    if (pin.length != 6 || _isOtpVerifying) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _isOtpVerifying = true;
+      _otpError = null;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+
+    // Simulation rule: "000000" triggers error, other 6-digit codes succeed
+    if (pin == '000000') {
+      setState(() {
+        _isOtpVerifying = false;
+        _otpError = 'Mã OTP không chính xác hoặc đã hết hạn. Vui lòng thử lại.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isOtpVerifying = false;
+      _isOtpSuccess = true;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+
+    _otpTimer?.cancel();
+    _goToStep(2); // Advance to Step 3: Bluetooth Pairing
   }
 
   void _goToStep(int stepIndex) {
@@ -203,6 +311,9 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
   }
 
   void _handleBack() {
+    if (_currentStep == 1) {
+      _otpTimer?.cancel();
+    }
     if (_currentStep > 0) {
       _goToStep(_currentStep - 1);
     } else {
@@ -273,7 +384,7 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
                 physics: const NeverScrollableScrollPhysics(), // Stepper controlled via logic
                 children: [
                   _buildStep1Identity(),
-                  _buildStep2OtpPreview(),
+                  _buildStep2Otp(),
                   _buildStep3BluetoothPreview(),
                   _buildStep4WifiPreview(),
                   _buildStep5SuccessPreview(),
@@ -418,7 +529,7 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
                 ),
               ),
               const Spacer(),
-              Text(
+              const Text(
                 'Định danh cư dân',
                 style: TextStyle(
                   fontSize: 13,
@@ -653,7 +764,7 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
                     Expanded(
                       child: GestureDetector(
                         onTap: () => setState(() => _agreedToTerms = !_agreedToTerms),
-                        child: Text(
+                        child: const Text(
                           'Tôi cam kết thông tin số điện thoại chính chủ để nhận mã OTP và quản lý quyền đặt hàng căn hộ.',
                           style: TextStyle(
                             fontSize: 12.5,
@@ -749,16 +860,357 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 3. Step 2 Placeholder (For Story 2: SMS OTP Verification)
+  // 3. Step 2: SMS OTP Verification (CAP-2)
   // ─────────────────────────────────────────────────────────────
-  Widget _buildStep2OtpPreview() {
-    return _buildStepPlaceholder(
-      stepNumber: 2,
-      title: 'Xác thực mã OTP',
-      description: 'Mã xác thực gồm 6 chữ số đã được gửi tới số $_confirmedPhone.',
-      icon: Icons.sms_outlined,
-      actionText: 'Tiếp tục sang Bước 3 (Ghép nối Bluetooth) →',
-      onNext: () => _goToStep(2),
+  Widget _buildStep2Otp() {
+    final defaultPinTheme = PinTheme(
+      width: 48,
+      height: 56,
+      textStyle: const TextStyle(
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textPrimary,
+        fontFamily: 'Be Vietnam Pro',
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.bgPage,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _otpError != null ? AppColors.danger : AppColors.border,
+          width: 1.5,
+        ),
+      ),
+    );
+
+    final focusedPinTheme = defaultPinTheme.copyWith(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _otpError != null ? AppColors.danger : AppColors.accent,
+          width: 2.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (_otpError != null ? AppColors.danger : AppColors.accent).withValues(alpha: 0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+    );
+
+    final submittedPinTheme = defaultPinTheme.copyWith(
+      decoration: BoxDecoration(
+        color: AppColors.primaryUltraLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary, width: 1.5),
+      ),
+    );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Step Badge
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.accentLight,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'BƯỚC 2 / 5',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              const Text(
+                'Xác thực OTP',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Title & Description
+          const Text(
+            'Nhập mã xác thực SMS',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+              fontFamily: 'Be Vietnam Pro',
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Phone info banner with edit button
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.primaryUltraLight,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.borderLight),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.phonelink_ring_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: AppColors.textPrimary,
+                        fontFamily: 'Be Vietnam Pro',
+                      ),
+                      children: [
+                        const TextSpan(text: 'Mã đã gửi tới số '),
+                        TextSpan(
+                          text: _confirmedPhone.isNotEmpty ? _confirmedPhone : '0901 234 567',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _handleChangePhone,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: AppColors.accent,
+                  ),
+                  child: const Text(
+                    'Đổi số',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // Pinput Card
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 26),
+            decoration: BoxDecoration(
+              color: AppColors.bgCard,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.borderLight),
+              boxShadow: AppColors.shadowSm,
+            ),
+            child: Column(
+              children: [
+                Pinput(
+                  controller: _otpController,
+                  focusNode: _otpFocusNode,
+                  length: 6,
+                  defaultPinTheme: defaultPinTheme,
+                  focusedPinTheme: focusedPinTheme,
+                  submittedPinTheme: submittedPinTheme,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  pinputAutovalidateMode: PinputAutovalidateMode.onSubmit,
+                  onChanged: (value) {
+                    if (_otpError != null) setState(() => _otpError = null);
+                  },
+                  onCompleted: (pin) => _verifyOtp(pin),
+                ),
+
+                if (_otpError != null) ...[
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 16),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          _otpError!,
+                          style: const TextStyle(
+                            color: AppColors.danger,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ).animate().shake(duration: 400.ms),
+                ],
+
+                const SizedBox(height: 22),
+
+                // Countdown & Resend
+                if (_otpCountdown > 0)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.timer_outlined,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Gửi lại mã sau 00:${_otpCountdown.toString().padLeft(2, '0')}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Chưa nhận được mã? ',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _handleResendOtp,
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text(
+                          'Gửi lại mã OTP',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.accent,
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // Primary Verify Button
+          ElevatedButton(
+            onPressed: (_otpController.text.length == 6 && !_isOtpVerifying)
+                ? () => _verifyOtp(_otpController.text)
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.4),
+              disabledForegroundColor: Colors.white70,
+              elevation: (_otpController.text.length == 6 && !_isOtpVerifying) ? 3 : 0,
+              shadowColor: AppColors.accentGlow,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: _isOtpVerifying
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : _isOtpSuccess
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Xác thực thành công!',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Be Vietnam Pro',
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Xác nhận mã OTP',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Be Vietnam Pro',
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Icon(Icons.arrow_forward_rounded, size: 18),
+                        ],
+                      ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // Simulation hint banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.lightbulb_outline_rounded,
+                  color: Colors.blue.shade700,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Mẹo thử nghiệm: Nhập bất kỳ 6 số nào (ví dụ 123456) để xác thực, hoặc 000000 để thử lỗi sai mã.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue.shade900,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -872,11 +1324,11 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.primaryUltraLight,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 44, color: AppColors.primary),
+            child: const Icon(Icons.bluetooth_searching_rounded, size: 44, color: AppColors.primary),
           ),
           const SizedBox(height: 20),
           Text(
