@@ -43,6 +43,39 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
   String? _otpError;
   bool _isOtpSuccess = false;
 
+  // ── Step 3 Bluetooth Controllers & State ──
+  bool _isScanningBle = false;
+  String? _connectingDeviceId;
+  String? _connectedDeviceId;
+  String _pairedDeviceName = '';
+  String _pairedDeviceMac = '';
+  int _pairedDeviceRssi = -60;
+  final List<Map<String, dynamic>> _discoveredDevices = [];
+
+  static const List<Map<String, dynamic>> _mockBlePeripherals = [
+    {
+      'id': 'sob-esp32-a1',
+      'name': 'Smart Order Button #A1-1205',
+      'mac': 'EC:62:60:88:1A:04',
+      'rssi': -58,
+      'isPairedBefore': false,
+    },
+    {
+      'id': 'sob-esp32-new',
+      'name': 'Smart Order Button (Mới)',
+      'mac': 'EC:62:60:89:3F:12',
+      'rssi': -74,
+      'isPairedBefore': false,
+    },
+    {
+      'id': 'sob-esp32-b2',
+      'name': 'Smart Order Button #B2-0301',
+      'mac': 'EC:62:60:92:44:8B',
+      'rssi': -82,
+      'isPairedBefore': true,
+    },
+  ];
+
   static const List<Map<String, dynamic>> _stepsMeta = [
     {
       'title': 'Định danh',
@@ -300,6 +333,65 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
     _goToStep(2); // Advance to Step 3: Bluetooth Pairing
   }
 
+  // ── Step 3 Bluetooth Methods ──
+  void _startBleScan() {
+    setState(() {
+      _isScanningBle = true;
+      _discoveredDevices.clear();
+      _connectingDeviceId = null;
+      _connectedDeviceId = null;
+    });
+
+    // Staggered simulation of discovering nearby Smart Order Buttons
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted || !_isScanningBle) return;
+      setState(() {
+        _discoveredDevices.add(_mockBlePeripherals[0]);
+      });
+    });
+
+    Future.delayed(const Duration(milliseconds: 1100), () {
+      if (!mounted || !_isScanningBle) return;
+      setState(() {
+        _discoveredDevices.add(_mockBlePeripherals[1]);
+      });
+    });
+
+    Future.delayed(const Duration(milliseconds: 1700), () {
+      if (!mounted || !_isScanningBle) return;
+      setState(() {
+        _discoveredDevices.add(_mockBlePeripherals[2]);
+        _isScanningBle = false;
+      });
+    });
+  }
+
+  Future<void> _connectToDevice(Map<String, dynamic> device) async {
+    final deviceId = device['id'] as String;
+    if (_connectingDeviceId != null || _connectedDeviceId != null) return;
+
+    setState(() {
+      _connectingDeviceId = deviceId;
+    });
+
+    // Simulate BLE GATT service discovery & bonding handshake
+    await Future.delayed(const Duration(milliseconds: 950));
+    if (!mounted) return;
+
+    setState(() {
+      _connectingDeviceId = null;
+      _connectedDeviceId = deviceId;
+      _pairedDeviceName = device['name'] as String;
+      _pairedDeviceMac = device['mac'] as String;
+      _pairedDeviceRssi = device['rssi'] as int;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+
+    _goToStep(3); // Advance to Step 4 (Wi-Fi Provisioning)
+  }
+
   void _goToStep(int stepIndex) {
     if (stepIndex < 0 || stepIndex >= _stepsMeta.length) return;
     setState(() => _currentStep = stepIndex);
@@ -308,6 +400,9 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOutCubic,
     );
+    if (stepIndex == 2) {
+      _startBleScan();
+    }
   }
 
   void _handleBack() {
@@ -385,7 +480,7 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
                 children: [
                   _buildStep1Identity(),
                   _buildStep2Otp(),
-                  _buildStep3BluetoothPreview(),
+                  _buildStep3Bluetooth(),
                   _buildStep4WifiPreview(),
                   _buildStep5SuccessPreview(),
                 ],
@@ -453,13 +548,15 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
                                 : AppColors.border,
                         width: 2,
                       ),
-                      boxShadow: isCurrent ? [
-                        BoxShadow(
-                          color: AppColors.accent.withValues(alpha: 0.35),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        )
-                      ] : null,
+                      boxShadow: isCurrent
+                          ? [
+                              BoxShadow(
+                                color: AppColors.accent.withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              )
+                            ]
+                          : null,
                     ),
                     child: Center(
                       child: isCompleted
@@ -1215,16 +1312,461 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 4. Step 3 Placeholder (For Story 3: Bluetooth Pairing)
+  // 4. Step 3: BLE Discovery & Hardware Pairing (CAP-3)
   // ─────────────────────────────────────────────────────────────
-  Widget _buildStep3BluetoothPreview() {
-    return _buildStepPlaceholder(
-      stepNumber: 3,
-      title: 'Quét & Ghép nối Bluetooth',
-      description: 'Đang chuẩn bị quét sóng BLE để phát hiện nút bấm Smart Order Button tại căn hộ...',
-      icon: Icons.bluetooth_searching_rounded,
-      actionText: 'Tiếp tục sang Bước 4 (Cài Wi-Fi) →',
-      onNext: () => _goToStep(3),
+  Widget _buildStep3Bluetooth() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Step Badge
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.accentLight,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'BƯỚC 3 / 5',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              const Text(
+                'Kết nối Bluetooth',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Title & Description
+          const Text(
+            'Tìm kiếm Nút Bấm SmartOrder',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+              fontFamily: 'Be Vietnam Pro',
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Bật Bluetooth trên điện thoại và đặt nút bấm ở gần (dưới 5m). Đèn LED trên nút bấm cần nhấp nháy xanh dương.',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Radar Scan Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.bgCard,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.borderLight),
+              boxShadow: AppColors.shadowSm,
+            ),
+            child: Column(
+              children: [
+                if (_isScanningBle) ...[
+                  // Animated Pulsing Radar
+                  SizedBox(
+                    height: 130,
+                    child: Center(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 110,
+                            height: 110,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.accent.withValues(alpha: 0.12),
+                            ),
+                          )
+                              .animate(onPlay: (c) => c.repeat())
+                              .scale(
+                                begin: const Offset(0.7, 0.7),
+                                end: const Offset(1.3, 1.3),
+                                duration: 1500.ms,
+                              )
+                              .fadeOut(duration: 1500.ms),
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.primaryUltraLight,
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                            ),
+                            child: const Icon(
+                              Icons.bluetooth_searching_rounded,
+                              size: 40,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Đang quét sóng Bluetooth Low Energy (BLE)...',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryUltraLight,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.bluetooth_connected_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _discoveredDevices.isEmpty
+                                  ? 'Không tìm thấy thiết bị'
+                                  : 'Tìm thấy ${_discoveredDevices.length} nút bấm gần bạn',
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const Text(
+                              'Chạm vào thiết bị để ghép nối',
+                              style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _startBleScan,
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('Quét lại', style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                          side: const BorderSide(color: AppColors.border),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Discovered Devices List
+          if (_discoveredDevices.isEmpty && !_isScanningBle) ...[
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.bgCard,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: Column(
+                children: [
+                  const Icon(Icons.bluetooth_disabled_rounded, size: 48, color: AppColors.textMuted),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Không tìm thấy Smart Order Button',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Hãy đảm bảo nút bấm đã bật nguồn và nhấn giữ 3 giây để vào chế độ ghép nối.',
+                    style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _startBleScan,
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('Thử quét lại'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _discoveredDevices.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final device = _discoveredDevices[index];
+                final deviceId = device['id'] as String;
+                final isConnecting = _connectingDeviceId == deviceId;
+                final isConnected = _connectedDeviceId == deviceId;
+                final rssi = device['rssi'] as int;
+
+                return InkWell(
+                  onTap: (_connectingDeviceId != null || _connectedDeviceId != null)
+                      ? null
+                      : () => _connectToDevice(device),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isConnected
+                          ? AppColors.successLight
+                          : isConnecting
+                              ? AppColors.accentLight
+                              : AppColors.bgCard,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isConnected
+                            ? AppColors.success
+                            : isConnecting
+                                ? AppColors.accent
+                                : AppColors.borderLight,
+                        width: isConnected || isConnecting ? 1.8 : 1.0,
+                      ),
+                      boxShadow: AppColors.shadowSm,
+                    ),
+                    child: Row(
+                      children: [
+                        // Button Device Avatar
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: isConnected
+                                ? AppColors.success.withValues(alpha: 0.15)
+                                : AppColors.primaryUltraLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.touch_app_rounded,
+                            color: isConnected ? AppColors.success : AppColors.primary,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+
+                        // Device Details
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                device['name'] as String,
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Row(
+                                children: [
+                                  Text(
+                                    device['mac'] as String,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textMuted,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: isConnected
+                                          ? AppColors.successLight
+                                          : isConnecting
+                                              ? AppColors.accentLight
+                                              : AppColors.infoLight,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      isConnected
+                                          ? 'Đã kết nối'
+                                          : isConnecting
+                                              ? 'Đang kết nối...'
+                                              : 'Chưa cài đặt',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: isConnected
+                                            ? AppColors.success
+                                            : isConnecting
+                                                ? AppColors.accent
+                                                : AppColors.info,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Signal & Action
+                        if (isConnecting)
+                          const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: AppColors.accent,
+                            ),
+                          )
+                        else if (isConnected)
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: AppColors.success,
+                            size: 26,
+                          )
+                        else
+                          Row(
+                            children: [
+                              _buildRssiBadge(rssi),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: AppColors.textMuted,
+                                size: 22,
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.1, end: 0);
+              },
+            ),
+          ],
+
+          const SizedBox(height: 24),
+
+          // LED Instruction Box
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.primaryUltraLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.borderLight),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.tips_and_updates_outlined,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Chỉ báo đèn LED trên nút bấm:',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '• Xanh dương nhấp nháy: Đang phát tín hiệu BLE chờ ghép nối.\n• Xanh lá cây sáng: Đã kết nối thành công với điện thoại.\n• Đỏ: Mức pin yếu (dưới 15%), cần cắm sạc.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textPrimary.withValues(alpha: 0.8),
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRssiBadge(int rssi) {
+    Color color;
+    IconData icon;
+
+    if (rssi >= -65) {
+      color = AppColors.success;
+      icon = Icons.wifi_rounded;
+    } else if (rssi >= -80) {
+      color = AppColors.warning;
+      icon = Icons.wifi_2_bar_rounded;
+    } else {
+      color = AppColors.danger;
+      icon = Icons.wifi_1_bar_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            '$rssi dBm',
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1235,7 +1777,9 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
     return _buildStepPlaceholder(
       stepNumber: 4,
       title: 'Cài đặt Wi-Fi cho Nút Bấm',
-      description: 'Nạp thông tin mạng Wi-Fi 2.4GHz của căn hộ vào nút bấm qua Bluetooth...',
+      description: _pairedDeviceName.isNotEmpty
+          ? 'Đang chuẩn bị nạp thông tin mạng Wi-Fi căn hộ vào $_pairedDeviceName ($_pairedDeviceMac — $_pairedDeviceRssi dBm)...'
+          : 'Nạp thông tin mạng Wi-Fi 2.4GHz của căn hộ vào nút bấm qua Bluetooth...',
       icon: Icons.wifi_rounded,
       actionText: 'Tiếp tục sang Bước 5 (Hoàn tất) →',
       onNext: () => _goToStep(4),
@@ -1277,7 +1821,7 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Tài khoản $_confirmedFullName ($_confirmedPhone) đã sẵn sàng sử dụng nút bấm để đặt hàng.',
+              'Tài khoản $_confirmedFullName ($_confirmedPhone) đã liên kết thành công với ${_pairedDeviceName.isNotEmpty ? _pairedDeviceName : "Smart Order Button"}.',
               style: const TextStyle(
                 fontSize: 14,
                 color: AppColors.textSecondary,
@@ -1328,7 +1872,7 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
               color: AppColors.primaryUltraLight,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.bluetooth_searching_rounded, size: 44, color: AppColors.primary),
+            child: Icon(icon, size: 44, color: AppColors.primary),
           ),
           const SizedBox(height: 20),
           Text(
