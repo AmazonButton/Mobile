@@ -52,6 +52,48 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
   int _pairedDeviceRssi = -60;
   final List<Map<String, dynamic>> _discoveredDevices = [];
 
+  // ── Step 4 Wi-Fi Controllers & State ──
+  String _selectedSsid = 'CanHo_1205_2.4G';
+  bool _isCustomSsid = false;
+  final TextEditingController _customSsidController = TextEditingController();
+  final TextEditingController _wifiPasswordController = TextEditingController();
+  bool _isWifiPasswordObscured = true;
+  bool _isProvisioningWifi = false;
+  String _wifiProvisionStatusText = '';
+  String? _wifiProvisionError;
+  bool _isWifiSuccess = false;
+
+  static const List<Map<String, dynamic>> _mockWifiNetworks = [
+    {
+      'ssid': 'CanHo_1205_2.4G',
+      'signal': 'Mạnh',
+      'rssi': -46,
+      'isRecommended': true,
+      'security': 'WPA2/WPA3',
+    },
+    {
+      'ssid': 'FPT_Telecom_A1_2.4G',
+      'signal': 'Tốt',
+      'rssi': -62,
+      'isRecommended': false,
+      'security': 'WPA2',
+    },
+    {
+      'ssid': 'SmartHome_IoT_2.4G',
+      'signal': 'Tốt',
+      'rssi': -68,
+      'isRecommended': false,
+      'security': 'WPA2',
+    },
+    {
+      'ssid': 'VNPT_Apartment_Guest',
+      'signal': 'Trung bình',
+      'rssi': -82,
+      'isRecommended': false,
+      'security': 'WPA2',
+    },
+  ];
+
   static const List<Map<String, dynamic>> _mockBlePeripherals = [
     {
       'id': 'sob-esp32-a1',
@@ -112,6 +154,8 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
     _fullNameController.addListener(_onNameChanged);
     _phoneController.addListener(_onPhoneChanged);
     _otpController.addListener(() => setState(() {}));
+    _wifiPasswordController.addListener(() => setState(() {}));
+    _customSsidController.addListener(() => setState(() {}));
   }
 
   @override
@@ -127,6 +171,8 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
     _otpTimer?.cancel();
     _otpController.dispose();
     _otpFocusNode.dispose();
+    _customSsidController.dispose();
+    _wifiPasswordController.dispose();
     super.dispose();
   }
 
@@ -392,6 +438,74 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
     _goToStep(3); // Advance to Step 4 (Wi-Fi Provisioning)
   }
 
+  // ── Step 4 Wi-Fi Provisioning Methods ──
+  void _onSsidSelected(String ssid) {
+    setState(() {
+      if (ssid == '__custom__') {
+        _isCustomSsid = true;
+      } else {
+        _isCustomSsid = false;
+        _selectedSsid = ssid;
+      }
+      _wifiProvisionError = null;
+    });
+  }
+
+  Future<void> _provisionWifi() async {
+    final effectiveSsid = _isCustomSsid ? _customSsidController.text.trim() : _selectedSsid;
+    final password = _wifiPasswordController.text;
+
+    if (effectiveSsid.isEmpty) {
+      setState(() => _wifiProvisionError = 'Vui lòng chọn hoặc nhập tên mạng Wi-Fi của căn hộ');
+      return;
+    }
+
+    if (password.isEmpty) {
+      setState(() => _wifiProvisionError = 'Vui lòng nhập mật khẩu Wi-Fi của căn hộ');
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _isProvisioningWifi = true;
+      _wifiProvisionError = null;
+      _wifiProvisionStatusText = 'Đang gửi thông tin mạng qua Bluetooth BLE...';
+    });
+
+    await Future.delayed(const Duration(milliseconds: 700));
+    if (!mounted) return;
+
+    setState(() {
+      _wifiProvisionStatusText = 'Nút bấm đang kết nối tới "$effectiveSsid"...';
+    });
+
+    await Future.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+
+    // Simulation rule: "wrongpass" or "000000" triggers Wi-Fi authentication error
+    if (password == 'wrongpass' || password == '000000') {
+      setState(() {
+        _isProvisioningWifi = false;
+        _wifiProvisionError = 'Nút bấm không thể kết nối tới Wi-Fi "$effectiveSsid". Mật khẩu không chính xác hoặc tín hiệu mạng yếu. Vui lòng kiểm tra lại.';
+      });
+      return;
+    }
+
+    setState(() {
+      _wifiProvisionStatusText = 'Đã xác thực và kết nối Wi-Fi thành công!';
+      _isWifiSuccess = true;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+
+    setState(() {
+      _isProvisioningWifi = false;
+    });
+
+    _goToStep(4); // Advance to Step 5 (Commissioning Success)
+  }
+
   void _goToStep(int stepIndex) {
     if (stepIndex < 0 || stepIndex >= _stepsMeta.length) return;
     setState(() => _currentStep = stepIndex);
@@ -481,7 +595,7 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
                   _buildStep1Identity(),
                   _buildStep2Otp(),
                   _buildStep3Bluetooth(),
-                  _buildStep4WifiPreview(),
+                  _buildStep4Wifi(),
                   _buildStep5SuccessPreview(),
                 ],
               ),
@@ -1771,18 +1885,543 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 5. Step 4 Placeholder (For Story 4: Wi-Fi Provisioning)
+  // 5. Step 4: Wi-Fi Provisioning over BLE (CAP-4)
   // ─────────────────────────────────────────────────────────────
-  Widget _buildStep4WifiPreview() {
-    return _buildStepPlaceholder(
-      stepNumber: 4,
-      title: 'Cài đặt Wi-Fi cho Nút Bấm',
-      description: _pairedDeviceName.isNotEmpty
-          ? 'Đang chuẩn bị nạp thông tin mạng Wi-Fi căn hộ vào $_pairedDeviceName ($_pairedDeviceMac — $_pairedDeviceRssi dBm)...'
-          : 'Nạp thông tin mạng Wi-Fi 2.4GHz của căn hộ vào nút bấm qua Bluetooth...',
-      icon: Icons.wifi_rounded,
-      actionText: 'Tiếp tục sang Bước 5 (Hoàn tất) →',
-      onNext: () => _goToStep(4),
+  Widget _buildStep4Wifi() {
+    final effectiveSsid = _isCustomSsid ? _customSsidController.text.trim() : _selectedSsid;
+    final isFormValid = effectiveSsid.isNotEmpty && _wifiPasswordController.text.isNotEmpty;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Step Badge
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.accentLight,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'BƯỚC 4 / 5',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              const Text(
+                'Cài đặt Wi-Fi',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Title & Subtitle
+          const Text(
+            'Cấu hình Wi-Fi cho Nút Bấm',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+              fontFamily: 'Be Vietnam Pro',
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Nút bấm SmartOrder cần kết nối mạng Wi-Fi căn hộ để gửi đơn hàng tự động ngay khi bạn bấm nút.',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // Paired Device Info Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryUltraLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.borderLight),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.bluetooth_connected_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _pairedDeviceName.isNotEmpty ? _pairedDeviceName : 'Smart Order Button #A1-1205',
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Đã kết nối Bluetooth (${_pairedDeviceMac.isNotEmpty ? _pairedDeviceMac : "EC:62:60:88:1A:04"} • $_pairedDeviceRssi dBm)',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.textMuted,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.successLight,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Sẵn sàng nạp',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.success,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // 2.4GHz Hardware Constraint Notice
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.amber.shade800,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Yêu cầu phần cứng: Mạng Wi-Fi 2.4GHz',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber.shade900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Chip ESP32 trên nút bấm chỉ hỗ trợ tần số 2.4GHz. Vui lòng chọn mạng có đuôi 2.4G hoặc tắt tạm thời mạng 5GHz nếu gặp lỗi.',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.brown.shade800,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 22),
+
+          // Wi-Fi Selection Section
+          _buildFieldLabel('Chọn mạng Wi-Fi căn hộ', isRequired: true),
+          const SizedBox(height: 10),
+
+          // List of Scanned Networks
+          Column(
+            children: [
+              ..._mockWifiNetworks.map((net) {
+                final ssid = net['ssid'] as String;
+                final isSelected = !_isCustomSsid && _selectedSsid == ssid;
+                final isRecommended = net['isRecommended'] as bool;
+                final signal = net['signal'] as String;
+                final rssi = net['rssi'] as int;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: InkWell(
+                    onTap: _isProvisioningWifi ? null : () => _onSsidSelected(ssid),
+                    borderRadius: BorderRadius.circular(12),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.accentLight.withValues(alpha: 0.4) : AppColors.bgCard,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? AppColors.accent : AppColors.borderLight,
+                          width: isSelected ? 1.8 : 1.0,
+                        ),
+                        boxShadow: isSelected ? AppColors.shadowSm : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                            color: isSelected ? AppColors.accent : AppColors.textMuted,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      ssid,
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    if (isRecommended) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primaryUltraLight,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text(
+                                          'Đề xuất',
+                                          style: TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    const Text(
+                                      '2.4GHz',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const Text(
+                                      ' • ',
+                                      style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                    ),
+                                    Text(
+                                      'Sóng $signal ($rssi dBm)',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          _buildRssiBadge(rssi),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+
+              // Option to enter other Wi-Fi
+              InkWell(
+                onTap: _isProvisioningWifi ? null : () => _onSsidSelected('__custom__'),
+                borderRadius: BorderRadius.circular(12),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _isCustomSsid ? AppColors.accentLight.withValues(alpha: 0.4) : AppColors.bgCard,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _isCustomSsid ? AppColors.accent : AppColors.borderLight,
+                      width: _isCustomSsid ? 1.8 : 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isCustomSsid ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                        color: _isCustomSsid ? AppColors.accent : AppColors.textMuted,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Nhập tên mạng Wi-Fi khác...',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              if (_isCustomSsid) ...[
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _customSsidController,
+                  enabled: !_isProvisioningWifi,
+                  decoration: InputDecoration(
+                    hintText: 'Nhập tên SSID Wi-Fi căn hộ (2.4GHz)',
+                    hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                    prefixIcon: const Icon(Icons.wifi_outlined, size: 20, color: AppColors.accent),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.accent, width: 1.8),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+
+          const SizedBox(height: 22),
+
+          // Wi-Fi Password Field
+          _buildFieldLabel('Mật khẩu Wi-Fi', isRequired: true),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _wifiPasswordController,
+            obscureText: _isWifiPasswordObscured,
+            enabled: !_isProvisioningWifi,
+            keyboardType: TextInputType.visiblePassword,
+            decoration: InputDecoration(
+              hintText: 'Nhập mật khẩu Wi-Fi',
+              hintStyle: const TextStyle(fontSize: 13.5, color: AppColors.textMuted),
+              prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20, color: AppColors.accent),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _isWifiPasswordObscured ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: 20,
+                  color: AppColors.textMuted,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isWifiPasswordObscured = !_isWifiPasswordObscured;
+                  });
+                },
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.accent, width: 1.8),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Mật khẩu sẽ được mã hóa và truyền trực tiếp tới nút bấm qua Bluetooth bảo mật.',
+            style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+          ),
+
+          // Error Message Banner (e.g. wrong password simulation)
+          if (_wifiProvisionError != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.dangerLight,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.danger.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _wifiProvisionError!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.danger,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ).animate().shake(duration: 400.ms),
+          ],
+
+          const SizedBox(height: 24),
+
+          // Primary Provision Button
+          ElevatedButton(
+            onPressed: (isFormValid && !_isProvisioningWifi) ? _provisionWifi : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.4),
+              disabledForegroundColor: Colors.white70,
+              elevation: (isFormValid && !_isProvisioningWifi) ? 3 : 0,
+              shadowColor: AppColors.accentGlow,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: _isProvisioningWifi
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        _wifiProvisionStatusText,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Be Vietnam Pro',
+                        ),
+                      ),
+                    ],
+                  )
+                : _isWifiSuccess
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Nạp Wi-Fi thành công!',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Be Vietnam Pro',
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.wifi_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Nạp Wi-Fi vào nút bấm',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Be Vietnam Pro',
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Icon(Icons.arrow_forward_rounded, size: 18),
+                        ],
+                      ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // Simulation Hint Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.lightbulb_outline_rounded,
+                  color: Colors.blue.shade700,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Mẹo thử nghiệm: Nhập bất kỳ mật khẩu nào (ví dụ 12345678) để nạp thành công, hoặc nhập "wrongpass" để kiểm tra cơ chế báo lỗi sai mật khẩu và cho phép nhập lại.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue.shade900,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1821,7 +2460,7 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Tài khoản $_confirmedFullName ($_confirmedPhone) đã liên kết thành công với ${_pairedDeviceName.isNotEmpty ? _pairedDeviceName : "Smart Order Button"}.',
+              'Tài khoản ${_confirmedFullName.isNotEmpty ? _confirmedFullName : "Cư dân"} (${_confirmedPhone.isNotEmpty ? _confirmedPhone : "0912345678"}) đã liên kết thành công với ${_pairedDeviceName.isNotEmpty ? _pairedDeviceName : "Smart Order Button"}. Mạng Wi-Fi: ${_isCustomSsid ? _customSsidController.text.trim() : _selectedSsid} (2.4GHz).',
               style: const TextStyle(
                 fontSize: 14,
                 color: AppColors.textSecondary,
@@ -1849,59 +2488,6 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStepPlaceholder({
-    required int stepNumber,
-    required String title,
-    required String description,
-    required IconData icon,
-    required String actionText,
-    required VoidCallback onNext,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: AppColors.primaryUltraLight,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 44, color: AppColors.primary),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Bước $stepNumber: $title',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            description,
-            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 28),
-          OutlinedButton(
-            onPressed: onNext,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.accent,
-              side: const BorderSide(color: AppColors.accent),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: Text(actionText),
-          ),
-        ],
       ),
     );
   }
