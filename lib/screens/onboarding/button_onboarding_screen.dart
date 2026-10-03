@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pinput/pinput.dart';
 import '../../constants/app_colors.dart';
+import '../../models/user_profile_service.dart';
 import '../dashboard_screen.dart';
 
 class ButtonOnboardingScreen extends StatefulWidget {
@@ -596,7 +597,7 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
                   _buildStep2Otp(),
                   _buildStep3Bluetooth(),
                   _buildStep4Wifi(),
-                  _buildStep5SuccessPreview(),
+                  _buildStep5Success(),
                 ],
               ),
             ),
@@ -2426,68 +2427,437 @@ class _ButtonOnboardingScreenState extends State<ButtonOnboardingScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 6. Step 5 Placeholder (For Story 5: Success & Dashboard)
+  // 6. Step 5: Commissioning Success & Dashboard Transition (CAP-5)
   // ─────────────────────────────────────────────────────────────
-  Widget _buildStep5SuccessPreview() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: const BoxDecoration(
-                color: AppColors.successLight,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_circle_rounded,
-                size: 50,
-                color: AppColors.success,
-              ),
-            ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
-            const SizedBox(height: 20),
-            const Text(
-              'Cài đặt Nút Bấm Thành Công!',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Tài khoản ${_confirmedFullName.isNotEmpty ? _confirmedFullName : "Cư dân"} (${_confirmedPhone.isNotEmpty ? _confirmedPhone : "0912345678"}) đã liên kết thành công với ${_pairedDeviceName.isNotEmpty ? _pairedDeviceName : "Smart Order Button"}. Mạng Wi-Fi: ${_isCustomSsid ? _customSsidController.text.trim() : _selectedSsid} (2.4GHz).',
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const DashboardScreen()),
-                  (route) => false,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+  Widget _buildStep5Success() {
+    final effectiveFullName = _confirmedFullName.isNotEmpty ? _confirmedFullName : 'Nguyễn Văn Minh';
+    final effectivePhone = _confirmedPhone.isNotEmpty ? _confirmedPhone : '0912345678';
+    final effectiveDeviceName = _pairedDeviceName.isNotEmpty ? _pairedDeviceName : 'Smart Order Button #A1-1205';
+    final effectiveDeviceMac = _pairedDeviceMac.isNotEmpty ? _pairedDeviceMac : 'EC:62:60:88:1A:04';
+    final effectiveWifi = _isCustomSsid
+        ? (_customSsidController.text.trim().isNotEmpty ? _customSsidController.text.trim() : 'CanHo_1205_2.4G')
+        : _selectedSsid;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Step Badge
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.successLight,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'BƯỚC 5 / 5',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.success,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
-              child: const Text('Vào Bảng Điều Khiển →'),
+              const Spacer(),
+              const Text(
+                'Hoàn tất kích hoạt',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Glowing Celebration Icon
+          Center(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    color: AppColors.successLight.withValues(alpha: 0.6),
+                    shape: BoxShape.circle,
+                  ),
+                ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+                  .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.15, 1.15), duration: 1800.ms),
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.success, Color(0xFF059669)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.success.withValues(alpha: 0.4),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    size: 44,
+                    color: Colors.white,
+                  ),
+                ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
+              ],
             ),
-          ],
-        ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Celebration Title & Subtitle
+          const Text(
+            'Kích Hoạt Nút Bấm Thành Công!',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+              fontFamily: 'Be Vietnam Pro',
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Nút bấm Smart Order Button đã được đồng bộ với tài khoản cư dân và mạng Wi-Fi căn hộ của bạn.',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 24),
+
+          // Activation Summary Card
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.bgCard,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.borderLight),
+              boxShadow: AppColors.shadowSm,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.verified_user_rounded,
+                      color: AppColors.accent,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Thông tin kích hoạt hệ thống',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.successLight,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.circle, color: AppColors.success, size: 7),
+                          SizedBox(width: 4),
+                          Text(
+                            'Trực tuyến',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(height: 1, color: AppColors.borderLight),
+                ),
+
+                // Resident Profile Row
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryUltraLight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Text(
+                          effectiveFullName.isNotEmpty ? effectiveFullName[0].toUpperCase() : 'U',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            effectiveFullName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Text(
+                                effectivePhone,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppColors.successLight,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'Đã xác thực OTP',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.success,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 14),
+
+                // Button Device Row
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.accentLight.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.touch_app_rounded,
+                        color: AppColors.accent,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            effectiveDeviceName,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'MAC: $effectiveDeviceMac • BLE GATT',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textMuted,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 14),
+
+                // Wi-Fi Row
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.wifi_rounded,
+                        color: Colors.blue.shade700,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            effectiveWifi,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Băng tần 2.4GHz • Sẵn sàng đặt đơn',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // User Guide Box
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.primaryUltraLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.borderLight),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.lightbulb_outline_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Hướng dẫn sử dụng nhanh:',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '1. Dán nút bấm ở vị trí thuận tiện (Bếp, bàn ăn hoặc cửa ra vào).\n2. Nhấn nút 1 lần khi cần đặt nước hoặc dịch vụ.\n3. Đơn hàng sẽ được tạo và cập nhật tự động lên ứng dụng.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textPrimary.withValues(alpha: 0.8),
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Transition CTA Button
+          ElevatedButton(
+            onPressed: () {
+              // Sync verified resident info into UserProfileService singleton
+              if (_confirmedFullName.isNotEmpty) {
+                UserProfileService().updateName(_confirmedFullName);
+              }
+              if (_confirmedPhone.isNotEmpty) {
+                UserProfileService().updatePhone(_confirmedPhone);
+              }
+
+              // Navigate to Dashboard and clear onboarding navigation stack
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+              elevation: 3,
+              shadowColor: AppColors.accentGlow,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Vào Bảng Điều Khiển ngay',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Be Vietnam Pro',
+                  ),
+                ),
+                SizedBox(width: 8),
+                Icon(Icons.arrow_forward_rounded, size: 18),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
