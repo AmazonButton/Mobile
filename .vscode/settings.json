@@ -1,0 +1,6 @@
+{
+  "dart.flutterHotReloadOnSave": "always",
+  "dart.hotReloadOnSave": "always",
+  "dart.openDevTools": "never",
+  "editor.formatOnSave": true
+}
