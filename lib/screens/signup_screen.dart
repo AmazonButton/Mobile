@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'register_step_two_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -199,84 +200,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (!_isFormValid) return;
 
     setState(() => _isSubmitting = true);
-    Future.delayed(const Duration(milliseconds: 600), () {
+    Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      _showSuccessSheet();
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RegisterStepTwoScreen(
+            fullName: _fullNameController.text.trim(),
+            phoneNumber: _phoneController.text.trim(),
+            email: _emailController.text.trim(),
+          ),
+        ),
+      );
     });
   }
 
-  void _showSuccessSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 48,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              width: 56,
-              height: 56,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: primaryLight,
-              ),
-              child: const Icon(Icons.check_circle_rounded, color: primaryBlue, size: 36),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Hoàn thành Bước 1!',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textDark),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Thông tin cá nhân của ${_fullNameController.text.trim()} đã được ghi nhận. Vui lòng thiết lập mật khẩu ở Bước 2.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: textMuted, height: 1.4),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đang khởi tạo Bước 2: Thiết lập bảo mật...'),
-                      backgroundColor: primaryBlue,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryBlue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
-                ),
-                child: const Text('Tiếp tục Bước 2 →',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {

@@ -134,54 +134,18 @@ class _SplashScreenState extends State<SplashScreen>
                           opacity: _fadeAnimation,
                           child: Column(
                             children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.asset(
-                                      'assets/smart_order_button_logo.png',
-                                      width: 38,
-                                      height: 38,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          Image.asset(
-                                        'assets/fpt_toggle_button.png',
-                                        width: 38,
-                                        height: 38,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (context, error2, stackTrace2) =>
-                                            const SizedBox.shrink(),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  RichText(
-                                    text: const TextSpan(
-                                      children: [
-                                        TextSpan(
-                                          text: 'Smart',
-                                          style: TextStyle(
-                                            fontSize: 32,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF1E1E1E),
-                                            fontFamily: 'Be Vietnam Pro',
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: 'Order',
-                                          style: TextStyle(
-                                            fontSize: 32,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFFF5862B),
-                                            fontFamily: 'Be Vietnam Pro',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                              Image.asset(
+                                'assets/smart_order_button_logo.png',
+                                width: 220,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Image.asset(
+                                  'assets/fpt_toggle_button.png',
+                                  width: 180,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error2, stackTrace2) =>
+                                      const SizedBox.shrink(),
+                                ),
                               ),
                               const SizedBox(height: 12),
                               Padding(
