@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'login_screen.dart';
 import 'main_layout.dart';
 import '../models/user_profile_service.dart';
+import '../widgets/modals/button_product_selection_modal.dart';
 
 typedef HomePage = HomeScreen;
 
@@ -45,6 +46,27 @@ class _HomeScreenState extends State<HomeScreen>
     'btn-1': 'idle', // idle, ordering, ordered
     'btn-2': 'idle',
   };
+
+  late final List<Map<String, dynamic>> _devices = [
+    {
+      'id': 'btn-1',
+      'name': 'Nút Bếp',
+      'room': 'Khu vực Bếp',
+      'product': 'Nước Lavie 20L',
+      'price': '65.000đ',
+      'icon': Icons.water_drop_outlined,
+      'battery': 85,
+    },
+    {
+      'id': 'btn-2',
+      'name': 'Nút Ban Công',
+      'room': 'Lô gia',
+      'product': 'Bình Gas Petrolimex 12kg',
+      'price': '380.000đ',
+      'icon': Icons.local_fire_department_outlined,
+      'battery': 92,
+    },
+  ];
 
   @override
   void initState() {
@@ -497,98 +519,25 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  void _showSettingsDialog(String name, String room, String product) {
-    showModalBottomSheet(
+  void _showSettingsDialog(Map<String, dynamic> device) {
+    ButtonProductSelectionModal.show(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Cấu hình $name',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close, color: Color(0xFF94A3B8)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text('Vị trí đặt nút',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-              const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  border: Border.all(color: const Color(0xFFF1F5F9)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(room,
-                    style: const TextStyle(
-                        fontSize: 14, color: Color(0xFF1E293B))),
-              ),
-              const SizedBox(height: 14),
-              const Text('Sản phẩm liên kết cố định',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-              const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(product,
-                    style: const TextStyle(
-                        fontSize: 14, color: Color(0xFF64748B))),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _showToast('Đã lưu cấu hình thiết bị');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFA3B8CD),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text('Lưu thay đổi',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      buttonName: device['name'] as String,
+      room: device['room'] as String,
+      currentProductName: device['product'] as String,
+      onSave: (selectedProduct, updatedRoom) {
+        setState(() {
+          device['product'] = selectedProduct.shortName;
+          device['price'] = selectedProduct.priceFormatted;
+          device['icon'] = selectedProduct.icon;
+          if (updatedRoom.isNotEmpty) {
+            device['room'] = updatedRoom;
+          }
+        });
+        _showFloatingToast(
+          message: 'Đã liên kết ${selectedProduct.shortName} cho ${device['name']}',
+        );
+      },
     );
   }
 
@@ -632,29 +581,14 @@ class _HomeScreenState extends State<HomeScreen>
                   // ================= 3. NÚT BẤM CỦA TÔI =================
                   _buildSectionHeader(
                     title: 'Nút bấm của tôi',
-                    actionText: '2 nút sẵn sàng',
+                    actionText: '${_devices.length} nút sẵn sàng',
                   ),
                   const SizedBox(height: 16),
-                  _buildDeviceCard(
-                    id: 'btn-1',
-                    name: 'Nút Bếp',
-                    room: 'Khu vực Bếp',
-                    product: 'Nước Lavie 20L',
-                    price: '65.000đ',
-                    icon: Icons.water_drop_outlined,
-                    battery: 85,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDeviceCard(
-                    id: 'btn-2',
-                    name: 'Nút Ban Công',
-                    room: 'Lô gia',
-                    product: 'Bình Gas Petrolimex 12kg',
-                    price: '380.000đ',
-                    icon: Icons.local_fire_department_outlined,
-                    battery: 92,
-                  ),
-                  const SizedBox(height: 24),
+                  ..._devices.map((device) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _buildDeviceCard(device: device),
+                  )),
+                  const SizedBox(height: 8),
 
                   // ================= 4. PREDICTIVE INSIGHT =================
                   _buildPredictiveInsight(),
@@ -964,14 +898,16 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildDeviceCard({
-    required String id,
-    required String name,
-    required String room,
-    required String product,
-    required String price,
-    required IconData icon,
-    required int battery,
+    required Map<String, dynamic> device,
   }) {
+    final id = device['id'] as String;
+    final name = device['name'] as String;
+    final room = device['room'] as String;
+    final product = device['product'] as String;
+    final price = device['price'] as String;
+    final icon = device['icon'] as IconData;
+    final battery = device['battery'] as int;
+
     final state = _buttonStateMap[id] ?? 'idle';
     final isOrdering = state == 'ordering';
     final isOrdered = state == 'ordered';
@@ -1063,7 +999,7 @@ class _HomeScreenState extends State<HomeScreen>
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
-                  onPressed: () => _showSettingsDialog(name, room, product),
+                  onPressed: () => _showSettingsDialog(device),
                   icon: const Icon(Icons.settings_outlined,
                       size: 19, color: Color(0xFF64748B)),
                   padding: EdgeInsets.zero,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../widgets/modals/button_product_selection_modal.dart';
 
 class DevicesScreen extends StatefulWidget {
   const DevicesScreen({super.key});
@@ -11,6 +12,28 @@ class DevicesScreen extends StatefulWidget {
 }
 
 class _DevicesScreenState extends State<DevicesScreen> {
+  late final List<Map<String, dynamic>> _devices = [
+    {
+      'id': 'btn-1',
+      'name': 'Nút Bếp',
+      'room': 'Khu vực Bếp ăn',
+      'product': 'Nước Lavie 20L',
+      'price': '65.000đ',
+      'icon': LucideIcons.droplets,
+      'battery': 85,
+      'signal': 'Rất tốt',
+    },
+    {
+      'id': 'btn-2',
+      'name': 'Nút Ban Công',
+      'room': 'Lô gia tầng 12',
+      'product': 'Bình Gas Petrolimex 12kg',
+      'price': '380.000đ',
+      'icon': LucideIcons.flame,
+      'battery': 92,
+      'signal': 'Ổn định',
+    },
+  ];
   void _showToast(String message) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -39,94 +62,25 @@ class _DevicesScreenState extends State<DevicesScreen> {
     );
   }
 
-  void _showConfigureModal(String name, String room, String product) {
-    showModalBottomSheet(
+  void _showConfigureModal(Map<String, dynamic> device) {
+    ButtonProductSelectionModal.show(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Cấu hình $name',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(LucideIcons.x, color: Color(0xFF94A3B8), size: 20),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text('Vị trí đặt nút',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-              const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  border: Border.all(color: const Color(0xFFF1F5F9)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(room,
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B), fontWeight: FontWeight.w500)),
-              ),
-              const SizedBox(height: 14),
-              const Text('Sản phẩm liên kết cố định',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-              const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  border: Border.all(color: const Color(0xFFF1F5F9)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(product,
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B), fontWeight: FontWeight.w600)),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _showToast('Đã lưu cấu hình thiết bị');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF64748B),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text('Xong',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      buttonName: device['name'] as String,
+      room: device['room'] as String,
+      currentProductName: device['product'] as String,
+      onSave: (selectedProduct, updatedRoom) {
+        setState(() {
+          device['product'] = selectedProduct.shortName;
+          device['price'] = selectedProduct.priceFormatted;
+          device['icon'] = selectedProduct.icon;
+          if (updatedRoom.isNotEmpty) {
+            device['room'] = updatedRoom;
+          }
+        });
+        _showToast(
+          'Đã liên kết ${selectedProduct.shortName} cho ${device['name']}',
+        );
+      },
     );
   }
 
@@ -223,31 +177,13 @@ class _DevicesScreenState extends State<DevicesScreen> {
 
               const SizedBox(height: 16),
 
-              // Device 1: Nút Bếp
-              _buildDeviceCard(
-                name: 'Nút Bếp',
-                room: 'Khu vực Bếp ăn',
-                product: 'Nước Lavie 20L',
-                price: '65.000đ',
-                icon: LucideIcons.droplets,
-                battery: 85,
-                signal: 'Rất tốt',
-              ),
+              // Devices List
+              ..._devices.map((device) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildDeviceCard(device: device),
+              )),
 
-              const SizedBox(height: 16),
-
-              // Device 2: Nút Ban Công
-              _buildDeviceCard(
-                name: 'Nút Ban Công',
-                room: 'Lô gia tầng 12',
-                product: 'Bình Gas Petrolimex 12kg',
-                price: '380.000đ',
-                icon: LucideIcons.flame,
-                battery: 92,
-                signal: 'Ổn định',
-              ),
-
-              const SizedBox(height: 20),
+              const SizedBox(height: 4),
 
               // Pairing Banner
               _buildPairingGuideCard(),
@@ -262,14 +198,16 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   Widget _buildDeviceCard({
-    required String name,
-    required String room,
-    required String product,
-    required String price,
-    required IconData icon,
-    required int battery,
-    required String signal,
+    required Map<String, dynamic> device,
   }) {
+    final name = device['name'] as String;
+    final room = device['room'] as String;
+    final product = device['product'] as String;
+    final price = device['price'] as String;
+    final icon = device['icon'] as IconData;
+    final battery = device['battery'] as int;
+    final signal = device['signal'] as String? ?? 'Rất tốt';
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -337,7 +275,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 ),
               ),
               _TactileTap(
-                onTap: () => _showConfigureModal(name, room, product),
+                onTap: () => _showConfigureModal(device),
                 child: Container(
                   width: 36,
                   height: 36,
