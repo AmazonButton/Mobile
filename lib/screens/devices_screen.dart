@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../widgets/modals/button_product_selection_modal.dart';
+import 'button_product_selection_screen.dart';
 
 class DevicesScreen extends StatefulWidget {
   const DevicesScreen({super.key});
@@ -63,7 +63,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   void _showConfigureModal(Map<String, dynamic> device) {
-    ButtonProductSelectionModal.show(
+    ButtonProductSelectionScreen.open(
       context: context,
       buttonName: device['name'] as String,
       room: device['room'] as String,

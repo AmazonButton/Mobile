@@ -48,6 +48,68 @@ class OrderModel {
     }
   }
 
+  factory OrderModel.fromJson(Map<String, dynamic> json) {
+    final rawStatus = (json['status'] ?? 'PENDING').toString().toUpperCase();
+    OrderStatus status = OrderStatus.warning;
+    String statusText = 'Chờ xử lý';
+
+    if (rawStatus == 'COMPLETED' || rawStatus == 'DELIVERED') {
+      status = OrderStatus.success;
+      statusText = 'Đã giao';
+    } else if (rawStatus == 'SHIPPING' || rawStatus == 'CONFIRMED' || rawStatus == 'PROCESSING') {
+      status = OrderStatus.info;
+      statusText = rawStatus == 'SHIPPING' ? 'Đang giao' : 'Đang xử lý';
+    } else if (rawStatus == 'CANCELLED') {
+      status = OrderStatus.danger;
+      statusText = 'Đã hủy';
+    } else if (rawStatus == 'PENDING') {
+      status = OrderStatus.warning;
+      statusText = 'Chờ xác nhận';
+    }
+
+    // Extract product title
+    String productName = 'Nhu yếu phẩm';
+    if (json['orderItems'] is List && (json['orderItems'] as List).isNotEmpty) {
+      final firstItem = json['orderItems'][0];
+      final prod = firstItem['product'];
+      if (prod != null && prod['name'] != null) {
+        productName = prod['name'].toString();
+      } else if (firstItem['productName'] != null) {
+        productName = firstItem['productName'].toString();
+      }
+    } else if (json['productName'] != null) {
+      productName = json['productName'].toString();
+    }
+
+    String timeStr = 'Vừa xong';
+    if (json['createdAt'] != null) {
+      try {
+        final dt = DateTime.parse(json['createdAt'].toString()).toLocal();
+        timeStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      } catch (_) {
+        timeStr = json['createdAt'].toString();
+      }
+    }
+
+    final custName = json['customer']?['fullName'] ??
+        json['customer']?['user']?['fullName'] ??
+        json['customerName'] ??
+        'Cư dân';
+
+    final apt = json['deliveryAddress'] ?? json['apartment'] ?? 'Căn hộ';
+    final id = json['orderNumber']?.toString() ?? json['id']?.toString() ?? 'SOB';
+
+    return OrderModel(
+      id: id,
+      customerName: custName.toString(),
+      apartment: apt.toString(),
+      product: productName,
+      time: timeStr,
+      status: status,
+      statusText: statusText,
+    );
+  }
+
   static List<OrderModel> get sampleOrders => const [
     OrderModel(
       id: 'SOB-20260919-001',
