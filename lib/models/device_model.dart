@@ -40,6 +40,32 @@ class DeviceModel {
 
   String get batteryText => isOffline ? 'Offline' : '$battery%';
 
+  factory DeviceModel.fromJson(Map<String, dynamic> json) {
+    final rawStatus = (json['status'] ?? 'ACTIVE').toString().toUpperCase();
+    final rawBattery = json['batteryLevel'] ?? json['battery'] ?? 100;
+    final int batteryInt = rawBattery is int ? rawBattery : (int.tryParse(rawBattery.toString()) ?? 100);
+
+    DeviceStatus status = DeviceStatus.online;
+    if (rawStatus == 'OFFLINE' || rawStatus == 'DISABLED') {
+      status = DeviceStatus.offline;
+    } else if (batteryInt <= 20) {
+      status = DeviceStatus.warning;
+    }
+
+    final id = json['deviceId']?.toString() ?? json['id']?.toString() ?? 'ESP32';
+    final location = json['roomLocation']?.toString() ??
+        json['buttonName']?.toString() ??
+        json['customName']?.toString() ??
+        'Căn hộ';
+
+    return DeviceModel(
+      id: id,
+      location: location,
+      battery: batteryInt,
+      status: status,
+    );
+  }
+
   static List<DeviceModel> get sampleDevices => const [
     DeviceModel(
       id: 'ESP32-A1-1205',

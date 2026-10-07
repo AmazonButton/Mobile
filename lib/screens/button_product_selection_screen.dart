@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../../constants/app_colors.dart';
-import '../../models/button_product_model.dart';
-import '../../screens/button_product_selection_screen.dart';
+import '../constants/app_colors.dart';
+import '../models/button_product_model.dart';
 
 enum ProductSortOption {
   popular('Phổ biến nhất'),
@@ -15,50 +14,69 @@ enum ProductSortOption {
   const ProductSortOption(this.label);
 }
 
-class ButtonProductSelectionModal extends StatefulWidget {
+class ButtonProductSelectionScreen extends StatefulWidget {
   final String buttonName;
   final String room;
   final String currentProductName;
-  final Function(ButtonProductModel selectedProduct, String updatedRoom) onSave;
+  final Function(ButtonProductModel selectedProduct, String updatedRoom)? onSave;
 
-  const ButtonProductSelectionModal({
+  const ButtonProductSelectionScreen({
     super.key,
     required this.buttonName,
     required this.room,
     required this.currentProductName,
-    required this.onSave,
+    this.onSave,
   });
 
-  static Future<void> show({
+  /// Static helper to navigate to this screen cleanly
+  static Future<Map<String, dynamic>?> open({
     required BuildContext context,
     required String buttonName,
     required String room,
     required String currentProductName,
-    required Function(ButtonProductModel selectedProduct, String updatedRoom) onSave,
-  }) {
-    return ButtonProductSelectionScreen.open(
-      context: context,
-      buttonName: buttonName,
-      room: room,
-      currentProductName: currentProductName,
-      onSave: onSave,
+    Function(ButtonProductModel selectedProduct, String updatedRoom)? onSave,
+  }) async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => ButtonProductSelectionScreen(
+          buttonName: buttonName,
+          room: room,
+          currentProductName: currentProductName,
+          onSave: onSave,
+        ),
+      ),
     );
+
+    if (result != null && onSave != null) {
+      onSave(result['product'] as ButtonProductModel, result['room'] as String);
+    }
+    return result;
   }
 
   @override
-  State<ButtonProductSelectionModal> createState() => _ButtonProductSelectionModalState();
+  State<ButtonProductSelectionScreen> createState() => _ButtonProductSelectionScreenState();
 }
 
-class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModal> {
+class _ButtonProductSelectionScreenState extends State<ButtonProductSelectionScreen> {
   final TextEditingController _searchController = TextEditingController();
   late TextEditingController _roomController;
   final Set<String> _expandedProductIds = {};
-  
+
   ProductSortOption _currentSort = ProductSortOption.popular;
   late ButtonProductModel _selectedProduct;
   List<ButtonProductModel> _allProducts = [];
   List<ButtonProductModel> _filteredProducts = [];
+  String _selectedCategory = 'Tất cả';
   bool _isEditingRoom = false;
+
+  final List<String> _categories = [
+    'Tất cả',
+    'Nhu yếu phẩm',
+    'Nước uống',
+    'Gia vị & Bếp',
+    'Chăm sóc nhà cửa',
+  ];
 
   @override
   void initState() {
@@ -78,7 +96,7 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
     _filteredProducts = List.from(_allProducts);
     _sortProducts();
 
-    _searchController.addListener(_onSearchChanged);
+    _searchController.addListener(_filterProducts);
   }
 
   @override
@@ -88,20 +106,30 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
     super.dispose();
   }
 
-  void _onSearchChanged() {
+  void _filterProducts() {
     final query = _searchController.text.trim().toLowerCase();
     setState(() {
-      if (query.isEmpty) {
-        _filteredProducts = List.from(_allProducts);
-      } else {
-        _filteredProducts = _allProducts.where((p) {
-          return p.name.toLowerCase().contains(query) ||
-              p.shortName.toLowerCase().contains(query) ||
-              p.brand.toLowerCase().contains(query) ||
-              p.category.toLowerCase().contains(query) ||
-              p.specs.toLowerCase().contains(query);
-        }).toList();
-      }
+      _filteredProducts = _allProducts.where((p) {
+        // Category filter
+        final matchCategory = _selectedCategory == 'Tất cả' ||
+            p.category.toLowerCase().contains(_selectedCategory.toLowerCase()) ||
+            (_selectedCategory == 'Nước uống' && p.category.toLowerCase().contains('nước')) ||
+            (_selectedCategory == 'Gia vị & Bếp' &&
+                (p.category.toLowerCase().contains('gia vị') || p.category.toLowerCase().contains('bếp'))) ||
+            (_selectedCategory == 'Chăm sóc nhà cửa' &&
+                (p.category.toLowerCase().contains('chăm sóc') || p.category.toLowerCase().contains('vệ sinh')));
+
+        if (!matchCategory) return false;
+
+        // Query filter
+        if (query.isEmpty) return true;
+        return p.name.toLowerCase().contains(query) ||
+            p.shortName.toLowerCase().contains(query) ||
+            p.brand.toLowerCase().contains(query) ||
+            p.category.toLowerCase().contains(query) ||
+            p.specs.toLowerCase().contains(query);
+      }).toList();
+
       _sortProducts();
     });
   }
@@ -182,210 +210,40 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
 
   void _handleSave() {
     HapticFeedback.mediumImpact();
-    widget.onSave(_selectedProduct, _roomController.text.trim());
-    Navigator.pop(context);
+    final updatedRoom = _roomController.text.trim();
+    if (widget.onSave != null) {
+      widget.onSave!(_selectedProduct, updatedRoom);
+    }
+    Navigator.pop(context, {
+      'product': _selectedProduct,
+      'room': updatedRoom,
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return Container(
-      height: screenHeight * 0.90,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x26000000),
-            blurRadius: 24,
-            offset: Offset(0, -6),
-          ),
-        ],
-      ),
-      child: Column(
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: _buildAppBar(),
+      body: Column(
         children: [
-          // ── 1. DRAG HANDLE ──
-          const SizedBox(height: 10),
-          Center(
-            child: Container(
-              width: 38,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFCBD5E1),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
+          // ── 1. HEADER: ROOM LOCATION & AMAZON DASH NOTICE ──
+          _buildTopContextSection(),
 
-          // ── 2. HEADER: TÊN THIẾT BỊ & NÚT ĐÓNG ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Cấu hình ${widget.buttonName}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Text(
-                            'IoT Button',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    // Room indicator / editor
-                    _buildRoomRow(),
-                  ],
-                ),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF1F5F9),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(LucideIcons.x, size: 18, color: Color(0xFF64748B)),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // ── 2. SEARCH & SORT BAR ──
+          _buildSearchAndSortBar(),
 
-          const SizedBox(height: 12),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+          // ── 3. CATEGORY QUICK FILTERS ──
+          _buildCategoryFilterBar(),
 
-          // ── 3. AMAZON DASH NOTICE BANNER ──
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFDBEAFE)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(LucideIcons.sparkles, size: 16, color: Color(0xFF2563EB)),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Sản phẩm được chọn sẽ tự động tạo đơn hàng mỗi khi bạn nhấn nút vật lý. Ưu đãi chiết khấu áp dụng tự động.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF1E3A8A),
-                        height: 1.35,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          const SizedBox(height: 6),
 
-          // ── 4. SEARCH & SORT BAR (AMAZON DASH FORMAT) ──
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-            child: Row(
-              children: [
-                // Search Field
-                Expanded(
-                  child: Container(
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 11),
-                        hintText: 'Tìm sản phẩm (vd: Lavie, Gas, Gạo...)',
-                        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                        prefixIcon: const Icon(LucideIcons.search, size: 17, color: Color(0xFF94A3B8)),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? GestureDetector(
-                                onTap: () => _searchController.clear(),
-                                child: const Icon(LucideIcons.xCircle, size: 16, color: Color(0xFF94A3B8)),
-                              )
-                            : null,
-                        border: InputBorder.none,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-
-                // Sort Dropdown Button
-                GestureDetector(
-                  onTap: _showSortPicker,
-                  child: Container(
-                    height: 42,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'Sort',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(LucideIcons.chevronDown, size: 15, color: Color(0xFF64748B)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // ── 5. PRODUCT LIST (AMAZON DASH FORMAT CARDS) ──
+          // ── 4. PRODUCT LIST ──
           Expanded(
             child: _filteredProducts.isEmpty
                 ? _buildEmptyState()
                 : ListView.separated(
-                    padding: EdgeInsets.fromLTRB(16, 4, 16, bottomInset + 16),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
                     physics: const BouncingScrollPhysics(),
                     itemCount: _filteredProducts.length,
                     separatorBuilder: (context, index) => const SizedBox(height: 12),
@@ -402,61 +260,305 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
                     },
                   ),
           ),
+        ],
+      ),
+      bottomNavigationBar: _buildBottomBar(),
+    );
+  }
 
-          // ── 6. BOTTOM ACTION BAR (STICKY) ──
-          _buildBottomBar(),
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      elevation: 0,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      leading: IconButton(
+        icon: const Icon(LucideIcons.arrowLeft, color: Color(0xFF0F172A), size: 22),
+        onPressed: () => Navigator.pop(context),
+      ),
+      titleSpacing: 0,
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  'Cấu hình ${widget.buttonName}',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                    letterSpacing: -0.3,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFDBEAFE)),
+                ),
+                child: const Text(
+                  'IoT Button',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF2563EB),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'Chọn sản phẩm tự động đặt khi nhấn nút vật lý',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(color: const Color(0xFFE2E8F0), height: 1),
+      ),
+    );
+  }
+
+  Widget _buildTopContextSection() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        children: [
+          // Room Location Row
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(LucideIcons.mapPin, size: 14, color: Color(0xFF475569)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _isEditingRoom
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 34,
+                              child: TextField(
+                                controller: _roomController,
+                                autofocus: true,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(color: AppColors.primary),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(LucideIcons.check, size: 18, color: Color(0xFF10B981)),
+                            onPressed: () => setState(() => _isEditingRoom = false),
+                          ),
+                        ],
+                      )
+                    : GestureDetector(
+                        onTap: () => setState(() => _isEditingRoom = true),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Vị trí: ${_roomController.text}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF334155),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(LucideIcons.pencil, size: 12, color: Color(0xFF94A3B8)),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          // Dash Smart Reorder Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFDCFCE7)),
+            ),
+            child: const Row(
+              children: [
+                Icon(LucideIcons.sparkles, size: 16, color: Color(0xFF16A34A)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Sản phẩm được chọn sẽ tự động tạo đơn hàng mỗi khi bạn nhấn nút vật lý. Ưu đãi chiết khấu áp dụng tự động.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF166534),
+                      height: 1.35,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildRoomRow() {
-    if (_isEditingRoom) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
+  Widget _buildSearchAndSortBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Row(
         children: [
-          SizedBox(
-            width: 150,
-            height: 28,
-            child: TextField(
-              controller: _roomController,
-              autofocus: true,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              decoration: const InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                border: OutlineInputBorder(),
+          // Search Field
+          Expanded(
+            child: Container(
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                style: const TextStyle(fontSize: 13.5, color: Color(0xFF1E293B)),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  hintText: 'Tìm sản phẩm (vd: Lavie, Gas, Pulppy...)',
+                  hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                  prefixIcon: const Icon(LucideIcons.search, size: 18, color: Color(0xFF94A3B8)),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? GestureDetector(
+                          onTap: () => _searchController.clear(),
+                          child: const Icon(LucideIcons.xCircle, size: 16, color: Color(0xFF94A3B8)),
+                        )
+                      : null,
+                  border: InputBorder.none,
+                ),
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(LucideIcons.check, size: 16, color: Color(0xFF10B981)),
-            onPressed: () => setState(() => _isEditingRoom = false),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
-      );
-    }
+          const SizedBox(width: 10),
 
-    return GestureDetector(
-      onTap: () => setState(() => _isEditingRoom = true),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(LucideIcons.mapPin, size: 12, color: Color(0xFF64748B)),
-          const SizedBox(width: 4),
-          Text(
-            'Vị trí: ${_roomController.text}',
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF64748B),
+          // Sort Dropdown Button
+          GestureDetector(
+            onTap: _showSortPicker,
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(LucideIcons.slidersHorizontal, size: 14, color: Color(0xFF475569)),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Sắp xếp',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(LucideIcons.chevronDown, size: 14, color: Color(0xFF64748B)),
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 4),
-          const Icon(LucideIcons.pencil, size: 11, color: Color(0xFF94A3B8)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilterBar() {
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: _categories.length,
+        separatorBuilder: (_, index) => const SizedBox(width: 8),
+        itemBuilder: (ctx, index) {
+          final cat = _categories[index];
+          final isSelected = cat == _selectedCategory;
+
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedCategory = cat;
+                _filterProducts();
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  cat,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? Colors.white : const Color(0xFF475569),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -479,14 +581,14 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
-            width: isSelected ? 1.8 : 1.0,
+            width: isSelected ? 2.0 : 1.0,
           ),
           boxShadow: [
             BoxShadow(
               color: isSelected
                   ? const Color(0xFF2563EB).withValues(alpha: 0.08)
                   : Colors.black.withValues(alpha: 0.02),
-              blurRadius: isSelected ? 10 : 4,
+              blurRadius: isSelected ? 12 : 4,
               offset: const Offset(0, 2),
             ),
           ],
@@ -497,10 +599,10 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Thumbnail / Product Icon Container ──
+                // ── Thumbnail / Product Icon ──
                 Container(
-                  width: 78,
-                  height: 78,
+                  width: 80,
+                  height: 80,
                   decoration: BoxDecoration(
                     color: product.themeColor.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
@@ -512,7 +614,7 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
                   child: Center(
                     child: Icon(
                       product.icon,
-                      size: 34,
+                      size: 36,
                       color: product.themeColor,
                     ),
                   ),
@@ -524,41 +626,37 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Badge if any (e.g. Most Popular)
+                      // Badge if any
                       if (product.badge != null) ...[
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF7ED),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFFFEDD5)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF7ED),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFFFEDD5)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEA580C),
+                                  shape: BoxShape.circle,
+                                ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFEA580C),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    product.badge!,
-                                    style: const TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFFC2410C),
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 5),
+                              Text(
+                                product.badge!,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFC2410C),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 5),
                       ],
@@ -569,7 +667,7 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 13.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF0F172A),
                           height: 1.3,
@@ -577,10 +675,11 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
                       ),
                       const SizedBox(height: 6),
 
-                      // Price & Unit Price & Delivery Badge
+                      // Price & Unit Price & Delivery Badge (Responsive Wrap)
                       Wrap(
                         crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: 6,
+                        runSpacing: 4,
                         children: [
                           Text(
                             product.priceFormatted,
@@ -615,7 +714,7 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
                           ),
                         ],
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
 
                       const Text(
                         '+ Đã gồm thuế & hỗ trợ vác lầu',
@@ -626,7 +725,7 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
                       ),
                       const SizedBox(height: 6),
 
-                      // Smart Reorder Discount Tag (Amazon Dash Extra % off)
+                      // ── Smart Reorder Discount Tag (Overflow-Proof with Flexible) ──
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
@@ -716,7 +815,7 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      isExpanded ? 'Thu gọn' : '∨ Xem chi tiết sản phẩm',
+                      isExpanded ? 'Thu gọn thông số' : '∨ Xem chi tiết sản phẩm',
                       style: const TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
@@ -777,13 +876,13 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 60,
+            height: 60,
             decoration: const BoxDecoration(
               color: Color(0xFFF1F5F9),
               shape: BoxShape.circle,
             ),
-            child: const Icon(LucideIcons.searchX, size: 26, color: Color(0xFF94A3B8)),
+            child: const Icon(LucideIcons.searchX, size: 28, color: Color(0xFF94A3B8)),
           ),
           const SizedBox(height: 12),
           const Text(
@@ -796,13 +895,19 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
           ),
           const SizedBox(height: 4),
           const Text(
-            'Hãy thử tìm bằng từ khóa khác (ví dụ: Lavie, Gas, Gạo)',
+            'Hãy thử tìm bằng từ khóa khác hoặc chọn danh mục "Tất cả"',
             style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           TextButton(
-            onPressed: () => _searchController.clear(),
-            child: const Text('Xóa bộ lọc tìm kiếm'),
+            onPressed: () {
+              setState(() {
+                _searchController.clear();
+                _selectedCategory = 'Tất cả';
+                _filterProducts();
+              });
+            },
+            child: const Text('Đặt lại bộ lọc tìm kiếm'),
           ),
         ],
       ),
@@ -811,13 +916,13 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
 
   Widget _buildBottomBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
             offset: const Offset(0, -4),
           ),
         ],
@@ -835,7 +940,7 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
               children: [
                 const Text(
                   'Đã chọn: ',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
                 ),
                 Expanded(
                   child: Text(
@@ -843,7 +948,7 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 13,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF0F172A),
                     ),
@@ -851,9 +956,9 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
-            // Save Button
+            // Save CTA Button
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -871,7 +976,7 @@ class _ButtonProductSelectionModalState extends State<ButtonProductSelectionModa
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: 15,
                     letterSpacing: -0.2,
                   ),
                 ),

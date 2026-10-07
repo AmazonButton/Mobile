@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'login_screen.dart';
 import 'main_layout.dart';
 import '../models/user_profile_service.dart';
-import '../widgets/modals/button_product_selection_modal.dart';
+import 'button_product_selection_screen.dart';
 
 typedef HomePage = HomeScreen;
 
@@ -520,7 +520,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showSettingsDialog(Map<String, dynamic> device) {
-    ButtonProductSelectionModal.show(
+    ButtonProductSelectionScreen.open(
       context: context,
       buttonName: device['name'] as String,
       room: device['room'] as String,

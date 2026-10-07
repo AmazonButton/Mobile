@@ -40,6 +40,36 @@ class ButtonProductModel {
     required this.themeColor,
   });
 
+  factory ButtonProductModel.fromJson(Map<String, dynamic> json) {
+    final id = json['productId']?.toString() ?? json['id']?.toString() ?? 'prod-00';
+    final name = json['name']?.toString() ?? 'Sản phẩm';
+    final priceVal = (json['price'] as num?)?.toInt() ?? 50000;
+    final category = json['category']?['name']?.toString() ?? json['category']?.toString() ?? 'Nhu yếu phẩm';
+    final desc = json['description']?.toString() ?? 'Sản phẩm chính hãng chất lượng cao.';
+    final brand = json['brand']?.toString() ?? 'Chính hãng';
+    final specs = json['specs']?.toString() ?? json['unit']?.toString() ?? 'Tiêu chuẩn';
+
+    return ButtonProductModel(
+      id: id,
+      name: name,
+      shortName: name.length > 20 ? '${name.substring(0, 18)}...' : name,
+      brand: brand,
+      specs: specs,
+      price: priceVal,
+      priceFormatted: '${priceVal.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ',
+      unitPriceFormatted: 'Giá tiêu chuẩn',
+      badge: json['isFeatured'] == true ? 'Nổi bật' : null,
+      discountTag: 'Ưu đãi đặt qua nút bấm',
+      deliveryTag: '⚡ Giao nhanh 2h',
+      rating: 4.9,
+      reviewCount: 120,
+      description: desc,
+      category: category,
+      icon: LucideIcons.package,
+      themeColor: const Color(0xFF0D9488),
+    );
+  }
+
   static List<ButtonProductModel> get sampleProducts => const [
     ButtonProductModel(
       id: 'prod-lavie-19l',
