@@ -1,0 +1,17 @@
+{
+    "version": "v1",
+    "hooks": [
+        {
+            "name": "guard-rails",
+            "description": "Blocks reads/writes of sensitive files and protects .hs.json from unattended edits.",
+            "trigger": "PreToolUse",
+            "matcher": ".*",
+            "action": {
+                "type": "command",
+                "command": "node \"$(git rev-parse --show-toplevel)/.kiro/kit-hooks/guard-rails.mjs\" --platform kiro"
+            },
+            "timeout": 10,
+            "enabled": true
+        }
+    ]
+}

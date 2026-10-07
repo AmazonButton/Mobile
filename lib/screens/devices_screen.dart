@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../widgets/modals/button_product_selection_modal.dart';
+import '../widgets/devices/device_card.dart';
+import '../widgets/modals/product_selection_sheet.dart';
+import 'device_detail_screen.dart';
 
 class DevicesScreen extends StatefulWidget {
   const DevicesScreen({super.key});
@@ -19,28 +21,39 @@ class _DevicesScreenState extends State<DevicesScreen> {
       'room': 'Khu vực Bếp ăn',
       'product': 'Nước Lavie 20L',
       'price': '65.000đ',
-      'icon': LucideIcons.droplets,
       'battery': 85,
+      'badgeText': '20L',
       'signal': 'Rất tốt',
     },
     {
       'id': 'btn-2',
+      'name': 'Nút Phòng Khách',
+      'room': 'Bàn trà sofa',
+      'product': 'Aquafina 500ml (24 chai)',
+      'price': '98.000đ',
+      'battery': 15, // Demonstrates Low Battery Alert UI (<= 20)
+      'badgeText': '24 chai',
+      'signal': 'Ổn định',
+    },
+    {
+      'id': 'btn-3',
       'name': 'Nút Ban Công',
       'room': 'Lô gia tầng 12',
       'product': 'Bình Gas Petrolimex 12kg',
       'price': '380.000đ',
-      'icon': LucideIcons.flame,
       'battery': 92,
-      'signal': 'Ổn định',
+      'badgeText': '12kg',
+      'signal': 'Rất tốt',
     },
   ];
+
   void _showToast(String message) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF1E293B),
-        elevation: 8,
+        elevation: 0,
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
@@ -63,299 +76,159 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   void _showConfigureModal(Map<String, dynamic> device) {
-    ButtonProductSelectionModal.show(
+    HapticFeedback.lightImpact();
+    ProductSelectionSheet.show(
       context: context,
       buttonName: device['name'] as String,
-      room: device['room'] as String,
       currentProductName: device['product'] as String,
-      onSave: (selectedProduct, updatedRoom) {
+      onSave: (selectedProduct) {
         setState(() {
           device['product'] = selectedProduct.shortName;
           device['price'] = selectedProduct.priceFormatted;
-          device['icon'] = selectedProduct.icon;
-          if (updatedRoom.isNotEmpty) {
-            device['room'] = updatedRoom;
-          }
+          device['badgeText'] = selectedProduct.shortName.contains('Gas')
+              ? '12kg'
+              : selectedProduct.shortName.contains('500ml')
+                  ? '24 chai'
+                  : '20L';
         });
         _showToast(
-          'Đã liên kết ${selectedProduct.shortName} cho ${device['name']}',
+          'Đã gắn ${selectedProduct.shortName} cho ${device['name']}',
         );
       },
     );
   }
 
+  void _navigateToDetail(Map<String, dynamic> device) {
+    HapticFeedback.lightImpact();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DeviceDetailScreen(
+          deviceId: device['id'] as String?,
+          deviceName: device['name'] as String,
+          room: device['room'] as String,
+          productName: device['product'] as String,
+          productPrice: device['price'] as String,
+          battery: device['battery'] as int,
+        ),
+      ),
+    ).then((_) {
+      // Re-render when returning if state changed
+      setState(() {});
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFD),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            stops: [0.0, 0.35, 1.0],
-            colors: [
-              Color(0xFFEBF4FE),
-              Color(0xFFF7FAFD),
-              Colors.white,
-            ],
+      backgroundColor: const Color(0xFFF8FAFC), // Slate 50
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
           ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: ListView(
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Thiết bị',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          '2 nút bấm sẵn sàng kết nối',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                    _TactileTap(
-                      onTap: () => _showToast('Đang quét Bluetooth tìm Smart Button mới...'),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E293B),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF1E293B).withValues(alpha: 0.15),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(LucideIcons.plus, size: 15, color: Colors.white),
-                            SizedBox(width: 6),
-                            Text(
-                              'Thêm nút',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Devices List
-              ..._devices.map((device) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildDeviceCard(device: device),
-              )),
-
-              const SizedBox(height: 4),
-
-              // Pairing Banner
-              _buildPairingGuideCard(),
-            ]
-                .animate(interval: 50.ms)
-                .fade(duration: 250.ms)
-                .slideY(begin: 0.05, curve: Curves.easeOutQuad),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDeviceCard({
-    required Map<String, dynamic> device,
-  }) {
-    final name = device['name'] as String;
-    final room = device['room'] as String;
-    final product = device['product'] as String;
-    final price = device['price'] as String;
-    final icon = device['icon'] as IconData;
-    final battery = device['battery'] as int;
-    final signal = device['signal'] as String? ?? 'Rất tốt';
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFF1F5F9)),
-                ),
-                child: Icon(icon, size: 20, color: const Color(0xFF64748B)),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF10B981),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      room,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _TactileTap(
-                onTap: () => _showConfigureModal(device),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFF1F5F9)),
-                  ),
-                  child: const Icon(
-                    LucideIcons.settings2,
-                    size: 16,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 14),
-
-          // Metadata row: Product & Battery & WiFi
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'SẢN PHẨM CỐ ĐỊNH',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF94A3B8),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$product ($price)',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Row(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+          children: [
+            // ── Header Row ──
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Icon(LucideIcons.batteryMedium, size: 14, color: Color(0xFF10B981)),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$battery%',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF475569),
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Thiết bị',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E293B),
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${_devices.length} nút bấm sẵn sàng kết nối',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  const Icon(LucideIcons.wifi, size: 14, color: Color(0xFF64748B)),
-                  const SizedBox(width: 4),
-                  Text(
-                    signal,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF64748B),
+                  _TactileTap(
+                    onTap: () => _showToast(
+                      'Đang quét Bluetooth tìm Smart Button mới...',
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF1E293B).withValues(alpha: 0.15),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(LucideIcons.plus, size: 15, color: Colors.white),
+                          SizedBox(width: 6),
+                          Text(
+                            'Thêm nút',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
-        ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Devices List ──
+            ..._devices.map(
+              (device) => Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: DeviceCard(
+                  id: device['id'] as String,
+                  name: device['name'] as String,
+                  room: device['room'] as String,
+                  product: device['product'] as String,
+                  price: device['price'] as String,
+                  batteryLevel: device['battery'] as int,
+                  badgeText: device['badgeText'] as String? ?? '20L',
+                  signal: device['signal'] as String? ?? 'Rất tốt',
+                  onTap: () => _navigateToDetail(device),
+                  onSettings: () => _showConfigureModal(device),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 6),
+
+            // ── Pairing Guide Card ──
+            _buildPairingGuideCard(),
+          ]
+              .animate(interval: 50.ms)
+              .fade(duration: 300.ms)
+              .slideY(begin: 0.05, curve: Curves.easeOut),
+        ),
       ),
     );
   }
@@ -364,7 +237,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF).withValues(alpha: 0.6),
+        color: const Color(0xFFEFF6FF),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFDBEAFE)),
       ),

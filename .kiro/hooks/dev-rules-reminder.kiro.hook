@@ -1,0 +1,16 @@
+{
+    "version": "v1",
+    "hooks": [
+        {
+            "name": "dev-rules-reminder",
+            "description": "Periodically re-injects core working rules into the session.",
+            "trigger": "UserPromptSubmit",
+            "action": {
+                "type": "command",
+                "command": "node \"$(git rev-parse --show-toplevel)/.kiro/kit-hooks/dev-rules-reminder.mjs\""
+            },
+            "timeout": 10,
+            "enabled": true
+        }
+    ]
+}

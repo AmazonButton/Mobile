@@ -1,0 +1,29 @@
+{
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": ".*",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-rails.mjs\" --platform claude",
+                        "timeout": 10,
+                        "statusMessage": "Checking harness-skills guard rails"
+                    }
+                ]
+            }
+        ],
+        "UserPromptSubmit": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/dev-rules-reminder.mjs\"",
+                        "timeout": 10,
+                        "statusMessage": "Refreshing harness-skills session rules"
+                    }
+                ]
+            }
+        ]
+    }
+}
