@@ -10,6 +10,7 @@ import 'device_detail_screen.dart';
 import '../models/user_profile_service.dart';
 import '../widgets/modals/product_selection_sheet.dart';
 import '../widgets/devices/smart_button_card.dart';
+import 'button_product_selection_screen.dart';
 
 typedef HomePage = HomeScreen;
 
