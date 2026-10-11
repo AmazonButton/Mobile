@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'dashboard_screen.dart';
 import 'signup_screen.dart';
 import 'forgot_info_screen.dart';
-import 'onboarding/button_onboarding_screen.dart';
 import '../services/services.dart';
+import '../models/user_profile_service.dart';
 
 
 class LoginScreen extends StatefulWidget {
@@ -290,29 +290,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _navigateToButtonOnboarding() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const ButtonOnboardingScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              ),
-            ),
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 350),
-      ),
-    );
-  }
 
   Future<void> _handleLogin() async {
     if (!_isFormValid) return;
@@ -320,11 +297,24 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final email = _emailController.text.trim();
       final phone = _phoneController.text.trim();
-      await AuthApiService().login(
+      final res = await AuthApiService().login(
         email: email,
         password: phone,
         rememberMe: _rememberMe,
       );
+      final data = res['data'] ?? res;
+      final user = data['user'] ?? data;
+      if (user != null) {
+        if (user['fullName'] != null) {
+          UserProfileService().updateName(user['fullName'].toString());
+        }
+        if (user['email'] != null) {
+          UserProfileService().updateEmail(user['email'].toString());
+        }
+        if (user['phone'] != null) {
+          UserProfileService().updatePhone(user['phone'].toString());
+        }
+      }
       if (mounted) {
         setState(() => _isLoading = false);
         _navigateToDashboard();
@@ -928,72 +918,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               ],
-                            ),
-
-                            const SizedBox(height: 18),
-
-                            // ── Nút Bấm SmartOrder Onboarding Card ──
-                            InkWell(
-                              onTap: _navigateToButtonOnboarding,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFF3E8),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: const Color(0xFFF5862B).withValues(alpha: 0.35),
-                                    width: 1.2,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF5862B),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(
-                                        Icons.touch_app_rounded,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Cài đặt Nút Bấm SmartOrder',
-                                            style: TextStyle(
-                                              fontSize: 13.5,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF1B3A5C),
-                                              fontFamily: 'Be Vietnam Pro',
-                                            ),
-                                          ),
-                                          SizedBox(height: 2),
-                                          Text(
-                                            'Đăng ký & kết nối thiết bị căn hộ (5 bước)',
-                                            style: TextStyle(
-                                              fontSize: 11.5,
-                                              color: Color(0xFF627D98),
-                                              fontFamily: 'Be Vietnam Pro',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.arrow_forward_ios_rounded,
-                                      size: 14,
-                                      color: Color(0xFFF5862B),
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ),
 
                             const Spacer(),

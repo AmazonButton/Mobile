@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../constants/app_colors.dart';
 import '../models/button_product_model.dart';
+import '../services/services.dart';
 
 enum ProductSortOption {
   popular('Phổ biến nhất'),
@@ -94,9 +95,31 @@ class _ButtonProductSelectionScreenState extends State<ButtonProductSelectionScr
     );
     _selectedProduct = matched;
     _filteredProducts = List.from(_allProducts);
-    _sortProducts();
-
     _searchController.addListener(_filterProducts);
+    _loadProductsFromApi();
+  }
+
+  Future<void> _loadProductsFromApi() async {
+    try {
+      final rawList = await ProductsApiService().getProducts();
+      if (rawList.isNotEmpty && mounted) {
+        final apiProducts = rawList
+            .map((p) => ButtonProductModel.fromJson(Map<String, dynamic>.from(p as Map)))
+            .toList();
+        setState(() {
+          _allProducts = apiProducts;
+          final matched = _allProducts.firstWhere(
+            (p) =>
+                p.shortName.toLowerCase() == widget.currentProductName.toLowerCase() ||
+                p.name.toLowerCase().contains(widget.currentProductName.toLowerCase()) ||
+                widget.currentProductName.toLowerCase().contains(p.shortName.toLowerCase()),
+            orElse: () => _allProducts.first,
+          );
+          _selectedProduct = matched;
+          _filterProducts();
+        });
+      }
+    } catch (_) {}
   }
 
   @override
