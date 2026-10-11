@@ -61,6 +61,30 @@ class ApiClient {
     _refreshToken = null;
   }
 
+  /// Automatically authenticates with default test customer credentials if token is missing
+  Future<void> ensureAuthenticated() async {
+    if (_accessToken != null && _accessToken!.isNotEmpty) return;
+    try {
+      final res = await _httpClient.post(
+        _buildUri(ApiConfig.authLogin),
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: jsonEncode({
+          'email': 'customer@smartorder.local',
+          'password': 'Password123!',
+        }),
+      );
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final dynamic body = jsonDecode(utf8.decode(res.bodyBytes));
+        final data = body['data'] ?? body;
+        final token = body['accessToken'] ?? data['token'] ?? data['accessToken'];
+        final refresh = body['refreshToken'] ?? data['refreshToken'];
+        if (token != null) {
+          setTokens(accessToken: token.toString(), refreshToken: refresh?.toString());
+        }
+      }
+    } catch (_) {}
+  }
+
   Uri _buildUri(String path, [Map<String, dynamic>? queryParams]) {
     final cleanPath = path.startsWith('/') ? path : '/$path';
     final fullUrl = '${ApiConfig.baseUrl}$cleanPath';
@@ -137,11 +161,18 @@ class ApiClient {
     );
   }
 
+  Future<void> _checkAuth(String path) async {
+    if (!isAuthenticated && !path.contains('/auth/')) {
+      await ensureAuthenticated();
+    }
+  }
+
   Future<dynamic> get(
     String path, {
     Map<String, dynamic>? queryParams,
     Map<String, String>? headers,
   }) async {
+    await _checkAuth(path);
     final uri = _buildUri(path, queryParams);
     try {
       final response = await _httpClient
@@ -169,6 +200,7 @@ class ApiClient {
     Map<String, dynamic>? queryParams,
     Map<String, String>? headers,
   }) async {
+    await _checkAuth(path);
     final uri = _buildUri(path, queryParams);
     final encodedBody = body != null ? jsonEncode(body) : null;
     try {
@@ -197,6 +229,7 @@ class ApiClient {
     Map<String, dynamic>? queryParams,
     Map<String, String>? headers,
   }) async {
+    await _checkAuth(path);
     final uri = _buildUri(path, queryParams);
     final encodedBody = body != null ? jsonEncode(body) : null;
     try {
@@ -225,6 +258,7 @@ class ApiClient {
     Map<String, dynamic>? queryParams,
     Map<String, String>? headers,
   }) async {
+    await _checkAuth(path);
     final uri = _buildUri(path, queryParams);
     final encodedBody = body != null ? jsonEncode(body) : null;
     try {
@@ -253,6 +287,7 @@ class ApiClient {
     Map<String, dynamic>? queryParams,
     Map<String, String>? headers,
   }) async {
+    await _checkAuth(path);
     final uri = _buildUri(path, queryParams);
     final encodedBody = body != null ? jsonEncode(body) : null;
     try {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../services/services.dart';
 
 class OrdersScreen extends StatefulWidget {
   final bool showBackButton;
@@ -16,23 +17,31 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _cancelCountdown = 39;
+  int _cancelCountdown = 60;
   Timer? _countdownTimer;
-  bool _isOrderCancelled = false;
+
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _activeOrders = [];
+  List<Map<String, dynamic>> _historyOrders = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadOrders();
     _startCountdown();
   }
 
   void _startCountdown() {
+    _countdownTimer?.cancel();
+    _cancelCountdown = 60;
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_cancelCountdown > 0) {
-        setState(() {
-          _cancelCountdown--;
-        });
+        if (mounted) {
+          setState(() {
+            _cancelCountdown--;
+          });
+        }
       } else {
         timer.cancel();
       }
@@ -44,6 +53,116 @@ class _OrdersScreenState extends State<OrdersScreen>
     _countdownTimer?.cancel();
     _tabController.dispose();
     super.dispose();
+  }
+
+  String _formatCurrency(num amount) {
+    final str = amount.toInt().toString();
+    final buffer = StringBuffer();
+    int count = 0;
+    for (int i = str.length - 1; i >= 0; i--) {
+      buffer.write(str[i]);
+      count++;
+      if (count % 3 == 0 && i > 0) {
+        buffer.write('.');
+      }
+    }
+    return '${buffer.toString().split('').reversed.join()}đ';
+  }
+
+  Map<String, dynamic> _parseOrder(Map<String, dynamic> ord) {
+    String title = 'Đơn hàng SmartOrder';
+    if (ord['items'] is List && (ord['items'] as List).isNotEmpty) {
+      final first = (ord['items'] as List).first;
+      final qty = first['quantity'] ?? 1;
+      final name = first['productNameSnapshot'] ?? first['product']?['productName'] ?? 'Sản phẩm';
+      title = '${qty}x $name';
+    } else if (ord['orderItems'] is List && (ord['orderItems'] as List).isNotEmpty) {
+      final first = (ord['orderItems'] as List).first;
+      final qty = first['quantity'] ?? 1;
+      final name = first['product']?['name'] ?? first['productName'] ?? 'Sản phẩm';
+      title = '${qty}x $name';
+    }
+
+    final buttonName = ord['button']?['buttonName'] ?? ord['buttonName'] ?? 'Nút bấm IoT';
+    final deviceId = ord['button']?['deviceId'] ?? ord['deviceId'] ?? '';
+
+    String dateStr = 'Gần đây';
+    if (ord['createdAt'] != null) {
+      try {
+        final dt = DateTime.parse(ord['createdAt'].toString()).toLocal();
+        final now = DateTime.now();
+        if (dt.day == now.day && dt.month == now.month && dt.year == now.year) {
+          dateStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}, Hôm nay';
+        } else {
+          dateStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}, ${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+        }
+      } catch (_) {
+        dateStr = ord['createdAt'].toString();
+      }
+    }
+
+    final rawAmount = ord['totalAmount'] ?? ord['subtotalAmount'] ?? 0;
+    final num amt = num.tryParse(rawAmount.toString()) ?? 0;
+    final priceStr = _formatCurrency(amt);
+
+    final rawStatus = (ord['orderStatus'] ?? ord['status'] ?? 'PENDING').toString().toUpperCase();
+
+    IconData icon = LucideIcons.package;
+    final lowerTitle = title.toLowerCase();
+    if (lowerTitle.contains('nước') || lowerTitle.contains('lavie')) {
+      icon = LucideIcons.droplets;
+    } else if (lowerTitle.contains('gas') || lowerTitle.contains('petrolimex')) {
+      icon = LucideIcons.flame;
+    } else if (lowerTitle.contains('gạo') || lowerTitle.contains('st25')) {
+      icon = LucideIcons.shoppingBag;
+    }
+
+    return {
+      'id': ord['orderId']?.toString() ?? ord['id']?.toString() ?? '',
+      'orderNumber': ord['orderNumber'] ?? ord['orderCode'] ?? '#ORD',
+      'title': title,
+      'buttonName': buttonName,
+      'deviceId': deviceId,
+      'date': dateStr,
+      'price': priceStr,
+      'rawAmount': amt,
+      'status': rawStatus,
+      'icon': icon,
+      'raw': ord,
+    };
+  }
+
+  Future<void> _loadOrders() async {
+    setState(() => _isLoading = true);
+    try {
+      final rawOrders = await OrdersApiService().getOrders();
+      final active = <Map<String, dynamic>>[];
+      final history = <Map<String, dynamic>>[];
+
+      for (final raw in rawOrders) {
+        final ord = Map<String, dynamic>.from(raw as Map);
+        final parsed = _parseOrder(ord);
+        final status = parsed['status'] as String;
+
+        if (status == 'PENDING' || status == 'CONFIRMED' || status == 'PROCESSING' || status == 'SHIPPING') {
+          active.add(parsed);
+        } else {
+          history.add(parsed);
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _activeOrders = active;
+          _historyOrders = history;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _showFloatingToast(String message) {
@@ -96,7 +215,10 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
-  void _handleEmergencyCancel() {
+  void _handleEmergencyCancel(Map<String, dynamic> order) {
+    final orderId = order['id'] as String;
+    final orderTitle = order['title'] as String;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -118,9 +240,9 @@ class _OrdersScreenState extends State<OrdersScreen>
             ),
           ],
         ),
-        content: const Text(
-          'Đơn hàng "Túi Gạo ST25 Ông Cua 5kg" đang trong 60 giây an toàn. Bạn có muốn hủy ngay lập tức không?',
-          style: TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.4),
+        content: Text(
+          'Đơn hàng "$orderTitle" đang trong thời gian an toàn. Bạn có muốn hủy ngay lập tức không?',
+          style: const TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.4),
         ),
         actions: [
           TextButton(
@@ -130,13 +252,15 @@ class _OrdersScreenState extends State<OrdersScreen>
                     color: Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              setState(() {
-                _isOrderCancelled = true;
-                _countdownTimer?.cancel();
-              });
-              _showFloatingToast('Đã hủy đơn hàng thành công');
+              try {
+                await OrdersApiService().cancelOrder(orderId, reason: 'Hủy đơn khẩn cấp từ ứng dụng');
+                _showFloatingToast('Đã hủy đơn hàng thành công');
+                _loadOrders();
+              } catch (e) {
+                _showFloatingToast('Lỗi khi hủy: ${e is ApiException ? e.message : e.toString()}');
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
@@ -153,6 +277,25 @@ class _OrdersScreenState extends State<OrdersScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _handleReorder(Map<String, dynamic> order) async {
+    final deviceId = order['deviceId']?.toString() ?? '';
+    final title = order['title'] as String;
+
+    if (deviceId.isEmpty) {
+      _showFloatingToast('Không tìm thấy thiết bị gán cho đơn hàng này');
+      return;
+    }
+
+    try {
+      await OrdersApiService().quickReorder(deviceId: deviceId);
+      _showFloatingToast('Đã đặt lại thành công: $title');
+      _tabController.animateTo(0);
+      _loadOrders();
+    } catch (e) {
+      _showFloatingToast('Lỗi đặt hàng: ${e is ApiException ? e.message : e.toString()}');
+    }
   }
 
   @override
@@ -260,9 +403,9 @@ class _OrdersScreenState extends State<OrdersScreen>
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
-                    tabs: const [
-                      Tab(text: 'Đang diễn ra'),
-                      Tab(text: 'Lịch sử'),
+                    tabs: [
+                      Tab(text: 'Đang diễn ra (${_activeOrders.length})'),
+                      Tab(text: 'Lịch sử (${_historyOrders.length})'),
                     ],
                   ),
                 ),
@@ -276,10 +419,18 @@ class _OrdersScreenState extends State<OrdersScreen>
                   controller: _tabController,
                   children: [
                     // Tab 1: Đang diễn ra
-                    _buildActiveTabView(),
+                    RefreshIndicator(
+                      onRefresh: _loadOrders,
+                      color: const Color(0xFF1E293B),
+                      child: _buildActiveTabView(),
+                    ),
 
                     // Tab 2: Lịch sử
-                    _buildHistoryTabView(),
+                    RefreshIndicator(
+                      onRefresh: _loadOrders,
+                      color: const Color(0xFF1E293B),
+                      child: _buildHistoryTabView(),
+                    ),
                   ],
                 ),
               ),
@@ -292,318 +443,355 @@ class _OrdersScreenState extends State<OrdersScreen>
 
   // ================= TAB 1: ĐANG DIỄN RA =================
   Widget _buildActiveTabView() {
-    return ListView(
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-      children: [
-        // ── Card 1: Emergency 60s Cancel ──
-        if (!_isOrderCancelled) ...[
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 40),
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
+      );
+    }
+
+    if (_activeOrders.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 60, 20, 40),
+        children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFFECACA), width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: const Column(
               children: [
-                // Top Row: Shield Alert + Title + Countdown Badge
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(
-                          LucideIcons.shieldAlert,
-                          color: Color(0xFFEF4444),
-                          size: 16,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'CỬA SỔ AN TOÀN 60 GIÂY',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFDC2626),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEE2E2),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFFCA5A5)),
-                      ),
-                      child: Text(
-                        '⏱ ${_cancelCountdown}s',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFDC2626),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                // Mid Row: Item info
-                const Text(
-                  '1x Túi Gạo ST25 Ông Cua 5kg',
+                Icon(LucideIcons.packageCheck, size: 40, color: Color(0xFF94A3B8)),
+                SizedBox(height: 14),
+                Text(
+                  'Không có đơn hàng nào đang diễn ra',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1E293B),
-                    letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Nút Ban Công • Vừa bấm 21 giây trước',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                // Bottom Row: Solid Red Button "Hủy đơn ngay"
-                TactileButton(
-                  scale: 0.96,
-                  onTap: _handleEmergencyCancel,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              const Color(0xFFEF4444).withValues(alpha: 0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(LucideIcons.x, color: Colors.white, size: 16),
-                        SizedBox(width: 8),
-                        Text(
-                          'Hủy đơn ngay',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                SizedBox(height: 6),
+                Text(
+                  'Nhấn nút vật lý hoặc bấm đặt trên ứng dụng để khởi tạo đơn hàng mới.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 18),
         ],
+      );
+    }
 
-        // ── Card 2: Live Tracking ──
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFF1F5F9)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header: Status badge + Order ID
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF10B981),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'Đang giao hàng',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF059669),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Text(
-                    '#ORD-9842',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ),
-                ],
-              ),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+      children: [
+        ..._activeOrders.map((order) {
+          final isPending = order['status'] == 'PENDING';
 
-              const SizedBox(height: 14),
-
-              // Item details
-              const Text(
-                '1x Nước Lavie 20L',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B),
-                  letterSpacing: -0.3,
-                ),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                'Nút Bếp • Dự kiến giao lúc 15:15 (còn ~25 phút)',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-
-              const SizedBox(height: 22),
-
-              // Custom Timeline Row: 3 dots connected by a line
-              _buildTimeline(),
-
-              const SizedBox(height: 22),
-
-              // Action Row: "Theo dõi lộ trình" & "Gọi tài xế"
-              Row(
-                children: [
-                  Expanded(
-                    flex: 6,
-                    child: TactileButton(
-                      scale: 0.96,
-                      onTap: () =>
-                          _showFloatingToast('Mở bản đồ lộ trình giao hàng'),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF64748B),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF64748B)
-                                  .withValues(alpha: 0.2),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'Theo dõi lộ trình',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 4,
-                    child: TactileButton(
-                      scale: 0.96,
-                      onTap: () => _showFloatingToast('Đang gọi tài xế...'),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFCBD5E1)),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              LucideIcons.phone,
-                              size: 15,
-                              color: Color(0xFF475569),
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              'Gọi tài xế',
-                              style: TextStyle(
-                                color: Color(0xFF334155),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 18),
+            child: isPending
+                ? _buildPendingEmergencyCard(order)
+                : _buildLiveTrackingCard(order),
+          );
+        }),
       ],
     ).animate().fade(duration: 200.ms).slideY(begin: 0.05);
   }
 
-  // Custom Timeline Widget: Đã nhận -> Chuẩn bị -> Đang giao
-  Widget _buildTimeline() {
+  Widget _buildPendingEmergencyCard(Map<String, dynamic> order) {
+    final title = order['title'] as String;
+    final buttonName = order['buttonName'] as String;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFECACA), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFEF4444).withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(
+                    LucideIcons.shieldAlert,
+                    color: Color(0xFFEF4444),
+                    size: 16,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'CỬA SỔ AN TOÀN 60 GIÂY',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFDC2626),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEE2E2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                ),
+                child: Text(
+                  '⏱ ${_cancelCountdown}s',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFDC2626),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E293B),
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$buttonName • Vừa gửi lệnh',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          TactileButton(
+            scale: 0.96,
+            onTap: () => _handleEmergencyCancel(order),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(LucideIcons.x, color: Colors.white, size: 16),
+                  SizedBox(width: 8),
+                  Text(
+                    'Hủy đơn ngay',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiveTrackingCard(Map<String, dynamic> order) {
+    final title = order['title'] as String;
+    final buttonName = order['buttonName'] as String;
+    final orderNumber = order['orderNumber'] as String;
+    final status = order['status'] as String;
+    final isShipping = status == 'SHIPPING';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isShipping ? const Color(0xFFEFF6FF) : const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: isShipping ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isShipping ? 'Đang giao hàng' : 'Đang chuẩn bị',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isShipping ? const Color(0xFF2563EB) : const Color(0xFF059669),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                orderNumber,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E293B),
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '$buttonName • ${order['price']}',
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF64748B),
+            ),
+          ),
+
+          const SizedBox(height: 22),
+
+          _buildTimeline(isShipping),
+
+          const SizedBox(height: 20),
+
+          Row(
+            children: [
+              Expanded(
+                flex: 6,
+                child: TactileButton(
+                  scale: 0.96,
+                  onTap: () => _showFloatingToast('Đơn hàng đang được điều phối'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF64748B),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Theo dõi tiến trình',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 4,
+                child: TactileButton(
+                  scale: 0.96,
+                  onTap: () => _handleEmergencyCancel(order),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFECDD3)),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Hủy đơn',
+                        style: TextStyle(
+                          color: Color(0xFFF43F5E),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeline(bool isShipping) {
     return Column(
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Step 1: Đã nhận (Completed)
             _buildTimelineNode(
               icon: LucideIcons.checkCircle2,
               isCompleted: true,
@@ -615,23 +803,21 @@ class _OrdersScreenState extends State<OrdersScreen>
                 color: const Color(0xFF10B981),
               ),
             ),
-            // Step 2: Chuẩn bị (Completed)
             _buildTimelineNode(
               icon: LucideIcons.package,
               isCompleted: true,
-              isActive: false,
+              isActive: !isShipping,
             ),
             Expanded(
               child: Container(
                 height: 2,
-                color: const Color(0xFFA3B8CD),
+                color: isShipping ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
               ),
             ),
-            // Step 3: Đang giao (Active)
             _buildTimelineNode(
               icon: LucideIcons.truck,
               isCompleted: false,
-              isActive: true,
+              isActive: isShipping,
             ),
           ],
         ),
@@ -708,34 +894,69 @@ class _OrdersScreenState extends State<OrdersScreen>
 
   // ================= TAB 2: LỊCH SỬ =================
   Widget _buildHistoryTabView() {
-    final pastOrders = [
-      {
-        'title': '1x Nước Lavie 20L',
-        'date': '14:20, Hôm qua',
-        'price': '65.000đ',
-        'icon': LucideIcons.droplets,
-      },
-      {
-        'title': '1x Bình Gas Petrolimex 12kg',
-        'date': '09:15, 28/02/2026',
-        'price': '380.000đ',
-        'icon': LucideIcons.flame,
-      },
-      {
-        'title': '1x Túi Gạo ST25 Ông Cua 5kg',
-        'date': '17:30, 21/02/2026',
-        'price': '185.000đ',
-        'icon': LucideIcons.shoppingBag,
-      },
-    ];
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 40),
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
+      );
+    }
+
+    if (_historyOrders.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 60, 20, 40),
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
+            ),
+            child: const Column(
+              children: [
+                Icon(LucideIcons.history, size: 40, color: Color(0xFF94A3B8)),
+                SizedBox(height: 14),
+                Text(
+                  'Chưa có đơn hàng nào trong lịch sử',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Lịch sử các đơn hàng đã nhận hoặc đã hủy sẽ hiển thị tại đây.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Calculate total spend
+    num totalSpend = 0;
+    for (final h in _historyOrders) {
+      if (h['status'] != 'CANCELLED') {
+        totalSpend += (h['rawAmount'] as num? ?? 0);
+      }
+    }
 
     return ListView(
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
       ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
       children: [
-        // ── Card 1: Monthly Stats ──
+        // ── Card 1: Stats ──
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -776,7 +997,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'THỐNG KÊ THÁNG 3',
+                          'TỔNG KẾT ĐƠN HÀNG',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -791,9 +1012,9 @@ class _OrdersScreenState extends State<OrdersScreen>
                             color: const Color(0xFFECFDF5),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Text(
-                            'Tiết kiệm 35 phút',
-                            style: TextStyle(
+                          child: Text(
+                            '${_historyOrders.length} đơn',
+                            style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF10B981),
@@ -803,9 +1024,9 @@ class _OrdersScreenState extends State<OrdersScreen>
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Tổng chi: 630.000đ • 4 lần chạm',
-                      style: TextStyle(
+                    Text(
+                      'Tổng chi: ${_formatCurrency(totalSpend)}',
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF1E293B),
@@ -821,30 +1042,24 @@ class _OrdersScreenState extends State<OrdersScreen>
         const SizedBox(height: 16),
 
         // ── List of Past Orders ──
-        ...pastOrders.map((order) {
+        ..._historyOrders.map((order) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 14),
-            child: _buildPastOrderCard(
-              title: order['title'] as String,
-              date: order['date'] as String,
-              price: order['price'] as String,
-              icon: order['icon'] as IconData,
-            ),
+            child: _buildPastOrderCard(order),
           );
         }),
-      ]
-          .animate(interval: 50.ms)
-          .fade(duration: 250.ms)
-          .slideY(begin: 0.1, curve: Curves.easeOutQuad),
+      ],
     );
   }
 
-  Widget _buildPastOrderCard({
-    required String title,
-    required String date,
-    required String price,
-    required IconData icon,
-  }) {
+  Widget _buildPastOrderCard(Map<String, dynamic> order) {
+    final title = order['title'] as String;
+    final date = order['date'] as String;
+    final price = order['price'] as String;
+    final icon = order['icon'] as IconData;
+    final status = order['status'] as String;
+    final isCancelled = status == 'CANCELLED';
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -860,7 +1075,6 @@ class _OrdersScreenState extends State<OrdersScreen>
       ),
       child: Column(
         children: [
-          // Order Header & Content
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -918,18 +1132,17 @@ class _OrdersScreenState extends State<OrdersScreen>
                     ),
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
+                        color: isCancelled ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
-                        'Đã nhận hàng',
+                      child: Text(
+                        isCancelled ? 'Đã hủy' : 'Đã giao',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF059669),
+                          color: isCancelled ? const Color(0xFFDC2626) : const Color(0xFF059669),
                         ),
                       ),
                     ),
@@ -941,7 +1154,6 @@ class _OrdersScreenState extends State<OrdersScreen>
 
           const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
 
-          // Bottom Action Row: "Hóa đơn" & "Đặt lại"
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -949,10 +1161,9 @@ class _OrdersScreenState extends State<OrdersScreen>
               children: [
                 TactileButton(
                   scale: 0.96,
-                  onTap: () => _showFloatingToast('Mở chi tiết hóa đơn điện tử'),
+                  onTap: () => _showFloatingToast('Mã đơn: ${order['orderNumber']}'),
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
@@ -968,7 +1179,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                         ),
                         SizedBox(width: 6),
                         Text(
-                          'Hóa đơn',
+                          'Chi tiết',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -982,23 +1193,20 @@ class _OrdersScreenState extends State<OrdersScreen>
                 const SizedBox(width: 8),
                 TactileButton(
                   scale: 0.96,
-                  onTap: () =>
-                      _showFloatingToast('Đã gửi lại yêu cầu đặt: $title'),
+                  onTap: () => _handleReorder(order),
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: const Color(0xFF64748B),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           LucideIcons.rotateCcw,
-                          size: 14,
-                          color: Color(0xFF1E293B),
+                          size: 13,
+                          color: Colors.white,
                         ),
                         SizedBox(width: 6),
                         Text(
@@ -1006,7 +1214,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
+                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -1022,7 +1230,6 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 }
 
-/// Tactile Button with hardware feel (scale: 0.96 by default)
 class TactileButton extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
@@ -1032,7 +1239,7 @@ class TactileButton extends StatefulWidget {
     super.key,
     required this.child,
     required this.onTap,
-    this.scale = 0.96,
+    this.scale = 0.95,
   });
 
   @override

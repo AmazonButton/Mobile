@@ -135,6 +135,9 @@ class AuthApiService {
     return response['data'] ?? response;
   }
 
+  /// Alias for getMe
+  Future<Map<String, dynamic>> getProfile() => getMe();
+
   /// Kiểm tra email đã đăng ký chưa
   Future<bool> checkEmail(String email) async {
     try {
