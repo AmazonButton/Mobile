@@ -1,56 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:lucide_icons/lucide_icons.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../models/button_product_model.dart';
 
-/// Reusable tactile bounce helper: scales down to 0.96 on tap.
-class _TactileBounce extends StatefulWidget {
-  final Widget child;
-  final VoidCallback? onTap;
-
-  const _TactileBounce({required this.child, this.onTap});
-
-  @override
-  State<_TactileBounce> createState() => _TactileBounceState();
-}
-
-class _TactileBounceState extends State<_TactileBounce> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) {
-        HapticFeedback.lightImpact();
-        setState(() => _isPressed = true);
-      },
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeOutCubic,
-        child: widget.child,
-      ),
-    );
-  }
-}
-
-/// Standalone Product Selection Bottom Sheet conforming to Apple / Big Tech standards.
-///
-/// Features:
-/// - Exact 85% height of screen with sticky persistent bottom bar
-/// - Radio cards with pure white / #EFF6FF background & #1D4ED8 active border
-/// - LucideIcons.checkCircle2 & LucideIcons.circle for radio indicators
-/// - Promotional tags ("Freeship đơn từ 150k") with light green backgrounds
-/// - Massive dark blue "Lưu thay đổi" button with tactile bounce (0.96 scale)
-/// - Sequential card entry animations (flutter_animate)
+/// Minimalist Product Selection Bottom Sheet matching Screen 3 in the design.
 class ProductSelectionSheet extends StatefulWidget {
   final String buttonName;
   final String currentProductName;
@@ -63,7 +17,7 @@ class ProductSelectionSheet extends StatefulWidget {
     required this.onSave,
   });
 
-  /// Opens the Product Selection bottom sheet (85% screen height).
+  /// Opens the Product Selection bottom sheet.
   static Future<ButtonProductModel?> show({
     required BuildContext context,
     required String buttonName,
@@ -74,7 +28,7 @@ class ProductSelectionSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (ctx) => ProductSelectionSheet(
         buttonName: buttonName,
         currentProductName: currentProductName,
@@ -91,6 +45,9 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
   late final List<ButtonProductModel> _products;
   late ButtonProductModel _selectedProduct;
   String _searchQuery = '';
+  String _selectedCategory = 'Tất cả'; // 'Tất cả', 'Nước uống', 'Gas'
+
+  final List<String> _categories = const ['Tất cả', 'Nước uống', 'Gas'];
 
   @override
   void initState() {
@@ -107,39 +64,33 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
     );
   }
 
-  String _getProductImage(ButtonProductModel p) {
-    final lower = '${p.shortName} ${p.name}'.toLowerCase();
-    if (lower.contains('petrolimex')) {
-      return 'https://images.unsplash.com/photo-1584281722572-881585869106?w=200&auto=format&fit=crop&q=80';
-    }
-    if (lower.contains('saigon petro') || lower.contains('gas')) {
-      return 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=200&auto=format&fit=crop&q=80';
-    }
-    if (lower.contains('st25') || lower.contains('gạo')) {
-      return 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&auto=format&fit=crop&q=80';
-    }
-    if (lower.contains('aquafina')) {
-      return 'https://images.unsplash.com/photo-1560023907-5f339617ea30?w=200&auto=format&fit=crop&q=80';
-    }
-    if (lower.contains('omo')) {
-      return 'https://images.unsplash.com/photo-1585338107529-13afc5f02586?w=200&auto=format&fit=crop&q=80';
-    }
-    if (lower.contains('pulppy')) {
-      return 'https://images.unsplash.com/photo-1584556812952-905ffd0c611a?w=200&auto=format&fit=crop&q=80';
-    }
-    if (lower.contains('vihawa')) {
-      return 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?w=200&auto=format&fit=crop&q=80';
-    }
-    return 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=200&auto=format&fit=crop&q=80';
+  bool _isProductGas(ButtonProductModel p) {
+    final lower = '${p.shortName} ${p.name} ${p.category}'.toLowerCase();
+    return lower.contains('gas') || lower.contains('petrolimex') || lower.contains('saigon petro');
   }
 
   List<ButtonProductModel> get _filteredProducts {
-    if (_searchQuery.isEmpty) return _products;
     return _products.where((p) {
-      final q = _searchQuery.toLowerCase();
-      return p.name.toLowerCase().contains(q) ||
-          p.shortName.toLowerCase().contains(q) ||
-          p.category.toLowerCase().contains(q);
+      // Category filter
+      if (_selectedCategory == 'Nước uống') {
+        final lower = '${p.shortName} ${p.name} ${p.category}'.toLowerCase();
+        if (_isProductGas(p) || lower.contains('gạo') || lower.contains('rice')) {
+          return false;
+        }
+      } else if (_selectedCategory == 'Gas') {
+        if (!_isProductGas(p)) return false;
+      }
+
+      // Search query filter
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        final matches = p.name.toLowerCase().contains(q) ||
+            p.shortName.toLowerCase().contains(q) ||
+            p.category.toLowerCase().contains(q);
+        if (!matches) return false;
+      }
+
+      return true;
     }).toList();
   }
 
@@ -156,25 +107,23 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
     final bottomSafeArea = MediaQuery.of(context).padding.bottom;
 
     return Container(
-      height: screenHeight * 0.85,
+      height: screenHeight * 0.88,
       decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC), // Slate 50
+        color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: Column(
           children: [
-            // ── Top Drag Handle & Header ──
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(20, 12, 16, 14),
+            // ── Top Header with Drag Handle ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 16, 12),
               child: Column(
                 children: [
-                  // Drag indicator
                   Center(
                     child: Container(
-                      width: 38,
+                      width: 36,
                       height: 4,
                       decoration: BoxDecoration(
                         color: const Color(0xFFE2E8F0),
@@ -183,38 +132,23 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                     ),
                   ),
                   const SizedBox(height: 12),
-
-                  // Header Row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Cấu hình ${widget.buttonName}',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E293B),
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Chọn sản phẩm tự động chốt đơn khi bấm nút',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Cấu hình ${widget.buttonName}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                          letterSpacing: -0.3,
+                        ),
                       ),
-                      _TactileBounce(
+                      GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
-                          width: 34,
-                          height: 34,
+                          width: 32,
+                          height: 32,
                           decoration: const BoxDecoration(
                             color: Color(0xFFF1F5F9),
                             shape: BoxShape.circle,
@@ -222,7 +156,7 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                           child: const Center(
                             child: Icon(
                               LucideIcons.x,
-                              size: 18,
+                              size: 16,
                               color: Color(0xFF64748B),
                             ),
                           ),
@@ -233,15 +167,13 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                 ],
               ),
             ),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
 
-            // ── Search & Filter Row ──
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            // ── Search Bar ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
-                height: 42,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(12),
@@ -251,21 +183,21 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                   children: [
                     const Icon(
                       LucideIcons.search,
-                      size: 17,
+                      size: 18,
                       color: Color(0xFF94A3B8),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
                         onChanged: (val) => setState(() => _searchQuery = val.trim()),
                         style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF1E293B),
+                          fontSize: 13.5,
+                          color: Color(0xFF0F172A),
                         ),
                         decoration: const InputDecoration(
-                          hintText: 'Tìm theo tên sản phẩm, danh mục...',
+                          hintText: 'Tìm theo tên sản phẩm, danh mục',
                           hintStyle: TextStyle(
-                            fontSize: 13,
+                            fontSize: 13.5,
                             color: Color(0xFF94A3B8),
                           ),
                           border: InputBorder.none,
@@ -287,29 +219,195 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                 ),
               ),
             ),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+
+            const SizedBox(height: 12),
+
+            // ── Category Filter Chips ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: _categories.map((category) {
+                  final isSelected = _selectedCategory == category;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedCategory = category);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF0F172A) : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        child: Text(
+                          category,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            color: isSelected ? Colors.white : const Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ── Freeship Notification ──
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.check,
+                    size: 15,
+                    color: Color(0xFF16A34A),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Freeship cho đơn từ 150.000đ',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF16A34A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
 
             // ── Scrollable Radio Cards List ──
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 physics: const BouncingScrollPhysics(),
                 children: _filteredProducts.map((product) {
                   final isSelected = product.id == _selectedProduct.id;
-                  final imageUrl = _getProductImage(product);
+                  final isGas = _isProductGas(product);
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildRadioProductCard(
-                      product: product,
-                      imageUrl: imageUrl,
-                      isSelected: isSelected,
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedProduct = product);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF2563EB)
+                                : const Color(0xFFE2E8F0),
+                            width: isSelected ? 1.6 : 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            // Icon Box
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: isGas
+                                    ? const Color(0xFFFFF7ED)
+                                    : const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  isGas ? LucideIcons.flame : LucideIcons.droplets,
+                                  size: 20,
+                                  color: isGas
+                                      ? const Color(0xFFEA580C)
+                                      : const Color(0xFF2563EB),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+
+                            // Product Info
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    product.shortName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    product.priceFormatted,
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                      color: isSelected
+                                          ? const Color(0xFF2563EB)
+                                          : const Color(0xFF475569),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(width: 10),
+
+                            // Radio Check Icon
+                            if (isSelected)
+                              Container(
+                                width: 22,
+                                height: 22,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF2563EB),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    LucideIcons.check,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              )
+                            else
+                              Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: const Color(0xFFCBD5E1),
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   );
-                }).toList()
-                    .animate(interval: 50.ms)
-                    .fade(duration: 300.ms)
-                    .slideY(begin: 0.05, curve: Curves.easeOut),
+                }).toList(),
               ),
             ),
 
@@ -319,43 +417,38 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                 20,
                 14,
                 20,
-                max(20.0, bottomSafeArea + 10) + bottomInset,
+                max(20.0, bottomSafeArea + 12) + bottomInset,
               ),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.white,
-                border: const Border(
+                border: Border(
                   top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, -3),
-                  ),
-                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Selected item summary
+                  // Selected Item Summary
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Đã chọn: ',
+                            'Đã chọn',
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 12,
                               color: Color(0xFF64748B),
                             ),
                           ),
+                          const SizedBox(height: 2),
                           Text(
                             _selectedProduct.shortName,
                             style: const TextStyle(
-                              fontSize: 13,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E293B),
+                              color: Color(0xFF0F172A),
                             ),
                           ),
                         ],
@@ -363,229 +456,49 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                       Text(
                         _selectedProduct.priceFormatted,
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1D4ED8), // Primary Blue
+                          color: Color(0xFF2563EB),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
 
-                  // Massive dark blue Save Changes button with tactile bounce
-                  _TactileBounce(
+                  // Save Changes Button
+                  GestureDetector(
                     onTap: _handleSave,
                     child: Container(
                       width: double.infinity,
-                      height: 52,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1D4ED8), // Primary Blue (Deep)
+                        color: const Color(0xFF2563EB),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              LucideIcons.checkCircle2,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            LucideIcons.check,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Lưu thay đổi',
+                            style: TextStyle(
                               color: Colors.white,
-                              size: 18,
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
                             ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Lưu thay đổi',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRadioProductCard({
-    required ButtonProductModel product,
-    required String imageUrl,
-    required bool isSelected,
-  }) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        setState(() => _selectedProduct = product);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFFEFF6FF) // Subtle blue tint
-              : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF1D4ED8) // Primary Blue
-                : const Color(0xFFE2E8F0), // Thin gray border
-            width: isSelected ? 1.6 : 1.0,
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // 1. Product Thumbnail
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFFBFDBFE)
-                      : const Color(0xFFE2E8F0),
-                  width: 1,
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(9),
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Shimmer.fromColors(
-                    baseColor: const Color(0xFFE2E8F0),
-                    highlightColor: const Color(0xFFF8FAFC),
-                    child: Container(color: const Color(0xFFE2E8F0)),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: const Color(0xFFF1F5F9),
-                    child: const Center(
-                      child: Icon(
-                        LucideIcons.package,
-                        size: 22,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // 2. Info Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          product.shortName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected
-                                ? const Color(0xFF1E3A8A)
-                                : const Color(0xFF1E293B),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    product.specs,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Price + Promotional Tag Row
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      Text(
-                        product.priceFormatted,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-
-                      // Promotional Tag: "Freeship đơn từ 150k" or product tag
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2.5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5), // Light green bg
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: const Color(0xFFA7F3D0), // Border light green
-                            width: 0.8,
-                          ),
-                        ),
-                        child: const Text(
-                          'Freeship đơn từ 150k',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF047857), // Green text
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // 3. Trailing Radio Icon
-            if (isSelected)
-              Container(
-                width: 24,
-                height: 24,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1D4ED8), // Primary Blue
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Icon(
-                    LucideIcons.checkCircle2,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                ),
-              )
-            else
-              const Icon(
-                LucideIcons.circle,
-                size: 22,
-                color: Color(0xFFCBD5E1), // Gray outline
-              ),
           ],
         ),
       ),

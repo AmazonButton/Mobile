@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../widgets/devices/device_card.dart';
 import '../widgets/modals/product_selection_sheet.dart';
 import 'device_detail_screen.dart';
@@ -29,19 +28,19 @@ class _DevicesScreenState extends State<DevicesScreen> {
       'id': 'btn-2',
       'name': 'Nút Phòng Khách',
       'room': 'Bàn trà sofa',
-      'product': 'Aquafina 500ml (24 chai)',
+      'product': 'Aquafina 500ml · 24 chai',
       'price': '98.000đ',
-      'battery': 15, // Demonstrates Low Battery Alert UI (<= 20)
+      'battery': 15,
       'badgeText': '24 chai',
       'signal': 'Ổn định',
     },
     {
       'id': 'btn-3',
       'name': 'Nút Ban Công',
-      'room': 'Lô gia tầng 12',
-      'product': 'Bình Gas Petrolimex 12kg',
-      'price': '380.000đ',
-      'battery': 92,
+      'room': 'Khu vực Ban công',
+      'product': 'Gas Petrolimex 12kg',
+      'price': '[Giá]',
+      'battery': 90,
       'badgeText': '12kg',
       'signal': 'Rất tốt',
     },
@@ -52,7 +51,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF0F172A),
         elevation: 0,
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         shape: RoundedRectangleBorder(
@@ -113,7 +112,6 @@ class _DevicesScreenState extends State<DevicesScreen> {
         ),
       ),
     ).then((_) {
-      // Re-render when returning if state changed
       setState(() {});
     });
   }
@@ -121,7 +119,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Slate 50
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         bottom: false,
         child: ListView(
@@ -135,6 +133,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,15 +141,15 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       const Text(
                         'Thiết bị',
                         style: TextStyle(
-                          fontSize: 24,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
-                          letterSpacing: -0.5,
+                          color: Color(0xFF0F172A),
+                          letterSpacing: -0.6,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${_devices.length} nút bấm sẵn sàng kết nối',
+                        '${_devices.length} nút bấm đang kết nối',
                         style: const TextStyle(
                           fontSize: 13,
                           color: Color(0xFF64748B),
@@ -158,36 +157,37 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       ),
                     ],
                   ),
-                  _TactileTap(
-                    onTap: () => _showToast(
-                      'Đang quét Bluetooth tìm Smart Button mới...',
-                    ),
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      _showToast('Đang quét Bluetooth tìm Smart Button mới...');
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
+                        horizontal: 16,
+                        vertical: 9,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: const Color(0xFF2563EB), // Vibrant blue button
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF1E293B).withValues(alpha: 0.15),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(LucideIcons.plus, size: 15, color: Colors.white),
+                          Icon(LucideIcons.plus, size: 16, color: Colors.white),
                           SizedBox(width: 6),
                           Text(
                             'Thêm nút',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 13,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -219,77 +219,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 ),
               ),
             ),
-
-            const SizedBox(height: 6),
-
-            // ── Pairing Guide Card ──
-            _buildPairingGuideCard(),
-          ]
-              .animate(interval: 50.ms)
-              .fade(duration: 300.ms)
-              .slideY(begin: 0.05, curve: Curves.easeOut),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildPairingGuideCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDBEAFE)),
-      ),
-      child: const Row(
-        children: [
-          Icon(LucideIcons.info, size: 20, color: Color(0xFF3B82F6)),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Để kết nối nút bấm mới: Giữ nút vật lý trong 5 giây cho đến khi đèn LED nhấp nháy xanh dương.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF1E3A8A),
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TactileTap extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-
-  const _TactileTap({required this.child, required this.onTap});
-
-  @override
-  State<_TactileTap> createState() => _TactileTapState();
-}
-
-class _TactileTapState extends State<_TactileTap> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        HapticFeedback.lightImpact();
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _isPressed = false),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeOutCubic,
-        child: widget.child,
       ),
     );
   }

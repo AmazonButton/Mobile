@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'home_screen.dart';
 import 'devices_screen.dart';
 import 'orders_screen.dart';
@@ -63,37 +63,34 @@ class _MainLayoutState extends State<MainLayout> {
         child: NavigationBarTheme(
           data: NavigationBarThemeData(
             backgroundColor: Colors.white,
-            surfaceTintColor: Colors.transparent, // Override Android MD3 purple tint
-            indicatorColor: const Color(0xFFE2E8F0), // Pill-shaped active indicator
-            indicatorShape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
+            surfaceTintColor: Colors.transparent,
+            indicatorColor: Colors.transparent, // Minimalist: no heavy background pill
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
                 return const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF1E293B), // Slate 800
+                  color: Color(0xFF2563EB), // Blue 600
                   letterSpacing: -0.2,
                 );
               }
               return const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF64748B), // Slate 500
+                color: Color(0xFF94A3B8), // Slate 400
                 letterSpacing: -0.2,
               );
             }),
             iconTheme: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
                 return const IconThemeData(
-                  color: Color(0xFF1E293B),
+                  color: Color(0xFF2563EB),
                   size: 22,
                 );
               }
               return const IconThemeData(
-                color: Color(0xFF64748B),
+                color: Color(0xFF94A3B8),
                 size: 22,
               );
             }),
@@ -106,7 +103,7 @@ class _MainLayoutState extends State<MainLayout> {
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.transparent,
             elevation: 0,
-            height: 68,
+            height: 64,
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             destinations: const [
               NavigationDestination(
@@ -114,7 +111,7 @@ class _MainLayoutState extends State<MainLayout> {
                 label: 'Trang chủ',
               ),
               NavigationDestination(
-                icon: Icon(LucideIcons.settings2),
+                icon: Icon(LucideIcons.slidersHorizontal),
                 label: 'Thiết bị',
               ),
               NavigationDestination(
