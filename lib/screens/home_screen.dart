@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'login_screen.dart';
 import 'main_layout.dart';
 import 'device_detail_screen.dart';
@@ -44,29 +44,35 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final Map<String, String> _buttonStateMap = {
     'btn-1': 'idle', // idle, ordering, ordered
     'btn-2': 'idle',
+    'btn-3': 'idle',
   };
 
   late final List<Map<String, dynamic>> _devices = [
     {
       'id': 'btn-1',
       'name': 'Nút Bếp',
-      'room': 'Khu vực Bếp',
+      'room': 'Khu vực Bếp ăn',
       'product': 'Nước Lavie 20L',
       'price': '65.000đ',
       'battery': 85,
-      'imageUrl':
-          'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=200&auto=format&fit=crop&q=80',
       'badgeText': '20L',
     },
     {
       'id': 'btn-2',
+      'name': 'Nút Phòng Khách',
+      'room': 'Bàn trà sofa',
+      'product': 'Aquafina 500ml · 24 chai',
+      'price': '98.000đ',
+      'battery': 15,
+      'badgeText': '24 chai',
+    },
+    {
+      'id': 'btn-3',
       'name': 'Nút Ban Công',
-      'room': 'Lô gia',
-      'product': 'Bình Gas Petrolimex 12kg',
-      'price': '380.000đ',
-      'battery': 92,
-      'imageUrl':
-          'https://images.unsplash.com/photo-1584281722572-881585869106?w=200&auto=format&fit=crop&q=80',
+      'room': 'Khu vực Ban công',
+      'product': 'Gas Petrolimex 12kg',
+      'price': '[Giá]',
+      'battery': 90,
       'badgeText': '12kg',
     },
   ];
@@ -546,20 +552,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFD),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            stops: [0.0, 0.35, 1.0],
-            colors: [
-              Color(0xFFEBF4FE),
-              Color(0xFFF7FAFD),
-              Colors.white,
-            ],
-          ),
-        ),
+        color: const Color(0xFFF8FAFC),
         child: Stack(
           children: [
             RefreshIndicator(
@@ -605,33 +600,46 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       children: [
         // ================= 1. SEAMLESS HEADER =================
         _buildHeader(),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
 
         // ================= 2. ACTIVE ORDER BANNER =================
         if (_hasActiveOrder) ...[
           _buildActiveOrderBanner(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
         ],
 
-        // ================= PROMOTIONAL BANNER CAROUSEL =================
-        _PromoCarousel(
-          onAction: (title) {
-            _showToast('Đang mở: $title');
-          },
-        )
-            .animate()
-            .fade(duration: 400.ms)
-            .slideY(begin: 0.1, curve: Curves.easeOutQuad),
-        const SizedBox(height: 24),
-
         // ================= 3. NÚT BẤM CỦA TÔI =================
-        _buildSectionHeader(
-          title: 'Nút bấm của tôi',
-          actionText: '${_devices.length} nút sẵn sàng',
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Nút bấm của tôi',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+                letterSpacing: -0.3,
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                MainLayout.switchToTab(context, 1);
+              },
+              child: const Text(
+                'Quản lý >',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF2563EB),
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         ..._devices.map((device) => Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.only(bottom: 12),
               child: GestureDetector(
                 onTap: () {
                   HapticFeedback.lightImpact();
@@ -641,7 +649,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       builder: (_) => DeviceDetailScreen(
                         deviceId: device['id'] as String?,
                         deviceName: device['name'] as String,
-                        room: device['room'] as String? ?? 'Khu vực Bếp',
+                        room: device['room'] as String? ?? 'Khu vực Bếp ăn',
                         productName: device['product'] as String,
                         productPrice: device['price'] as String,
                         battery: device['battery'] as int,
@@ -658,13 +666,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   product: device['product'] as String,
                   price: device['price'] as String,
                   battery: device['battery'] as int,
-                  imageUrl: device['imageUrl'] as String?,
-                  badgeText: device['badgeText'] as String? ??
-                      ((device['product'] as String)
-                              .toLowerCase()
-                              .contains('gas')
-                          ? '12kg'
-                          : '20L'),
+                  badgeText: device['badgeText'] as String? ?? '20L',
                   state: _buttonStateMap[device['id']] ?? 'idle',
                   onOrder: () => _handleButtonPress(
                     device['id'] as String,
@@ -675,13 +677,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
             )),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
 
-        // ================= 4. PREDICTIVE INSIGHT =================
-        _buildPredictiveInsight(),
-        const SizedBox(height: 24),
-
-        // ================= 5. GỢI Ý CHO BẠN (QUICK SHOP) =================
+        // ================= 4. GỢI Ý CHO BẠN (QUICK SHOP) =================
         _QuickShopShelf(
           onAddProduct: (product) {
             _showToast('Đã thêm ${product['name']} vào danh sách chờ ghép nút');
@@ -695,7 +693,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             .slideY(begin: 0.1, curve: Curves.easeOutQuad),
         const SizedBox(height: 24),
 
-        // ================= 6. HOẠT ĐỘNG GẦN ĐÂY =================
+        // ================= 5. HOẠT ĐỘNG GẦN ĐÂY =================
         _buildSectionHeader(
           title: 'Hoạt động gần đây',
           actionText: 'Xem tất cả',
@@ -721,12 +719,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 GestureDetector(
                   onTap: _showAccountSheet,
                   child: Container(
-                    width: 42,
-                    height: 42,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: const Color(0xFFEFF6FF),
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: const Color(0xFFDBEAFE)),
                       image: _userService.avatarFile != null
                           ? DecorationImage(
                               image: FileImage(_userService.avatarFile!),
@@ -739,9 +737,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             child: Text(
                               _userService.initials,
                               style: const TextStyle(
-                                fontSize: 14,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF334155),
+                                color: Color(0xFF2563EB),
                               ),
                             ),
                           )
@@ -755,16 +753,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     const Text(
                       'Chào buổi sáng,',
                       style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w500),
+                        fontSize: 13,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     Text(
                       _userService.shortName,
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
+                        color: Color(0xFF0F172A),
                         letterSpacing: -0.5,
                       ),
                     ),
@@ -772,61 +771,86 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ],
             ),
-            Row(
-              children: [
-                _buildCircleIconButton(
-                  icon: LucideIcons.plus,
-                  onTap: () => _showToast('Đang quét tìm Smart Button mới...'),
+            // Minimalist Notification bell icon button with red badge dot
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                _showToast('Không có thông báo mới');
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                const SizedBox(width: 8),
-                _buildCircleIconButton(
-                  icon: LucideIcons.bell,
-                  hasBadge: true,
-                  onTap: () => _showToast('Không có thông báo mới'),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Icon(
+                      LucideIcons.bell,
+                      size: 18,
+                      color: Color(0xFF475569),
+                    ),
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                _buildCircleIconButton(
-                  icon: LucideIcons.logOut,
-                  onTap: _handleLogout,
-                ),
-              ],
+              ),
             ),
           ],
         ),
         const SizedBox(height: 14),
 
-        // Location Pill
+        // Location Selector Pill
         GestureDetector(
           onTap: _showLocationPicker,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              border: Border.all(color: const Color(0xFFF1F5F9)),
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFE2E8F0)),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(LucideIcons.mapPin,
-                    size: 15, color: Color(0xFF94A3B8)),
-                const SizedBox(width: 6),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 240),
+                const Icon(
+                  LucideIcons.mapPin,
+                  size: 15,
+                  color: Color(0xFF64748B),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
                   child: Text(
                     _userService.address,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF475569),
+                      color: Color(0xFF334155),
                     ),
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(LucideIcons.chevronDown,
-                    size: 16, color: Color(0xFF94A3B8)),
+                const Icon(
+                  LucideIcons.chevronDown,
+                  size: 16,
+                  color: Color(0xFF64748B),
+                ),
               ],
             ),
           ),
@@ -835,119 +859,114 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildCircleIconButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    bool hasBadge = false,
-  }) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFF1F5F9)),
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Icon(icon, size: 18, color: const Color(0xFF475569)),
-            if (hasBadge)
-              Positioned(
-                top: 8,
-                right: 9,
-                child: Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF43F5E),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildActiveOrderBanner() {
-    return GestureDetector(
-      onTap: () {
-        MainLayout.switchToTab(context, 2);
-      },
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Color(0xFF10B981),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '1x Nước Lavie 20L',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                    ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Center(
+                  child: Icon(
+                    LucideIcons.droplets,
+                    size: 20,
+                    color: Color(0xFF2563EB),
                   ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Tài xế đang đến (~5 phút)',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            OutlinedButton(
-              onPressed: () {
-                setState(() => _hasActiveOrder = false);
-                _showToast('Đã hủy đơn hàng');
-              },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFFECDD3)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
                 ),
               ),
-              child: const Text(
-                'Hủy',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFFF43F5E),
-                  fontWeight: FontWeight.w500,
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ĐANG GIAO',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      '1× Nước Lavie 20L',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton(
+                onPressed: () {
+                  setState(() => _hasActiveOrder = false);
+                  _showToast('Đã hủy đơn hàng');
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFFECDD3)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'Hủy đơn',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFFF43F5E),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Progress bar
+          Container(
+            height: 4,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: 0.45,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2563EB),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -985,34 +1004,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildPredictiveInsight() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB).withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFEF3C7)),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('💡', style: TextStyle(fontSize: 16)),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Bình Lavie của bạn dự kiến còn dùng được khoảng 3 ngày nữa.',
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.4,
-                color: Color(0xFF92400E),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildRecentActivities() {
     final activities = [
@@ -1297,240 +1288,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 }
 
-// =========================================================================
-// 1. PROMOTIONAL BANNER CAROUSEL
-// =========================================================================
 
-class _PromoCarousel extends StatefulWidget {
-  final ValueChanged<String>? onAction;
-
-  const _PromoCarousel({this.onAction});
-
-  @override
-  State<_PromoCarousel> createState() => _PromoCarouselState();
-}
-
-class _PromoCarouselState extends State<_PromoCarousel> {
-  late final PageController _pageController;
-  int _currentPage = 0;
-  Timer? _autoScrollTimer;
-
-  final List<Map<String, dynamic>> _banners = const [
-    {
-      'title': 'Ưu đãi đặc quyền 🎁',
-      'description': 'Freeship 100% cho mọi đơn đổi Gas Petrolimex hôm nay',
-      'action': 'Khám phá',
-      'gradient': [Color(0xFFEBF4FE), Color(0xFFF1F5F9)],
-      'borderColor': Color(0xFFDBEAFE),
-      'accentColor': Color(0xFF2563EB),
-      'icon': LucideIcons.flame,
-    },
-    {
-      'title': 'Flash Sale Thứ Tư ⚡',
-      'description':
-          'Tặng 1 bình Nước Lavie 19L khi ghép đôi Nút bấm thông minh thứ 2',
-      'action': 'Khám phá',
-      'gradient': [Color(0xFFFFF7ED), Color(0xFFFEF3C7)],
-      'borderColor': Color(0xFFFED7AA),
-      'accentColor': Color(0xFFEA580C),
-      'icon': LucideIcons.droplets,
-    },
-    {
-      'title': 'Tích điểm SmartPay 💎',
-      'description': 'Hoàn 5% điểm thưởng tự động cho mọi lần bấm reorder',
-      'action': 'Khám phá',
-      'gradient': [Color(0xFFF0FDF4), Color(0xFFDCFCE7)],
-      'borderColor': Color(0xFFBBF7D0),
-      'accentColor': Color(0xFF059669),
-      'icon': LucideIcons.sparkles,
-    },
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController();
-    _autoScrollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted) return;
-      if (_pageController.hasClients) {
-        final nextPage = (_currentPage + 1) % _banners.length;
-        _pageController.animateToPage(
-          nextPage,
-          duration: const Duration(milliseconds: 450),
-          curve: Curves.easeInOutCubic,
-        );
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _autoScrollTimer?.cancel();
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          height: 130,
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: (idx) => setState(() => _currentPage = idx),
-            itemCount: _banners.length,
-            itemBuilder: (context, index) {
-              final banner = _banners[index];
-              final gradient = banner['gradient'] as List<Color>;
-              final borderColor = banner['borderColor'] as Color;
-              final accentColor = banner['accentColor'] as Color;
-              final icon = banner['icon'] as IconData;
-
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: gradient,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: borderColor, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                banner['title'] as String,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: accentColor,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              Text(
-                                banner['description'] as String,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF334155),
-                                  height: 1.3,
-                                ),
-                              ),
-                            ],
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              widget.onAction?.call(banner['title'] as String);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF64748B),
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF1E293B)
-                                        .withValues(alpha: 0.12),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    banner['action'] as String,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    LucideIcons.arrowRight,
-                                    size: 11,
-                                    color: Colors.white,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      width: 58,
-                      height: 58,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: borderColor.withValues(alpha: 0.6),
-                        ),
-                      ),
-                      child: Icon(
-                        icon,
-                        color: accentColor,
-                        size: 26,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            _banners.length,
-            (idx) => AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: _currentPage == idx ? 18 : 6,
-              height: 5,
-              decoration: BoxDecoration(
-                color: _currentPage == idx
-                    ? const Color(0xFF64748B)
-                    : const Color(0xFFCBD5E1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 // =========================================================================
 // 2. QUICK SHOP / DISCOVER SHELF
