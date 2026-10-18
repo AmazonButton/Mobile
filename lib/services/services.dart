@@ -7,3 +7,4 @@ export 'orders_api_service.dart';
 export 'provisioning_api_service.dart';
 export 'media_api_service.dart';
 export 'stores_api_service.dart';
+export 'user_profile_service.dart';
