@@ -53,7 +53,8 @@ class ApiConfig {
   static const String devicesConfigureByCode = '/devices/configure-by-code';
   static const String devicesFleetStats = '/devices/fleet/stats';
   static String deviceDetail(String id) => '/devices/$id';
-  static String deviceCustomerConfig(String id) => '/devices/$id/customer-config';
+  static String deviceCustomerConfig(String id) =>
+      '/devices/$id/customer-config';
   static String deviceToggleActive(String id) => '/devices/$id/toggle-active';
   static String deviceSimulatePress(String id) => '/devices/$id/simulate-press';
   static String deviceTelemetry(String id) => '/devices/$id/telemetry';
@@ -77,7 +78,8 @@ class ApiConfig {
   // Provisioning endpoints
   static const String provisioningSession = '/provisioning/session';
   static const String provisioningVerify = '/provisioning/verify';
-  static String provisioningChangeWifi(String id) => '/provisioning/devices/$id/change-wifi';
+  static String provisioningChangeWifi(String id) =>
+      '/provisioning/devices/$id/change-wifi';
 
   // Media endpoints
   static const String mediaUpload = '/media/upload';
@@ -93,4 +95,7 @@ class ApiConfig {
   static const String storeWalletTransactions = '/store/wallet/transactions';
   static const String storeWalletWithdrawals = '/store/wallet/withdrawals';
   static const String storeWalletBankAccount = '/store/wallet/bank-account';
+
+  // Addresses endpoints
+  static const String addressesAutocomplete = '/addresses/autocomplete';
 }

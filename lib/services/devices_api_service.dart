@@ -1,3 +1,4 @@
+import '../models/device_model.dart';
 import 'api_client.dart';
 import 'api_config.dart';
 
@@ -8,8 +9,8 @@ class DevicesApiService {
 
   final ApiClient _client = ApiClient();
 
-  /// Lấy danh sách tất cả các nút bấm IoT của người dùng / cửa hàng
-  Future<List<dynamic>> getDevices({String? status, String? search}) async {
+  /// Lấy danh sách tất cả các nút bấm IoT của người dùng được ánh xạ thành DeviceModel
+  Future<List<DeviceModel>> getDevices({String? status, String? search}) async {
     final query = <String, dynamic>{};
     if (status != null && status.isNotEmpty) query['status'] = status;
     if (search != null && search.isNotEmpty) query['search'] = search;
@@ -17,9 +18,22 @@ class DevicesApiService {
     final response = await _client.get(ApiConfig.devices, queryParams: query);
     final data = response['data'] ?? response;
     if (data is List) {
-      return data;
+      return data.map((item) {
+        if (item is Map<String, dynamic>) {
+          return DeviceModel.fromJson(item);
+        } else if (item is Map) {
+          return DeviceModel.fromJson(Map<String, dynamic>.from(item));
+        }
+        return DeviceModel.fromJson({});
+      }).toList();
     }
     return [];
+  }
+
+  /// Lấy thông tin chi tiết một nút bấm dạng strongly-typed DeviceModel
+  Future<DeviceModel> getDeviceModelById(String id) async {
+    final data = await getDeviceById(id);
+    return DeviceModel.fromJson(data);
   }
 
   /// Lấy thông tin chi tiết một nút bấm

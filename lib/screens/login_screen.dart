@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dashboard_screen.dart';
 import 'signup_screen.dart';
 import 'forgot_info_screen.dart';
 import '../services/services.dart';
-import '../models/user_profile_service.dart';
-
+import '../utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,22 +14,23 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   final FocusNode _emailFocusNode = FocusNode();
-  final FocusNode _phoneFocusNode = FocusNode();
+  final FocusNode _passwordFocusNode = FocusNode();
 
   bool _rememberMe = false;
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   // Validation States cho Email
   String? _emailError;
   String? _suggestedEmail;
   bool _hasEmailBlurred = false;
 
-  // Validation States cho Số điện thoại
-  String? _phoneError;
-  bool _hasPhoneBlurred = false;
+  // Validation States cho Mật khẩu
+  String? _passwordError;
+  bool _hasPasswordBlurred = false;
 
   // Màu sắc chủ đạo theo yêu cầu: Tone Xanh dương nhạt & Navy thanh lịch
   static const Color primaryBlue = Color(0xFF1D5B9F);
@@ -40,72 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
   static const Color textMuted = Color(0xFF627D98);
   static const Color borderLight = Color(0xFFE2E8F0);
   static const Color inputBg = Color(0xFFF9FAFB);
-
-  static const List<String> _popularDomains = [
-    'gmail.com',
-    'yahoo.com',
-    'outlook.com',
-    'icloud.com',
-    'hotmail.com',
-  ];
-
-  static final RegExp _strictEmailRegex = RegExp(
-    r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\.[a-zA-Z]{2,}$',
-  );
-
-  static int _levenshtein(String s, String t) {
-    if (s == t) return 0;
-    if (s.isEmpty) return t.length;
-    if (t.isEmpty) return s.length;
-
-    List<int> v0 = List<int>.generate(t.length + 1, (i) => i);
-    List<int> v1 = List<int>.filled(t.length + 1, 0);
-
-    for (int i = 0; i < s.length; i++) {
-      v1[0] = i + 1;
-      for (int j = 0; j < t.length; j++) {
-        int cost = (s[i] == t[j]) ? 0 : 1;
-        v1[j + 1] = [
-          v1[j] + 1,
-          v0[j + 1] + 1,
-          v0[j] + cost,
-        ].reduce((a, b) => a < b ? a : b);
-      }
-      for (int j = 0; j <= t.length; j++) {
-        v0[j] = v1[j];
-      }
-    }
-    return v1[t.length];
-  }
-
-  String? _checkEmailTypo(String text) {
-    if (!text.contains('@')) return null;
-    final parts = text.split('@');
-    if (parts.length != 2) return null;
-
-    final localPart = parts[0].trim();
-    final domainPart = parts[1].toLowerCase().trim();
-
-    if (localPart.isEmpty || domainPart.isEmpty) return null;
-
-    if (_popularDomains.contains(domainPart)) return null;
-
-    String? bestMatch;
-    int lowestDistance = 999;
-
-    for (final popularDomain in _popularDomains) {
-      final distance = _levenshtein(domainPart, popularDomain);
-      if (distance <= 2 && distance < lowestDistance) {
-        lowestDistance = distance;
-        bestMatch = popularDomain;
-      }
-    }
-
-    if (bestMatch != null) {
-      return '$localPart@$bestMatch';
-    }
-    return null;
-  }
 
   void _applySuggestion(String suggested) {
     setState(() {
@@ -123,21 +56,21 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _emailFocusNode.addListener(_onEmailFocusChange);
-    _phoneFocusNode.addListener(_onPhoneFocusChange);
+    _passwordFocusNode.addListener(_onPasswordFocusChange);
 
     _emailController.addListener(_onEmailChanged);
-    _phoneController.addListener(_onPhoneChanged);
+    _passwordController.addListener(_onPasswordChanged);
   }
 
   @override
   void dispose() {
     _emailFocusNode.removeListener(_onEmailFocusChange);
-    _phoneFocusNode.removeListener(_onPhoneFocusChange);
+    _passwordFocusNode.removeListener(_onPasswordFocusChange);
 
     _emailFocusNode.dispose();
-    _phoneFocusNode.dispose();
+    _passwordFocusNode.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -148,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
         final rawText = _emailController.text.trim();
         _hasEmailBlurred = true;
         if (rawText.contains('@')) {
-          _suggestedEmail = _checkEmailTypo(rawText);
+          _suggestedEmail = EmailValidator.checkTypo(rawText);
         }
         _validateEmail();
       }
@@ -159,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final rawText = _emailController.text.trim();
     setState(() {
       if (rawText.contains('@')) {
-        _suggestedEmail = _checkEmailTypo(rawText);
+        _suggestedEmail = EmailValidator.checkTypo(rawText);
       } else {
         _suggestedEmail = null;
       }
@@ -171,83 +104,49 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _validateEmail() {
-    final rawText = _emailController.text.trim();
-    if (rawText.isEmpty) {
-      _emailError = 'Vui lòng nhập địa chỉ Email';
-      return;
-    }
-
-    // Strict Regex Validation
-    if (!_strictEmailRegex.hasMatch(rawText) ||
-        rawText.contains('@.') ||
-        rawText.startsWith('@') ||
-        rawText.contains('..')) {
-      _emailError = 'Email không đúng định dạng (VD: example@domain.com)';
-    } else {
-      _emailError = null;
-    }
+    _emailError = EmailValidator.validate(_emailController.text, allowUsername: true);
   }
 
-  void _onPhoneFocusChange() {
+  void _onPasswordFocusChange() {
     setState(() {
-      if (!_phoneFocusNode.hasFocus) {
-        _hasPhoneBlurred = true;
-        _validatePhone(_phoneController.text);
+      if (!_passwordFocusNode.hasFocus) {
+        _hasPasswordBlurred = true;
+        _validatePassword();
       }
     });
   }
 
-  void _onPhoneChanged() {
+  void _onPasswordChanged() {
     setState(() {
-      _validatePhone(_phoneController.text);
+      if (_hasPasswordBlurred) {
+        _validatePassword();
+      }
     });
   }
 
-  void _validatePhone(String value) {
-    final raw = value.trim();
-
-    if (raw.isEmpty) {
-      _phoneError = _hasPhoneBlurred ? 'Vui lòng nhập số điện thoại' : null;
+  void _validatePassword() {
+    if (!_hasPasswordBlurred) {
+      _passwordError = null;
       return;
     }
-
-    // 1. Nhập số đầu phải là số 0, nếu không phải số 0 cảnh báo ngay
-    if (!raw.startsWith('0')) {
-      _phoneError = 'Số điện thoại phải bắt đầu bằng số 0';
-      return;
-    }
-
-    // 2. Không được vượt quá 10 số, nếu vượt thông báo ngay cho người dùng
-    if (raw.length > 10) {
-      _phoneError = 'Số điện thoại không được vượt quá 10 số (hiện có ${raw.length} số)';
-      return;
-    }
-
-    // 3. Khi người dùng đã rời khỏi ô và chưa đủ 10 số
-    if (_hasPhoneBlurred && raw.length < 10) {
-      _phoneError = 'Số điện thoại phải gồm đúng 10 số (hiện có ${raw.length}/10)';
-      return;
-    }
-
-    _phoneError = null;
+    _passwordError = PasswordValidator.validate(_passwordController.text, minLength: 6);
   }
 
   bool get _isEmailValid {
     final text = _emailController.text.trim();
     if (text.isEmpty) return false;
-    return _strictEmailRegex.hasMatch(text) &&
-        !text.contains('@.') &&
-        !text.startsWith('@') &&
-        !text.contains('..');
+    if (text.contains('@')) {
+      return EmailValidator.isValid(text);
+    }
+    return text.length >= 3;
   }
 
-  bool get _isPhoneValid {
-    final text = _phoneController.text.trim();
-    return text.length == 10 && text.startsWith('0') && RegExp(r'^0\d{9}$').hasMatch(text);
+  bool get _isPasswordValid {
+    return _passwordController.text.isNotEmpty;
   }
 
   bool get _isFormValid {
-    return _isEmailValid && _isPhoneValid;
+    return _isEmailValid && _isPasswordValid;
   }
 
   void _navigateToDashboard() {
@@ -291,15 +190,24 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
 
+  void _showSocialNotice(String provider) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đăng nhập bằng $provider đang được phát triển'),
+        backgroundColor: const Color(0xFF64748B),
+      ),
+    );
+  }
+
   Future<void> _handleLogin() async {
-    if (!_isFormValid) return;
+    if (!_isFormValid || _isLoading) return;
     setState(() => _isLoading = true);
     try {
       final email = _emailController.text.trim();
-      final phone = _phoneController.text.trim();
+      final password = _passwordController.text;
       final res = await AuthApiService().login(
         email: email,
-        password: phone,
+        password: password,
         rememberMe: _rememberMe,
       );
       final data = res['data'] ?? res;
@@ -329,11 +237,15 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        // Fallback gracefully for offline/demo environments
-        _navigateToDashboard();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
       }
     }
   }
@@ -463,6 +375,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                         controller: _emailController,
                                         focusNode: _emailFocusNode,
                                         keyboardType: TextInputType.emailAddress,
+                                        textInputAction: TextInputAction.next,
+                                        onSubmitted: (_) => _passwordFocusNode.requestFocus(),
                                         textAlignVertical: TextAlignVertical.center,
                                         style: const TextStyle(
                                           fontSize: 14.5,
@@ -560,19 +474,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
                               const SizedBox(height: 4),
 
-                              // ── 4. Input Số điện thoại (Thay thế mật khẩu - Validator số 0 đầu & tối đa 10 số) ──
+                              // ── 4. Input Mật khẩu (Chuẩn h-13 52px, Ẩn/Hiện mật khẩu) ──
                               Container(
                                 height: 52,
                                 decoration: BoxDecoration(
-                                  color: _phoneFocusNode.hasFocus ? Colors.white : inputBg,
+                                  color: _passwordFocusNode.hasFocus ? Colors.white : inputBg,
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: _phoneError != null
+                                    color: _passwordError != null
                                         ? const Color(0xFFEF4444)
-                                        : (_phoneFocusNode.hasFocus ? primaryBlue : borderLight),
-                                    width: _phoneFocusNode.hasFocus || _phoneError != null ? 1.6 : 1.2,
+                                        : (_passwordFocusNode.hasFocus ? primaryBlue : borderLight),
+                                    width: _passwordFocusNode.hasFocus || _passwordError != null ? 1.6 : 1.2,
                                   ),
-                                  boxShadow: _phoneFocusNode.hasFocus
+                                  boxShadow: _passwordFocusNode.hasFocus
                                       ? [
                                           BoxShadow(
                                             color: primaryBlue.withValues(alpha: 0.10),
@@ -587,22 +501,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      Icons.phone_outlined,
+                                      Icons.lock_outline_rounded,
                                       size: 22,
-                                      color: _phoneError != null
+                                      color: _passwordError != null
                                           ? const Color(0xFFEF4444)
-                                          : (_phoneFocusNode.hasFocus ? primaryBlue : textMuted),
+                                          : (_passwordFocusNode.hasFocus ? primaryBlue : textMuted),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: TextField(
-                                        controller: _phoneController,
-                                        focusNode: _phoneFocusNode,
-                                        keyboardType: TextInputType.phone,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter.digitsOnly, // Chỉ cho nhập số
-                                          LengthLimitingTextInputFormatter(15), // Giới hạn hợp lý để bắt sự kiện vượt 10
-                                        ],
+                                        controller: _passwordController,
+                                        focusNode: _passwordFocusNode,
+                                        obscureText: _obscurePassword,
+                                        textInputAction: TextInputAction.done,
+                                        onSubmitted: (_) {
+                                          if (_isFormValid && !_isLoading) {
+                                            _handleLogin();
+                                          }
+                                        },
                                         textAlignVertical: TextAlignVertical.center,
                                         style: const TextStyle(
                                           fontSize: 14.5,
@@ -611,7 +527,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                         decoration: const InputDecoration(
                                           isCollapsed: true,
-                                          hintText: 'Số điện thoại (bắt đầu bằng 0)',
+                                          hintText: 'Mật khẩu',
                                           hintStyle: TextStyle(
                                             fontSize: 14.5,
                                             color: Color(0xFF9FB3C8),
@@ -621,46 +537,31 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                       ),
                                     ),
-                                    // Hiển thị bộ đếm số lượng ký tự và icon trạng thái
-                                    if (_phoneController.text.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 6),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (_phoneError != null)
-                                              const Icon(
-                                                Icons.error_outline_rounded,
-                                                size: 15,
-                                                color: Color(0xFFEF4444),
-                                              )
-                                            else if (_phoneController.text.length == 10 && _phoneController.text.startsWith('0'))
-                                              const Icon(
-                                                Icons.check_circle_rounded,
-                                                size: 15,
-                                                color: Color(0xFF10B981),
-                                              ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              '${_phoneController.text.length}/10',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                                color: _phoneError != null
-                                                    ? const Color(0xFFEF4444)
-                                                    : (_phoneController.text.length == 10
-                                                        ? const Color(0xFF10B981)
-                                                        : textMuted),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                    IconButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _obscurePassword = !_obscurePassword;
+                                        });
+                                      },
+                                      icon: Icon(
+                                        _obscurePassword
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        size: 20,
+                                        color: textMuted,
                                       ),
+                                      splashRadius: 20,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 32,
+                                        minHeight: 32,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
 
-                              // ── Vùng cố định lỗi Số điện thoại (Chống giật layout - min-height 24px) ──
+                              // ── Vùng cố định lỗi Mật khẩu (Chống giật layout - min-height 24px) ──
                               SizedBox(
                                 height: 24,
                                 child: Align(
@@ -668,7 +569,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   child: AnimatedOpacity(
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.easeInOut,
-                                    opacity: _phoneError != null ? 1.0 : 0.0,
+                                    opacity: _passwordError != null ? 1.0 : 0.0,
                                     child: Padding(
                                       padding: const EdgeInsets.only(left: 4, top: 4),
                                       child: Row(
@@ -682,10 +583,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                           const SizedBox(width: 4),
                                           Flexible(
                                             child: Text(
-                                              _phoneError ?? '',
+                                              _passwordError ?? '',
                                               style: const TextStyle(
                                                 fontSize: 12,
-                                                color: Color(0xFFEF4444), // text-red-500
+                                                color: Color(0xFFEF4444),
                                                 fontWeight: FontWeight.w600,
                                               ),
                                               overflow: TextOverflow.ellipsis,
@@ -778,7 +679,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     );
                                   },
                                   child: const Text(
-                                    'Quên thông tin?',
+                                    'Quên mật khẩu?',
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
@@ -902,7 +803,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                       ),
                                     ),
-                                    onTap: _navigateToDashboard,
+                                    onTap: () => _showSocialNotice('Google'),
                                   ),
                                 ),
                                 const SizedBox(width: 14),
@@ -914,7 +815,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       size: 22,
                                       color: textDark,
                                     ),
-                                    onTap: _navigateToDashboard,
+                                    onTap: () => _showSocialNotice('Apple'),
                                   ),
                                 ),
                               ],

@@ -5,18 +5,36 @@ enum DeviceStatus { online, warning, offline }
 
 class DeviceModel {
   final String id;
-  final String location;
+  final String name;
+  final String room;
+  final String product;
+  final String price;
   final int battery;
+  final String badgeText;
+  final String signal;
   final DeviceStatus status;
+  final String wifiSsid;
+  final String? imageUrl;
 
   const DeviceModel({
     required this.id,
-    required this.location,
+    this.name = 'Nút thông minh',
+    required this.room,
+    this.product = 'Nhu yếu phẩm',
+    this.price = 'Giá tiêu chuẩn',
     required this.battery,
+    this.badgeText = '20L',
+    this.signal = 'Rất tốt',
     required this.status,
+    this.wifiSsid = 'Home_Network_5G',
+    this.imageUrl,
   });
 
+  /// Backward-compatible alias for room
+  String get location => room;
+
   bool get isOffline => status == DeviceStatus.offline;
+  bool get isOnline => status != DeviceStatus.offline;
 
   Color get batteryColor {
     if (isOffline || battery <= 15) {
@@ -40,6 +58,34 @@ class DeviceModel {
 
   String get batteryText => isOffline ? 'Offline' : '$battery%';
 
+  DeviceModel copyWith({
+    String? id,
+    String? name,
+    String? room,
+    String? product,
+    String? price,
+    int? battery,
+    String? badgeText,
+    String? signal,
+    DeviceStatus? status,
+    String? wifiSsid,
+    String? imageUrl,
+  }) {
+    return DeviceModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      room: room ?? this.room,
+      product: product ?? this.product,
+      price: price ?? this.price,
+      battery: battery ?? this.battery,
+      badgeText: badgeText ?? this.badgeText,
+      signal: signal ?? this.signal,
+      status: status ?? this.status,
+      wifiSsid: wifiSsid ?? this.wifiSsid,
+      imageUrl: imageUrl ?? this.imageUrl,
+    );
+  }
+
   factory DeviceModel.fromJson(Map<String, dynamic> json) {
     final rawStatus = (json['status'] ?? 'ACTIVE').toString().toUpperCase();
     final rawBattery = json['batteryLevel'] ?? json['battery'] ?? 100;
@@ -53,55 +99,103 @@ class DeviceModel {
     }
 
     final id = json['deviceId']?.toString() ?? json['id']?.toString() ?? 'ESP32';
-    final location = json['roomLocation']?.toString() ??
-        json['buttonName']?.toString() ??
+    final name = json['buttonName']?.toString() ??
+        json['name']?.toString() ??
         json['customName']?.toString() ??
-        'Căn hộ';
+        'Nút thông minh';
+    final room = json['roomLocation']?.toString() ??
+        json['room']?.toString() ??
+        json['location']?.toString() ??
+        'Khu vực trong nhà';
+
+    String product = 'Nhu yếu phẩm';
+    String price = 'Giá tiêu chuẩn';
+    String badge = '20L';
+
+    if (json['buttonProducts'] is List && (json['buttonProducts'] as List).isNotEmpty) {
+      final bp = (json['buttonProducts'] as List).first;
+      final p = bp['product'];
+      if (p != null) {
+        product = p['name']?.toString() ?? product;
+        if (p['price'] != null) {
+          price = '${p['price']}đ';
+        }
+      }
+    } else if (json['product'] != null) {
+      product = json['product'].toString();
+    } else if (json['productName'] != null) {
+      product = json['productName'].toString();
+    }
+
+    if (json['price'] != null) {
+      price = json['price'].toString();
+    }
+
+    if (json['badgeText'] != null) {
+      badge = json['badgeText'].toString();
+    } else if (product.contains('Gas')) {
+      badge = '12kg';
+    } else if (product.contains('500ml') || product.contains('Aquafina')) {
+      badge = '24 chai';
+    } else if (product.contains('20L') || product.contains('19L')) {
+      badge = '20L';
+    }
+
+    final signal = json['signal']?.toString() ?? (status == DeviceStatus.online ? 'Rất tốt' : 'Mất tín hiệu');
+    final wifi = json['wifiSsid']?.toString() ?? json['wifi']?.toString() ?? 'Home_Network_5G';
+    final img = json['imageUrl']?.toString() ?? json['productImageUrl']?.toString();
 
     return DeviceModel(
       id: id,
-      location: location,
+      name: name,
+      room: room,
+      product: product,
+      price: price,
       battery: batteryInt,
+      badgeText: badge,
+      signal: signal,
       status: status,
+      wifiSsid: wifi,
+      imageUrl: img,
     );
   }
 
   static List<DeviceModel> get sampleDevices => const [
     DeviceModel(
-      id: 'ESP32-A1-1205',
-      location: 'Tòa A1, Tầng 12, P.1205',
-      battery: 8,
-      status: DeviceStatus.warning,
-    ),
-    DeviceModel(
-      id: 'ESP32-B2-0301',
-      location: 'Tòa B2, Tầng 3, P.0301',
-      battery: 12,
-      status: DeviceStatus.warning,
-    ),
-    DeviceModel(
-      id: 'ESP32-C1-0915',
-      location: 'Tòa C1, Tầng 9, P.0915',
-      battery: 0,
-      status: DeviceStatus.offline,
-    ),
-    DeviceModel(
-      id: 'ESP32-A3-0702',
-      location: 'Tòa A3, Tầng 7, P.0702',
-      battery: 18,
-      status: DeviceStatus.warning,
-    ),
-    DeviceModel(
-      id: 'ESP32-B1-1108',
-      location: 'Tòa B1, Tầng 11, P.1108',
-      battery: 65,
+      id: 'btn-1',
+      name: 'Nút Bếp',
+      room: 'Khu vực Bếp ăn',
+      product: 'Nước Lavie 20L',
+      price: '65.000đ',
+      battery: 85,
+      badgeText: '20L',
+      signal: 'Rất tốt',
       status: DeviceStatus.online,
+      wifiSsid: 'Home_Network_5G',
     ),
     DeviceModel(
-      id: 'ESP32-A2-0406',
-      location: 'Tòa A2, Tầng 4, P.0406',
-      battery: 92,
+      id: 'btn-2',
+      name: 'Nút Phòng Khách',
+      room: 'Bàn trà sofa',
+      product: 'Aquafina 500ml · 24 chai',
+      price: '98.000đ',
+      battery: 15,
+      badgeText: '24 chai',
+      signal: 'Ổn định',
+      status: DeviceStatus.warning,
+      wifiSsid: 'Home_Network_5G',
+    ),
+    DeviceModel(
+      id: 'btn-3',
+      name: 'Nút Ban Công',
+      room: 'Khu vực Ban công',
+      product: 'Gas Petrolimex 12kg',
+      price: '380.000đ',
+      battery: 90,
+      badgeText: '12kg',
+      signal: 'Rất tốt',
       status: DeviceStatus.online,
+      wifiSsid: 'Home_Network_5G',
     ),
   ];
 }

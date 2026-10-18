@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import '../services/api_client.dart';
+import 'dashboard_screen.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -46,14 +48,28 @@ class _SplashScreenState extends State<SplashScreen>
     }
   }
 
-  void _navigateToLogin() {
+  Future<void> _navigateNext() async {
     if (_isNavigated || !mounted) return;
     _isNavigated = true;
 
+    bool isAuthenticated = false;
+    try {
+      final apiClient = ApiClient();
+      await apiClient.ensureAuthenticated();
+      isAuthenticated = apiClient.isAuthenticated;
+    } catch (_) {
+      isAuthenticated = false;
+    }
+
+    if (!mounted) return;
+
+    final Widget targetScreen = isAuthenticated
+        ? const DashboardScreen()
+        : const LoginScreen();
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const LoginScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
             opacity: animation,
@@ -79,7 +95,7 @@ class _SplashScreenState extends State<SplashScreen>
       backgroundColor: Colors.white,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: _navigateToLogin, // Cho phép chạm để chuyển nhanh nếu muốn
+        onTap: _navigateNext, // Cho phép chạm để chuyển nhanh nếu muốn
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -105,7 +121,7 @@ class _SplashScreenState extends State<SplashScreen>
                                   // Khi xe chạy xong hoàn toàn
                                   Future.delayed(
                                     const Duration(milliseconds: 200),
-                                    _navigateToLogin,
+                                    _navigateNext,
                                   );
                                 });
                             },
@@ -115,7 +131,7 @@ class _SplashScreenState extends State<SplashScreen>
                                 _fadeController.forward();
                                 Future.delayed(
                                   const Duration(seconds: 2),
-                                  _navigateToLogin,
+                                  _navigateNext,
                                 );
                               });
                               return const Icon(
@@ -174,7 +190,7 @@ class _SplashScreenState extends State<SplashScreen>
                         FadeTransition(
                           opacity: _fadeAnimation,
                           child: TextButton(
-                            onPressed: _navigateToLogin,
+                            onPressed: _navigateNext,
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.grey.shade400,
                               textStyle: const TextStyle(fontSize: 13),

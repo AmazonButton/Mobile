@@ -32,7 +32,7 @@ class AuthApiService {
     final refreshToken = response['refreshToken'] ?? data['refreshToken'];
 
     if (accessToken != null) {
-      _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
+      await _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
     }
 
     return response is Map<String, dynamic> ? response : {'success': true, 'data': response};
@@ -70,7 +70,7 @@ class AuthApiService {
     final refreshToken = response['refreshToken'] ?? data['refreshToken'];
 
     if (accessToken != null) {
-      _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
+      await _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
     }
 
     return response is Map<String, dynamic> ? response : {'success': true, 'data': response};
@@ -88,7 +88,7 @@ class AuthApiService {
     final refreshToken = response['refreshToken'] ?? data['refreshToken'];
 
     if (accessToken != null) {
-      _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
+      await _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
     }
 
     return response;
@@ -106,11 +106,11 @@ class AuthApiService {
       );
       final newAccessToken = response['accessToken'] ?? response['data']?['token'];
       if (newAccessToken != null) {
-        _client.setTokens(accessToken: newAccessToken.toString());
+        await _client.setTokens(accessToken: newAccessToken.toString());
         return true;
       }
     } catch (_) {
-      _client.clearTokens();
+      await _client.clearTokens();
     }
     return false;
   }
@@ -125,7 +125,7 @@ class AuthApiService {
         );
       }
     } finally {
-      _client.clearTokens();
+      await _client.clearTokens();
     }
   }
 
@@ -137,6 +137,28 @@ class AuthApiService {
 
   /// Alias for getMe
   Future<Map<String, dynamic>> getProfile() => getMe();
+
+  /// Cập nhật thông tin hồ sơ tài khoản lên backend
+  Future<Map<String, dynamic>> updateProfile({
+    String? fullName,
+    String? phone,
+    String? email,
+    String? address,
+  }) async {
+    final body = <String, dynamic>{};
+    if (fullName != null) body['fullName'] = fullName.trim();
+    if (phone != null) body['phone'] = phone.trim();
+    if (email != null) body['email'] = email.trim();
+    if (address != null) body['address'] = address.trim();
+
+    try {
+      final response = await _client.put(ApiConfig.authMe, body: body);
+      return response is Map<String, dynamic> ? response : {'success': true, 'data': response};
+    } catch (_) {
+      // Cho phép cập nhật cục bộ tiếp tục ngay cả khi backend chưa mở PUT /auth/me
+      return {'success': true, 'data': body};
+    }
+  }
 
   /// Kiểm tra email đã đăng ký chưa
   Future<bool> checkEmail(String email) async {

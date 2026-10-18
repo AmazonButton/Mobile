@@ -1,3 +1,4 @@
+import '../models/order_model.dart';
 import 'api_client.dart';
 import 'api_config.dart';
 
@@ -8,15 +9,22 @@ class OrdersApiService {
 
   final ApiClient _client = ApiClient();
 
-  /// Lấy danh sách lịch sử đơn hàng của người dùng
-  Future<List<dynamic>> getOrders({String? status}) async {
+  /// Lấy danh sách lịch sử đơn hàng của người dùng được ánh xạ thành strongly-typed OrderModel
+  Future<List<OrderModel>> getOrders({String? status}) async {
     final query = <String, dynamic>{};
     if (status != null && status.isNotEmpty) query['status'] = status;
 
     final response = await _client.get(ApiConfig.orders, queryParams: query);
     final data = response['data'] ?? response;
     if (data is List) {
-      return data;
+      return data.map((item) {
+        if (item is Map<String, dynamic>) {
+          return OrderModel.fromJson(item);
+        } else if (item is Map) {
+          return OrderModel.fromJson(Map<String, dynamic>.from(item));
+        }
+        return OrderModel.fromJson({});
+      }).toList();
     }
     return [];
   }

@@ -4,7 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../models/user_profile_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
+import '../services/user_profile_service.dart';
+import '../services/auth_api_service.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -20,16 +23,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final UserProfileService _userService = UserProfileService();
   final ImagePicker _imagePicker = ImagePicker();
 
-  String get userName => _userService.name;
-  String get userPhone => _userService.phone;
-  String get userEmail => _userService.email;
-  String get userAddress => _userService.address;
-  File? get _avatarFile => _userService.avatarFile;
+  UserProvider? get _userProvider {
+    try {
+      return Provider.of<UserProvider>(context);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String get userName => _userProvider?.name ?? _userService.name;
+  String get userPhone => _userProvider?.phone ?? _userService.phone;
+  String get userEmail => _userProvider?.email ?? _userService.email;
+  String get userAddress => _userProvider?.address ?? _userService.address;
+  File? get _avatarFile => _userProvider?.avatarFile ?? _userService.avatarFile;
+  String get userInitials => _userProvider?.initials ?? _userService.initials;
 
   @override
   void initState() {
     super.initState();
     _userService.addListener(_onProfileChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        Provider.of<UserProvider>(context, listen: false).loadProfile();
+      } catch (_) {}
+    });
   }
 
   @override
@@ -42,6 +59,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) setState(() {});
   }
 
+  void _updateName(String newName) {
+    try {
+      Provider.of<UserProvider>(context, listen: false).updateName(newName);
+    } catch (_) {
+      _userService.updateName(newName);
+    }
+  }
+
+  void _updatePhone(String newPhone) {
+    try {
+      Provider.of<UserProvider>(context, listen: false).updatePhone(newPhone);
+    } catch (_) {
+      _userService.updatePhone(newPhone);
+    }
+  }
+
+  void _updateEmail(String newEmail) {
+    try {
+      Provider.of<UserProvider>(context, listen: false).updateEmail(newEmail);
+    } catch (_) {
+      _userService.updateEmail(newEmail);
+    }
+  }
+
+  void _updateAddress(String newAddress) {
+    try {
+      Provider.of<UserProvider>(context, listen: false).updateAddress(newAddress);
+    } catch (_) {
+      _userService.updateAddress(newAddress);
+    }
+  }
+
+  void _updateAvatar(File? file) {
+    try {
+      Provider.of<UserProvider>(context, listen: false).updateAvatar(file);
+    } catch (_) {
+      _userService.updateAvatar(file);
+    }
+  }
+
   Future<void> _pickAvatar(ImageSource source) async {
     try {
       final XFile? picked = await _imagePicker.pickImage(
@@ -51,7 +108,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         imageQuality: 85,
       );
       if (picked != null) {
-        _userService.updateAvatar(File(picked.path));
+        _updateAvatar(File(picked.path));
         _showFloatingToast('Cập nhật ảnh đại diện thành công');
       }
     } catch (e) {
@@ -234,7 +291,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   TactileTap(
                     onTap: () {
                       Navigator.pop(ctx);
-                      _userService.updateAvatar(null);
+                      _updateAvatar(null);
                       _showFloatingToast('Đã xóa ảnh đại diện');
                     },
                     child: Container(
@@ -425,7 +482,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: () {
                     final newName = nameController.text.trim();
                     if (newName.isNotEmpty) {
-                      _userService.updateName(newName);
+                      _updateName(newName);
                       Navigator.pop(ctx);
                       _showFloatingToast('Cập nhật tên thành công');
                     }
@@ -543,9 +600,247 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: () {
                     final newAddr = addressController.text.trim();
                     if (newAddr.isNotEmpty) {
-                      _userService.updateAddress(newAddr);
+                      _updateAddress(newAddr);
                       Navigator.pop(ctx);
                       _showFloatingToast('Cập nhật địa chỉ thành công');
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF64748B),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Lưu thay đổi',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _openEditPhoneModal() {
+    final TextEditingController phoneController =
+        TextEditingController(text: userPhone);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            left: 20,
+            right: 20,
+            top: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Đổi số điện thoại',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(LucideIcons.x,
+                        color: Color(0xFF94A3B8), size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'SỐ ĐIỆN THOẠI',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF94A3B8),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: TextField(
+                  controller: phoneController,
+                  autofocus: true,
+                  keyboardType: TextInputType.phone,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E293B),
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Nhập số điện thoại...',
+                    hintStyle: TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 14,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final newPhone = phoneController.text.trim();
+                    if (newPhone.isNotEmpty) {
+                      _updatePhone(newPhone);
+                      Navigator.pop(ctx);
+                      _showFloatingToast('Cập nhật số điện thoại thành công');
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF64748B),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Lưu thay đổi',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _openEditEmailModal() {
+    final TextEditingController emailController =
+        TextEditingController(text: userEmail);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            left: 20,
+            right: 20,
+            top: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Đổi địa chỉ email',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(LucideIcons.x,
+                        color: Color(0xFF94A3B8), size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'EMAIL',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF94A3B8),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: TextField(
+                  controller: emailController,
+                  autofocus: true,
+                  keyboardType: TextInputType.emailAddress,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E293B),
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Nhập email mới...',
+                    hintStyle: TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 14,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final newEmail = emailController.text.trim();
+                    if (newEmail.isNotEmpty) {
+                      _updateEmail(newEmail);
+                      Navigator.pop(ctx);
+                      _showFloatingToast('Cập nhật email thành công');
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -601,19 +896,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              UserProvider? userProv;
+              try {
+                userProv = Provider.of<UserProvider>(context, listen: false);
+              } catch (_) {}
               Navigator.pop(ctx);
-              Navigator.of(context).pushAndRemoveUntil(
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) =>
-                      const LoginScreen(),
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) =>
-                          FadeTransition(opacity: animation, child: child),
-                  transitionDuration: const Duration(milliseconds: 300),
-                ),
-                (route) => false,
-              );
+              await AuthApiService().logout();
+              userProv?.reset();
+              _userService.reset();
+              if (mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        const LoginScreen(),
+                    transitionsBuilder:
+                        (context, animation, secondaryAnimation, child) =>
+                            FadeTransition(opacity: animation, child: child),
+                    transitionDuration: const Duration(milliseconds: 300),
+                  ),
+                  (route) => false,
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFF43F5E),
@@ -811,7 +1115,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _avatarFile != null ? FileImage(_avatarFile!) : null,
                     child: _avatarFile == null
                         ? Text(
-                            _userService.initials,
+                            userInitials,
                             style: const TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.bold,
@@ -904,12 +1208,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         icon: LucideIcons.phone,
         title: 'Số điện thoại',
         value: userPhone,
+        isEditable: true,
+        onTap: _openEditPhoneModal,
       ),
       const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
       InfoTile(
         icon: LucideIcons.mail,
         title: 'Email',
         value: userEmail,
+        isEditable: true,
+        onTap: _openEditEmailModal,
       ),
       const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
       InfoTile(
