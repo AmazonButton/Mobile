@@ -225,6 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       if (mounted) {
         setState(() => _isLoading = false);
+        NotificationService().syncTokenWithBackend();
         _navigateToDashboard();
       }
     } on ApiException catch (e) {

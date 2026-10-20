@@ -8,3 +8,5 @@ export 'provisioning_api_service.dart';
 export 'media_api_service.dart';
 export 'stores_api_service.dart';
 export 'user_profile_service.dart';
+export 'notifications_api_service.dart';
+export 'notification_service.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import '../services/api_client.dart';
+import '../services/services.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
 
@@ -62,6 +62,10 @@ class _SplashScreenState extends State<SplashScreen>
     }
 
     if (!mounted) return;
+
+    if (isAuthenticated) {
+      NotificationService().syncTokenWithBackend();
+    }
 
     final Widget targetScreen = isAuthenticated
         ? const DashboardScreen()

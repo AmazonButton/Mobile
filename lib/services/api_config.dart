@@ -98,4 +98,7 @@ class ApiConfig {
 
   // Addresses endpoints
   static const String addressesAutocomplete = '/addresses/autocomplete';
+
+  // Notifications endpoints
+  static const String notificationsFcmToken = '/notifications/fcm-token';
 }

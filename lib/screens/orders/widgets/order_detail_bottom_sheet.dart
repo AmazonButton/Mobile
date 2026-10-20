@@ -185,7 +185,7 @@ class OrderDetailBottomSheet extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Thiết bị: ${order.buttonName}',
+                              'Nút đặt: ${order.buttonName}${order.storeName.isNotEmpty ? " • ${order.storeName}" : ""}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF64748B),
