@@ -5,6 +5,20 @@ import '../utils/formatters.dart';
 
 enum OrderStatus { success, info, warning, danger }
 
+class OrderItemInfo {
+  final String name;
+  final int quantity;
+  final String price;
+  final String? imageUrl;
+
+  const OrderItemInfo({
+    required this.name,
+    this.quantity = 1,
+    this.price = '',
+    this.imageUrl,
+  });
+}
+
 class OrderModel {
   final String id;
   final String orderCode;
@@ -13,8 +27,10 @@ class OrderModel {
   final String product;
   final String title;
   final String buttonName;
+  final String storeName;
   final String deviceId;
   final String time;
+  final DateTime? createdAt;
   final String price;
   final num rawAmount;
   final OrderStatus status;
@@ -22,6 +38,7 @@ class OrderModel {
   final String statusText;
   final IconData icon;
   final Map<String, dynamic>? rawJson;
+  final List<OrderItemInfo> items;
 
   const OrderModel({
     required this.id,
@@ -31,8 +48,10 @@ class OrderModel {
     required this.product,
     this.title = '',
     this.buttonName = 'Nút bấm IoT',
+    this.storeName = '',
     this.deviceId = '',
     required this.time,
+    this.createdAt,
     this.price = '0đ',
     this.rawAmount = 0,
     required this.status,
@@ -40,6 +59,7 @@ class OrderModel {
     required this.statusText,
     this.icon = LucideIcons.package,
     this.rawJson,
+    this.items = const [],
   });
 
   String get displayTitle => title.isNotEmpty ? title : product;
@@ -48,7 +68,24 @@ class OrderModel {
   bool get isShipping => rawStatus == 'SHIPPING';
   bool get isCompleted => rawStatus == 'COMPLETED' || rawStatus == 'DELIVERED';
   bool get isCancelled => rawStatus == 'CANCELLED';
-  bool get isEmergencyCancellable => isPending;
+
+  /// Số giây còn lại trong cửa sổ an toàn 60 giây
+  int get remainingSafetySeconds {
+    if (!isPending) return 0;
+    if (createdAt == null) return 60;
+    final elapsed = DateTime.now().difference(createdAt!).inSeconds;
+    final remain = 60 - elapsed;
+    return remain > 0 ? remain : 0;
+  }
+
+  /// Kiểm tra xem đơn hàng còn trong cửa sổ hủy khẩn cấp 60 giây hay không
+  bool get isWithinSafetyWindow {
+    if (!isPending) return false;
+    if (createdAt == null) return true;
+    return remainingSafetySeconds > 0;
+  }
+
+  bool get isEmergencyCancellable => isWithinSafetyWindow;
 
   Color get statusColor {
     switch (status) {
@@ -100,24 +137,46 @@ class OrderModel {
       statusText = 'Chờ xác nhận';
     }
 
-    // Extract product and title
+    // Extract product and items list with robust fallback
+    final rawItems = json['items'] ?? json['orderItems'];
+    final List<OrderItemInfo> parsedItems = [];
     String productName = 'Nhu yếu phẩm';
     String displayTitle = '';
-    if (json['items'] is List && (json['items'] as List).isNotEmpty) {
-      final first = (json['items'] as List).first;
-      final qty = first['quantity'] ?? 1;
-      final name = first['productNameSnapshot'] ?? first['product']?['productName'] ?? first['product']?['name'] ?? 'Sản phẩm';
-      productName = name.toString();
-      displayTitle = '${qty}x $name';
-    } else if (json['orderItems'] is List && (json['orderItems'] as List).isNotEmpty) {
-      final first = (json['orderItems'] as List).first;
-      final qty = first['quantity'] ?? 1;
-      final prod = first['product'];
-      final name = prod != null && prod['name'] != null
-          ? prod['name'].toString()
-          : (first['productName']?.toString() ?? 'Sản phẩm');
-      productName = name;
-      displayTitle = '${qty}x $name';
+
+    if (rawItems is List && rawItems.isNotEmpty) {
+      for (final item in rawItems) {
+        if (item is Map) {
+          final qty = item['quantity'] is num
+              ? (item['quantity'] as num).toInt()
+              : (int.tryParse(item['quantity']?.toString() ?? '1') ?? 1);
+          final name = item['productName'] ??
+              item['productNameSnapshot'] ??
+              item['product']?['productName'] ??
+              item['product']?['name'] ??
+              item['name'] ??
+              'Sản phẩm';
+          final pStr = item['unitPrice']?.toString() ?? item['finalUnitPrice']?.toString() ?? '';
+          final img = item['imageUrl']?.toString() ??
+              item['product']?['images']?[0]?['imageUrl']?.toString();
+
+          parsedItems.add(OrderItemInfo(
+            name: name.toString(),
+            quantity: qty,
+            price: pStr,
+            imageUrl: img,
+          ));
+        }
+      }
+
+      if (parsedItems.isNotEmpty) {
+        final first = parsedItems.first;
+        productName = first.name;
+        if (parsedItems.length == 1) {
+          displayTitle = '${first.quantity}x ${first.name}';
+        } else {
+          displayTitle = '${first.quantity}x ${first.name} (+${parsedItems.length - 1} món khác)';
+        }
+      }
     } else if (json['productName'] != null) {
       productName = json['productName'].toString();
       displayTitle = productName;
@@ -130,13 +189,23 @@ class OrderModel {
       displayTitle = productName;
     }
 
+    DateTime? parsedCreatedAt;
     String timeStr = 'Vừa xong';
     if (json['createdAt'] != null) {
       final dt = DateTimeFormatter.tryParse(json['createdAt']);
       if (dt != null) {
+        parsedCreatedAt = dt;
         timeStr = DateTimeFormatter.formatOrderTime(dt);
       } else {
         timeStr = json['createdAt'].toString();
+      }
+    } else if (json['orderDate'] != null) {
+      final dt = DateTimeFormatter.tryParse(json['orderDate']);
+      if (dt != null) {
+        parsedCreatedAt = dt;
+        timeStr = DateTimeFormatter.formatOrderTime(dt);
+      } else {
+        timeStr = json['orderDate'].toString();
       }
     } else if (json['time'] != null) {
       timeStr = json['time'].toString();
@@ -150,7 +219,28 @@ class OrderModel {
     final apt = json['deliveryAddress'] ?? json['apartment'] ?? 'Căn hộ';
     final id = json['orderId']?.toString() ?? json['orderNumber']?.toString() ?? json['id']?.toString() ?? 'SOB';
     final orderCode = json['orderCode']?.toString() ?? json['orderNumber']?.toString() ?? '#$id';
-    final buttonName = json['button']?['buttonName']?.toString() ?? json['buttonName']?.toString() ?? 'Nút bấm IoT';
+
+    // Robust Button Name extraction
+    String buttonName = 'Nút bấm IoT';
+    final buttonObj = json['button'];
+    if (buttonObj is Map) {
+      buttonName = buttonObj['buttonName']?.toString() ??
+          buttonObj['name']?.toString() ??
+          buttonObj['buttonCode']?.toString() ??
+          'Nút bấm IoT';
+    } else if (json['buttonName'] != null && json['buttonName'].toString().isNotEmpty) {
+      buttonName = json['buttonName'].toString();
+    }
+
+    // Robust Store Name extraction
+    String storeName = '';
+    final storeObj = json['store'];
+    if (storeObj is Map) {
+      storeName = storeObj['name']?.toString() ?? storeObj['storeName']?.toString() ?? '';
+    } else if (json['storeName'] != null && json['storeName'].toString().isNotEmpty) {
+      storeName = json['storeName'].toString();
+    }
+
     final deviceId = json['button']?['deviceId']?.toString() ?? json['deviceId']?.toString() ?? '';
 
     final rawAmount = json['totalAmount'] ?? json['subtotalAmount'] ?? json['rawAmount'] ?? json['price'];
@@ -175,8 +265,10 @@ class OrderModel {
       product: productName,
       title: displayTitle,
       buttonName: buttonName,
+      storeName: storeName,
       deviceId: deviceId,
       time: timeStr,
+      createdAt: parsedCreatedAt,
       price: priceStr,
       rawAmount: amountNum,
       status: status,
@@ -184,6 +276,7 @@ class OrderModel {
       statusText: statusText,
       icon: icon,
       rawJson: json,
+      items: parsedItems,
     );
   }
 

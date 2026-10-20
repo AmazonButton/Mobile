@@ -48,11 +48,13 @@ class _OrdersScreenState extends State<OrdersScreen>
     _countdownTimer?.cancel();
     _cancelCountdown = 60;
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_cancelCountdown > 0) {
-        if (mounted) setState(() => _cancelCountdown--);
-      } else {
+      if (!mounted) {
         timer.cancel();
+        return;
       }
+      setState(() {
+        if (_cancelCountdown > 0) _cancelCountdown--;
+      });
     });
   }
 
@@ -103,7 +105,12 @@ class _OrdersScreenState extends State<OrdersScreen>
   void _handleEmergencyCancel(OrderModel order) {
     OrderCancelDialog.show(
       context,
+      order: order,
       orderTitle: order.displayTitle,
+      buttonName: order.buttonName,
+      price: order.price,
+      orderCode: order.orderCode,
+      storeName: order.storeName,
       onConfirm: () async {
         try {
           OrderProvider? provider;
@@ -117,7 +124,7 @@ class _OrdersScreenState extends State<OrdersScreen>
             await OrdersApiService().cancelOrder(order.id, reason: 'Hủy đơn khẩn cấp từ ứng dụng');
             await _loadOrders();
           }
-          _showFloatingToast('Đã hủy đơn hàng thành công');
+          _showFloatingToast('Đã hủy đơn hàng ${order.displayTitle} từ ${order.buttonName} thành công');
         } catch (e) {
           _showFloatingToast('Lỗi khi hủy: ${e is ApiException ? e.message : e.toString()}');
         }
@@ -295,7 +302,7 @@ class _OrdersScreenState extends State<OrdersScreen>
           order: order,
           cancelCountdown: _cancelCountdown,
           onEmergencyCancel: () => _handleEmergencyCancel(order),
-          onCancel: () => _handleEmergencyCancel(order),
+          onCancel: (order.isEmergencyCancellable || !order.isPending) ? () => _handleEmergencyCancel(order) : null,
           onTrack: () => _showOrderDetail(order),
           onDetailTap: () => _showOrderDetail(order),
         ),

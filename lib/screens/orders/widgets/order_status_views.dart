@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../models/order_model.dart';
 import '../../../utils/formatters.dart';
 
 /// Nút bấm có hiệu ứng co giãn xúc giác và haptic feedback
@@ -295,36 +296,168 @@ class OrderCancelDialog {
   static void show(
     BuildContext context, {
     required String orderTitle,
+    String? buttonName,
+    String? price,
+    String? orderCode,
+    String? storeName,
+    OrderModel? order,
     required Future<void> Function() onConfirm,
   }) {
+    final effectiveTitle = order?.displayTitle ?? orderTitle;
+    final effectiveButton = order?.buttonName ?? buttonName ?? 'Nút bấm IoT';
+    final effectivePrice = order?.price ?? price;
+    final effectiveCode = order?.orderCode ?? orderCode;
+    final effectiveStore = order?.storeName ?? storeName;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
+        titlePadding: const EdgeInsets.fromLTRB(22, 20, 22, 0),
+        contentPadding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        title: Row(
           children: [
-            Icon(LucideIcons.shieldAlert, color: Color(0xFFEF4444), size: 22),
-            SizedBox(width: 10),
-            Text(
-              'Hủy đơn khẩn cấp',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFEF2F2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(LucideIcons.shieldAlert, color: Color(0xFFEF4444), size: 20),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Hủy đơn khẩn cấp',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
               ),
             ),
           ],
         ),
-        content: Text(
-          'Đơn hàng "$orderTitle" đang trong thời gian an toàn. Bạn có muốn hủy ngay lập tức không?',
-          style: const TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.4),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Order summary box
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          effectiveTitle,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                            height: 1.25,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (effectivePrice != null && effectivePrice.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            effectivePrice,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFDC2626),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(LucideIcons.radio, size: 13, color: Color(0xFFDC2626)),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Nút đặt: ',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                      Expanded(
+                        child: Text(
+                          effectiveButton,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E293B),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (effectiveCode != null && effectiveCode.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(LucideIcons.hash, size: 13, color: Color(0xFF94A3B8)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Mã đơn: $effectiveCode',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        ),
+                        if (effectiveStore != null && effectiveStore.isNotEmpty) ...[
+                          const Spacer(),
+                          Text(
+                            effectiveStore,
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Đơn hàng đang trong thời gian an toàn 60 giây. Bạn có chắc chắn muốn hủy đơn hàng này ngay bây giờ không?',
+              style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.45),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Giữ đơn',
-                style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+            child: const Text(
+              'Giữ đơn',
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -337,8 +470,21 @@ class OrderCancelDialog {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Xác nhận hủy',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(LucideIcons.x, size: 15, color: Colors.white),
+                SizedBox(width: 6),
+                Text(
+                  'Xác nhận hủy',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

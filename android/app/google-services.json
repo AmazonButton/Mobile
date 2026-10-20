@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "67392214821",
+    "project_id": "iot-button-e59d7",
+    "storage_bucket": "iot-button-e59d7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:67392214821:android:d00ab3e430d4c07b096ccc",
+        "android_client_info": {
+          "package_name": "com.example.smart_order_button"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBVXb6vn_Og83r8fZBubIqsD1kfVOuJJ0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

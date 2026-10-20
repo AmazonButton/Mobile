@@ -25,11 +25,26 @@ class OrderCardItem extends StatelessWidget {
     this.onDetailTap,
   });
 
+  bool get _isEmergencyActive {
+    if (!order.isPending) return false;
+    if (order.createdAt != null) {
+      return order.remainingSafetySeconds > 0;
+    }
+    return cancelCountdown > 0;
+  }
+
+  int get _effectiveCountdown {
+    if (order.createdAt != null) {
+      return order.remainingSafetySeconds;
+    }
+    return cancelCountdown;
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (order.isPending) {
+    if (order.isPending && _isEmergencyActive) {
       return _buildPendingEmergencyCard();
-    } else if (order.isShipping || order.rawStatus == 'CONFIRMED' || order.rawStatus == 'PROCESSING') {
+    } else if (order.isPending || order.isShipping || order.rawStatus == 'CONFIRMED' || order.rawStatus == 'PROCESSING') {
       return _buildLiveTrackingCard();
     } else {
       return _buildPastOrderCard();
@@ -39,116 +54,252 @@ class OrderCardItem extends StatelessWidget {
   // 1. Thẻ đếm ngược khẩn cấp 60 giây
   Widget _buildPendingEmergencyCard() {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFECACA), width: 1),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFECACA), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFEF4444).withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: const Color(0xFFEF4444).withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
-                  Icon(
-                    LucideIcons.shieldAlert,
-                    color: Color(0xFFEF4444),
-                    size: 16,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onDetailTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. Header: Cửa sổ an toàn 60 giây + Đếm ngược
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFEE2E2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            LucideIcons.shieldAlert,
+                            color: Color(0xFFDC2626),
+                            size: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'CỬA SỔ AN TOÀN 60 GIÂY',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFDC2626),
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Text(
+                        '⏱ ${_effectiveCountdown}s',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFDC2626),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // 2. Product Information Row: Icon + Title + Price & OrderCode
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFECDD3)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        order.icon,
+                        color: const Color(0xFFE11D48),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            order.displayTitle,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
+                              letterSpacing: -0.3,
+                              height: 1.25,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                order.price,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFE11D48),
+                                ),
+                              ),
+                              if (order.orderCode.isNotEmpty && order.orderCode != '#ORD')
+                                Text(
+                                  order.orderCode,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // 3. IoT Button Source & Store Pill
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFEE2E2)),
                   ),
-                  SizedBox(width: 8),
-                  Text(
-                    'CỬA SỔ AN TOÀN 60 GIÂY',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFDC2626),
-                      letterSpacing: 0.5,
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.radio, size: 13, color: Color(0xFFE11D48)),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Nút đặt: ',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          order.buttonName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E293B),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (order.storeName.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF94A3B8),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 110),
+                          child: Text(
+                            order.storeName,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // 4. Emergency Cancel Button
+                TactileButton(
+                  scale: 0.96,
+                  onTap: onEmergencyCancel ?? () {},
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFEF4444).withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(LucideIcons.x, color: Colors.white, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          'Hủy đơn ngay',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFFCA5A5)),
                 ),
-                child: Text(
-                  '⏱ ${cancelCountdown}s',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFDC2626),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            order.displayTitle,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
-              letterSpacing: -0.3,
+              ],
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            '${order.buttonName} • Vừa gửi lệnh',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF64748B),
-            ),
-          ),
-          const SizedBox(height: 14),
-          TactileButton(
-            scale: 0.96,
-            onTap: onEmergencyCancel ?? () {},
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEF4444),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFEF4444).withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(LucideIcons.x, color: Colors.white, size: 16),
-                  SizedBox(width: 8),
-                  Text(
-                    'Hủy đơn ngay',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -180,7 +331,11 @@ class OrderCardItem extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isShipping ? const Color(0xFFEFF6FF) : const Color(0xFFECFDF5),
+                  color: isShipping
+                      ? const Color(0xFFEFF6FF)
+                      : order.isPending
+                          ? const Color(0xFFFFFBEB)
+                          : const Color(0xFFECFDF5),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -190,17 +345,29 @@ class OrderCardItem extends StatelessWidget {
                       width: 7,
                       height: 7,
                       decoration: BoxDecoration(
-                        color: isShipping ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
+                        color: isShipping
+                            ? const Color(0xFF3B82F6)
+                            : order.isPending
+                                ? const Color(0xFFF59E0B)
+                                : const Color(0xFF10B981),
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      isShipping ? 'Đang giao hàng' : 'Đang chuẩn bị',
+                      isShipping
+                          ? 'Đang giao hàng'
+                          : order.isPending
+                              ? 'Chờ cửa hàng tiếp nhận'
+                              : 'Đang chuẩn bị',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: isShipping ? const Color(0xFF2563EB) : const Color(0xFF059669),
+                        color: isShipping
+                            ? const Color(0xFF2563EB)
+                            : order.isPending
+                                ? const Color(0xFFD97706)
+                                : const Color(0xFF059669),
                       ),
                     ),
                   ],
@@ -240,7 +407,7 @@ class OrderCardItem extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                flex: 6,
+                flex: onCancel != null ? 6 : 10,
                 child: TactileButton(
                   scale: 0.96,
                   onTap: onTrack ?? () {},
@@ -263,32 +430,34 @@ class OrderCardItem extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 4,
-                child: TactileButton(
-                  scale: 0.96,
-                  onTap: onCancel ?? () {},
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFECDD3)),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'Hủy đơn',
-                        style: TextStyle(
-                          color: Color(0xFFF43F5E),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+              if (onCancel != null) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 4,
+                  child: TactileButton(
+                    scale: 0.96,
+                    onTap: onCancel!,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFECDD3)),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Hủy đơn',
+                          style: TextStyle(
+                            color: Color(0xFFF43F5E),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ],

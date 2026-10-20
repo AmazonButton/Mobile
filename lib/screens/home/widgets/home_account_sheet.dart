@@ -7,8 +7,7 @@ import 'package:provider/provider.dart';
 import '../../login_screen.dart';
 import '../../main_layout.dart';
 import '../../../providers/user_provider.dart';
-import '../../../services/auth_api_service.dart';
-import '../../../services/user_profile_service.dart';
+import '../../../services/services.dart';
 
 /// Modal Bottom Sheet hiển thị thông tin tài khoản và tùy chọn đăng xuất
 class HomeAccountSheet extends StatelessWidget {
@@ -92,6 +91,7 @@ class HomeAccountSheet extends StatelessWidget {
                 userProv = Provider.of<UserProvider>(context, listen: false);
               } catch (_) {}
               Navigator.pop(ctx);
+              await NotificationService().unregisterTokenOnLogout();
               await AuthApiService().logout();
               userProv?.reset();
               UserProfileService().reset();

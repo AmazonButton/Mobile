@@ -6,8 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
-import '../services/user_profile_service.dart';
-import '../services/auth_api_service.dart';
+import '../services/services.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -902,6 +901,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 userProv = Provider.of<UserProvider>(context, listen: false);
               } catch (_) {}
               Navigator.pop(ctx);
+              await NotificationService().unregisterTokenOnLogout();
               await AuthApiService().logout();
               userProv?.reset();
               _userService.reset();
