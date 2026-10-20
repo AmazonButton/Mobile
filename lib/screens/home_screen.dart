@@ -8,8 +8,11 @@ import 'package:provider/provider.dart';
 import 'main_layout.dart';
 import 'device_detail_screen.dart';
 import '../models/device_model.dart';
+import '../models/order_model.dart';
 import '../providers/device_provider.dart';
+import '../providers/order_provider.dart';
 import '../providers/user_provider.dart';
+import '../providers/address_provider.dart';
 import '../services/user_profile_service.dart';
 import '../widgets/modals/product_selection_sheet.dart';
 import '../widgets/address_picker_sheet.dart';
@@ -69,6 +72,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try { Provider.of<DeviceProvider>(context, listen: false).loadDevices(); } catch (_) {}
       try { Provider.of<UserProvider>(context, listen: false).loadProfile(); } catch (_) {}
+      try { Provider.of<OrderProvider>(context, listen: false).loadOrders(); } catch (_) {}
+      try { Provider.of<AddressProvider>(context, listen: false).loadAddresses(); } catch (_) {}
+    });
+
+    _bannerTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
     });
 
     _toastController = AnimationController(
@@ -85,8 +94,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  Timer? _bannerTicker;
+
   @override
   void dispose() {
+    _bannerTicker?.cancel();
     _userService.removeListener(_onProfileChanged);
     _toastController.dispose();
     _toastTimer?.cancel();
@@ -95,8 +107,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _handleRefresh() async {
     HapticFeedback.lightImpact();
+    final deviceProv = Provider.of<DeviceProvider>(context, listen: false);
+    final orderProv = Provider.of<OrderProvider>(context, listen: false);
     try {
-      await Provider.of<DeviceProvider>(context, listen: false).refreshDevices();
+      await deviceProv.refreshDevices();
+      await orderProv.refreshOrders();
     } catch (_) {
       await Future.delayed(const Duration(milliseconds: 600));
     }
@@ -126,29 +141,166 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _showToast(String message) => _showFloatingToast(message: message);
 
-  void _handleButtonPress(String id, String name, String product) {
+  Future<void> _handleButtonPress(String id, String name, String product) async {
     HapticFeedback.lightImpact();
     setState(() => _buttonStateMap[id] = 'ordering');
 
-    Timer(const Duration(milliseconds: 650), () {
-      if (!mounted) return;
-      HapticFeedback.mediumImpact();
-      setState(() => _buttonStateMap[id] = 'ordered');
+    DeviceModel? targetDevice;
+    try {
+      final devProvider = Provider.of<DeviceProvider>(context, listen: false);
+      targetDevice = devProvider.getDeviceById(id);
+    } catch (_) {}
 
-      _showFloatingToast(
-        message: 'Đã gửi lệnh đặt: $product ($name)',
-        onUndo: () {
-          HapticFeedback.lightImpact();
-          setState(() => _buttonStateMap[id] = 'idle');
-          _dismissToast();
-          _showFloatingToast(message: 'Đã hoàn tác đơn hàng $product', duration: const Duration(seconds: 2));
-        },
+    final currentProduct = targetDevice?.product ?? product;
+    final currentPrice = targetDevice?.price ?? '65.000đ';
+    final currentName = targetDevice?.name ?? name;
+
+    OrderProvider? orderProvider;
+    try {
+      orderProvider = Provider.of<OrderProvider>(context, listen: false);
+    } catch (_) {}
+
+    OrderModel? createdOrder;
+    if (orderProvider != null) {
+      createdOrder = await orderProvider.createOneTouchOrder(
+        deviceId: id,
+        buttonName: currentName,
+        productName: currentProduct,
+        productPrice: currentPrice,
+        customerName: _userName,
+        apartment: _userAddress,
       );
+    }
 
-      Timer(const Duration(milliseconds: 3200), () {
-        if (mounted) setState(() => _buttonStateMap[id] = 'idle');
-      });
+    if (!mounted) return;
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _buttonStateMap[id] = 'ordered';
+      _hasActiveOrder = true;
     });
+
+    _showFloatingToast(
+      message: '⚡ Đã đặt: $currentProduct ($currentName)! Cửa sổ an toàn 60s để hủy.',
+      duration: const Duration(seconds: 5),
+      onUndo: () {
+        HapticFeedback.lightImpact();
+        setState(() => _buttonStateMap[id] = 'idle');
+        _dismissToast();
+        if (createdOrder != null && orderProvider != null) {
+          orderProvider.cancelOrder(createdOrder.id, reason: 'Hoàn tác ngay từ trang chủ');
+        }
+        _showFloatingToast(message: 'Đã hoàn tác đơn hàng $currentProduct', duration: const Duration(seconds: 2));
+      },
+    );
+
+    Timer(const Duration(milliseconds: 3200), () {
+      if (mounted) setState(() => _buttonStateMap[id] = 'idle');
+    });
+  }
+
+  void _showAssignProductSheet(Map<String, String> prod, List<DeviceModel> devices) {
+    HapticFeedback.lightImpact();
+    if (devices.isEmpty) {
+      _showToast('Chưa có nút bấm nào để gán sản phẩm');
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.radio_button_checked, size: 20, color: Color(0xFF2563EB)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Chọn nút bấm để đặt hàng',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
+                        Text(
+                          'Gán ${prod['name']} (${prod['price']}) vào nút:',
+                          style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ...devices.map((d) => Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: ListTile(
+                  title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: Text('Hiện tại: ${d.product} • ${d.price}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text('Gán vào nút', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    try {
+                      final deviceProvider = Provider.of<DeviceProvider>(context, listen: false);
+                      deviceProvider.updateDeviceProductByName(d.id, prod['name']!, prod['price']!);
+                    } catch (_) {
+                      final badge = prod['name']!.contains('Gas') ? '12kg' : '20L';
+                      final updated = d.copyWith(product: prod['name']!, price: prod['price']!, badgeText: badge);
+                      final idx = _fallbackDevices.indexWhere((dev) => dev.id == d.id);
+                      if (idx != -1) setState(() => _fallbackDevices[idx] = updated);
+                    }
+                    _showFloatingToast(
+                      message: 'Đã gán ${prod['name']} vào ${d.name}. Bấm "Đặt ngay" để tạo đơn!',
+                      duration: const Duration(seconds: 4),
+                    );
+                  },
+                ),
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showAccountSheet() {
@@ -197,6 +349,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       isDevLoading = provider.isLoading;
     } catch (_) {}
 
+    OrderProvider? orderProvider;
+    OrderModel? currentActiveOrder;
+    try {
+      orderProvider = Provider.of<OrderProvider>(context);
+      if (orderProvider.activeOrders.isNotEmpty) {
+        currentActiveOrder = orderProvider.activeOrders.first;
+      }
+    } catch (_) {}
+
+    final bool showActiveBanner = _hasActiveOrder && (currentActiveOrder != null || _hasActiveOrder);
+    final String bannerTitle = currentActiveOrder?.displayTitle ?? '1× Nước Lavie 20L';
+    final String bannerStatus = (currentActiveOrder != null && currentActiveOrder.isWithinSafetyWindow)
+        ? 'CỬA SỔ AN TOÀN (${currentActiveOrder.remainingSafetySeconds}S)'
+        : (currentActiveOrder != null && currentActiveOrder.isShipping ? 'ĐANG GIAO HÀNG' : 'ĐANG CHUẨN BỊ');
+    final double bannerProgress = (currentActiveOrder != null && currentActiveOrder.isShipping)
+        ? 0.75
+        : (currentActiveOrder != null && !currentActiveOrder.isWithinSafetyWindow)
+            ? 0.50
+            : 0.25;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
@@ -222,14 +394,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                     const SizedBox(height: 20),
 
-                    if (_hasActiveOrder) ...[
+                    if (showActiveBanner) ...[
                       HomeActiveOrderBanner(
-                        statusText: 'ĐANG GIAO',
-                        productName: '1× Nước Lavie 20L',
-                        progress: 0.45,
+                        statusText: bannerStatus,
+                        productName: bannerTitle,
+                        progress: bannerProgress,
                         onCancel: () {
+                          if (currentActiveOrder != null && orderProvider != null) {
+                            orderProvider.cancelOrder(currentActiveOrder.id, reason: 'Hủy đơn từ trang chủ');
+                          }
                           setState(() => _hasActiveOrder = false);
-                          _showToast('Đã hủy đơn hàng');
+                          _showToast('Đã hủy đơn hàng $bannerTitle');
                         },
                         onTap: () {
                           HapticFeedback.lightImpact();
@@ -269,7 +444,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     const SizedBox(height: 16),
 
                     HomeQuickShopShelf(
-                      onAddProduct: (prod) => _showToast('Đã thêm ${prod['name']} vào danh sách chờ ghép nút'),
+                      onAddProduct: (prod) => _showAssignProductSheet(prod, displayDevices),
                       onSeeAll: () => _showToast('Xem danh mục sản phẩm gợi ý'),
                     ).animate().fade(duration: 400.ms),
                     const SizedBox(height: 24),

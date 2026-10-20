@@ -6,7 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../providers/address_provider.dart';
 import '../services/services.dart';
+import 'address/address_list_screen.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -45,6 +47,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       try {
         Provider.of<UserProvider>(context, listen: false).loadProfile();
       } catch (_) {}
+      try {
+        Provider.of<AddressProvider>(context, listen: false).loadAddresses();
+      } catch (_) {}
     });
   }
 
@@ -82,13 +87,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _updateAddress(String newAddress) {
-    try {
-      Provider.of<UserProvider>(context, listen: false).updateAddress(newAddress);
-    } catch (_) {
-      _userService.updateAddress(newAddress);
-    }
-  }
 
   void _updateAvatar(File? file) {
     try {
@@ -511,122 +509,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _openEditAddressModal() {
-    final TextEditingController addressController =
-        TextEditingController(text: userAddress);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            left: 20,
-            right: 20,
-            top: 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Đổi địa chỉ giao hàng',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(LucideIcons.x,
-                        color: Color(0xFF94A3B8), size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'ĐỊA CHỈ NHẬN HÀNG',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF94A3B8),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: TextField(
-                  controller: addressController,
-                  maxLines: 2,
-                  autofocus: true,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF1E293B),
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Nhập số phòng, tòa nhà, đường...',
-                    hintStyle: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final newAddr = addressController.text.trim();
-                    if (newAddr.isNotEmpty) {
-                      _updateAddress(newAddr);
-                      Navigator.pop(ctx);
-                      _showFloatingToast('Cập nhật địa chỉ thành công');
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF64748B),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Lưu thay đổi',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+  void _openEditAddressModal() async {
+    HapticFeedback.lightImpact();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddressListScreen()),
     );
+    if (mounted) setState(() {});
   }
 
   void _openEditPhoneModal() {
@@ -1223,7 +1112,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       InfoTile(
         icon: LucideIcons.mapPin,
         title: 'Địa chỉ giao hàng',
-        value: userAddress,
+        value: userAddress.trim().isNotEmpty ? userAddress : 'Chưa thiết lập địa chỉ',
         isEditable: true,
         onTap: _openEditAddressModal,
       ),

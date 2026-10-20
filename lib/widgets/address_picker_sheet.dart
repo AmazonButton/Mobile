@@ -6,6 +6,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../models/address_prediction.dart';
 import '../services/user_profile_service.dart';
 import '../services/address_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/address_provider.dart';
+import '../screens/address/address_list_screen.dart';
 
 class AddressPickerSheet extends StatefulWidget {
   final Function(String selectedAddress)? onAddressSelected;
@@ -122,6 +125,15 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
     HapticFeedback.mediumImpact();
     await AddressService.saveRecentAddress(fullAddress);
     _userService.updateAddress(fullAddress);
+    if (mounted) {
+      try {
+        final addrProv = Provider.of<AddressProvider>(context, listen: false);
+        final match = addrProv.addresses.where((a) => a.fullAddress == fullAddress || fullAddress.contains(a.addressDetail)).firstOrNull;
+        if (match != null) {
+          addrProv.selectDeliveryAddress(match);
+        }
+      } catch (_) {}
+    }
 
     if (widget.onAddressSelected != null) {
       widget.onAddressSelected!(fullAddress);
@@ -701,6 +713,131 @@ class _AddressPickerSheetState extends State<AddressPickerSheet> {
   }
 
   Widget _buildSavedTab() {
+    AddressProvider? addrProv;
+    try {
+      addrProv = Provider.of<AddressProvider>(context);
+    } catch (_) {}
+
+    final realAddresses = addrProv?.addresses ?? [];
+
+    if (realAddresses.isNotEmpty) {
+      return ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+        itemCount: realAddresses.length + 1,
+        separatorBuilder: (context, index) =>
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        itemBuilder: (ctx, index) {
+          if (index == realAddresses.length) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddressListScreen()),
+                  );
+                },
+                icon: const Icon(LucideIcons.settings, size: 16, color: Color(0xFF2563EB)),
+                label: const Text(
+                  'Quản lý sổ địa chỉ',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2563EB),
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFDBEAFE)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            );
+          }
+
+          final item = realAddresses[index];
+          IconData icon = LucideIcons.home;
+          if (item.label == 'Cơ quan') icon = LucideIcons.briefcase;
+          if (item.label == 'Khác') icon = LucideIcons.mapPin;
+
+          return InkWell(
+            onTap: () => _selectAddress(item.fullAddress),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: item.isDefault
+                          ? const Color(0xFFEFF6FF)
+                          : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, size: 16, color: item.isDefault ? const Color(0xFF2563EB) : const Color(0xFF64748B)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              item.recipientName.isNotEmpty ? item.recipientName : item.label,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            if (item.isDefault) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFECFDF5),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'Mặc định',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF059669),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.addressDetail,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(LucideIcons.chevronRight,
+                      size: 16, color: Color(0xFF94A3B8)),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
       itemCount: _savedAddresses.length,

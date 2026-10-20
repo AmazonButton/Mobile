@@ -118,6 +118,62 @@ class OrderProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Đặt hàng siêu tốc 1 chạm từ nút bấm và khởi tạo cửa sổ an toàn 60 giây
+  Future<OrderModel?> createOneTouchOrder({
+    required String deviceId,
+    required String buttonName,
+    required String productName,
+    required String productPrice,
+    String? customerName,
+    String? apartment,
+  }) async {
+    OrderModel? newOrder;
+
+    // 1. Thử gọi API backend nếu deviceId hợp lệ
+    if (!deviceId.startsWith('btn-') && !deviceId.startsWith('mock-')) {
+      try {
+        final res = await _apiService.quickReorder(deviceId: deviceId);
+        if (res['order'] != null) {
+          final raw = res['order'] is Map<String, dynamic>
+              ? res['order'] as Map<String, dynamic>
+              : Map<String, dynamic>.from(res['order']);
+          newOrder = OrderModel.fromJson(raw);
+        }
+      } catch (_) {
+        // Fallback tạo đơn cục bộ nếu không có kết nối server
+      }
+    }
+
+    // 2. Tạo đơn hàng với createdAt = DateTime.now() để kích hoạt cửa sổ an toàn 60 giây
+    if (newOrder == null) {
+      final now = DateTime.now();
+      final idCode = now.millisecondsSinceEpoch.toString();
+      final numPrice = num.tryParse(productPrice.replaceAll(RegExp(r'[^\d]'), '')) ?? 65000;
+
+      newOrder = OrderModel(
+        id: 'SOB-$idCode',
+        orderCode: '#ORD-${idCode.substring(idCode.length - 4)}',
+        customerName: customerName ?? 'Nguyễn Văn An',
+        apartment: apartment ?? 'Căn hộ 12.04, Tháp A, Masteri Thảo Điền',
+        product: productName,
+        title: '1x $productName',
+        buttonName: buttonName,
+        deviceId: deviceId,
+        time: 'Vừa xong',
+        createdAt: now,
+        price: productPrice.endsWith('đ') ? productPrice : '$productPriceđ',
+        rawAmount: numPrice,
+        status: OrderStatus.warning,
+        rawStatus: 'PENDING',
+        statusText: 'Chờ xác nhận',
+      );
+    }
+
+    _orders.insert(0, newOrder);
+    notifyListeners();
+    return newOrder;
+  }
+
   /// Làm mới danh sách đơn hàng
   Future<void> refreshOrders() => loadOrders();
 }
