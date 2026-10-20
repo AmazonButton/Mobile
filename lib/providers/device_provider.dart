@@ -76,6 +76,38 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
+  /// Cập nhật sản phẩm tùy chỉnh (tên & giá) cho nút bấm (dùng cho gợi ý kệ hàng, chọn nhanh)
+  Future<void> updateDeviceProductByName(String deviceId, String productName, String price, {String? badgeText}) async {
+    final index = _devices.indexWhere((d) => d.id == deviceId);
+    if (index == -1) return;
+
+    final current = _devices[index];
+    final badge = badgeText ??
+        (productName.contains('Gas')
+            ? '12kg'
+            : (productName.contains('500ml') || productName.contains('chai') || productName.contains('lon'))
+                ? '24 món'
+                : '20L');
+
+    final updated = current.copyWith(
+      product: productName,
+      price: price.endsWith('đ') ? price : '$priceđ',
+      badgeText: badge,
+    );
+
+    _devices[index] = updated;
+    notifyListeners();
+
+    try {
+      await _apiService.updateCustomerConfig(
+        deviceId,
+        buttonName: current.name,
+      );
+    } catch (_) {
+      // Best-effort remote update
+    }
+  }
+
   /// Cập nhật tên và phòng của nút bấm
   Future<void> updateDeviceInfo(String deviceId, {String? name, String? room}) async {
     final index = _devices.indexWhere((d) => d.id == deviceId);

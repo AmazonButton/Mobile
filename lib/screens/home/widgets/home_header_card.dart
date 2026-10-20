@@ -153,13 +153,13 @@ class HomeHeaderCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    userAddress,
+                    userAddress.trim().isNotEmpty ? userAddress : 'Chọn địa chỉ giao hàng',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF334155),
+                      fontWeight: userAddress.trim().isNotEmpty ? FontWeight.w500 : FontWeight.normal,
+                      color: userAddress.trim().isNotEmpty ? const Color(0xFF334155) : const Color(0xFF94A3B8),
                     ),
                   ),
                 ),

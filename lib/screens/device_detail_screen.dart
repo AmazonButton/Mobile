@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+import '../providers/device_provider.dart';
 import '../widgets/modals/product_selection_sheet.dart';
 import '../widgets/modals/wifi_provisioning_sheet.dart';
 
@@ -103,6 +105,16 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=200&auto=format&fit=crop&q=80';
           }
         });
+
+        if (widget.deviceId != null && widget.deviceId!.isNotEmpty) {
+          try {
+            Provider.of<DeviceProvider>(context, listen: false).updateDeviceProduct(
+              widget.deviceId!,
+              selectedProduct,
+            );
+          } catch (_) {}
+        }
+
         _showToast('Đã gán $_productName vào $_deviceName');
       },
     );

@@ -10,3 +10,5 @@ export 'stores_api_service.dart';
 export 'user_profile_service.dart';
 export 'notifications_api_service.dart';
 export 'notification_service.dart';
+export 'address_api_service.dart';
+export 'address_service.dart';

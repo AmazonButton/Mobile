@@ -112,13 +112,25 @@ class DeviceModel {
     String price = 'Giá tiêu chuẩn';
     String badge = '20L';
 
-    if (json['buttonProducts'] is List && (json['buttonProducts'] as List).isNotEmpty) {
-      final bp = (json['buttonProducts'] as List).first;
-      final p = bp['product'];
-      if (p != null) {
-        product = p['name']?.toString() ?? product;
-        if (p['price'] != null) {
-          price = '${p['price']}đ';
+    final rawProds = json['products'] ?? json['buttonProducts'];
+    if (rawProds is List && rawProds.isNotEmpty) {
+      final bp = rawProds.first;
+      if (bp is Map) {
+        final p = bp['product'];
+        if (p is Map) {
+          product = p['productName']?.toString() ?? p['name']?.toString() ?? product;
+          final pPrice = p['basePrice'] ?? p['price'];
+          if (pPrice != null) {
+            final pStr = pPrice.toString();
+            price = pStr.endsWith('đ') ? pStr : '${pStr}đ';
+          }
+        } else {
+          product = bp['productName']?.toString() ?? bp['name']?.toString() ?? product;
+          final bPrice = bp['basePrice'] ?? bp['price'];
+          if (bPrice != null) {
+            final bStr = bPrice.toString();
+            price = bStr.endsWith('đ') ? bStr : '${bStr}đ';
+          }
         }
       }
     } else if (json['product'] != null) {
@@ -128,7 +140,8 @@ class DeviceModel {
     }
 
     if (json['price'] != null) {
-      price = json['price'].toString();
+      final pr = json['price'].toString();
+      price = pr.endsWith('đ') ? pr : '${pr}đ';
     }
 
     if (json['badgeText'] != null) {

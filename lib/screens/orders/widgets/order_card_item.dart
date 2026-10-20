@@ -42,13 +42,31 @@ class OrderCardItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget card;
     if (order.isPending && _isEmergencyActive) {
-      return _buildPendingEmergencyCard();
+      card = KeyedSubtree(
+        key: const ValueKey('pending_emergency'),
+        child: _buildPendingEmergencyCard(),
+      );
     } else if (order.isPending || order.isShipping || order.rawStatus == 'CONFIRMED' || order.rawStatus == 'PROCESSING') {
-      return _buildLiveTrackingCard();
+      card = KeyedSubtree(
+        key: const ValueKey('live_tracking'),
+        child: _buildLiveTrackingCard(),
+      );
     } else {
-      return _buildPastOrderCard();
+      card = KeyedSubtree(
+        key: const ValueKey('past_order'),
+        child: _buildPastOrderCard(),
+      );
     }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      transitionBuilder: (child, animation) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      child: card,
+    );
   }
 
   // 1. Thẻ đếm ngược khẩn cấp 60 giây
@@ -333,9 +351,7 @@ class OrderCardItem extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isShipping
                       ? const Color(0xFFEFF6FF)
-                      : order.isPending
-                          ? const Color(0xFFFFFBEB)
-                          : const Color(0xFFECFDF5),
+                      : const Color(0xFFECFDF5),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -347,9 +363,7 @@ class OrderCardItem extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isShipping
                             ? const Color(0xFF3B82F6)
-                            : order.isPending
-                                ? const Color(0xFFF59E0B)
-                                : const Color(0xFF10B981),
+                            : const Color(0xFF10B981),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -357,17 +371,13 @@ class OrderCardItem extends StatelessWidget {
                     Text(
                       isShipping
                           ? 'Đang giao hàng'
-                          : order.isPending
-                              ? 'Chờ cửa hàng tiếp nhận'
-                              : 'Đang chuẩn bị',
+                          : 'Đang chuẩn bị',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: isShipping
                             ? const Color(0xFF2563EB)
-                            : order.isPending
-                                ? const Color(0xFFD97706)
-                                : const Color(0xFF059669),
+                            : const Color(0xFF059669),
                       ),
                     ),
                   ],
