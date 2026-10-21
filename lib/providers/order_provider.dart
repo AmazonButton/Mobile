@@ -6,6 +6,11 @@ import '../services/orders_api_service.dart';
 class OrderProvider extends ChangeNotifier {
   final OrdersApiService _apiService;
 
+  /// Global hooks to notify other providers (e.g. NotificationProvider)
+  static void Function(OrderModel order)? onOrderCreated;
+  static void Function(OrderModel order, String? reason)? onOrderCancelled;
+  static void Function(List<OrderModel> orders)? onOrdersLoaded;
+
   List<OrderModel> _orders;
   bool _isLoading = false;
   String? _errorMessage;
@@ -60,6 +65,7 @@ class OrderProvider extends ChangeNotifier {
       final fetched = await _apiService.getOrders();
       _orders = fetched;
       _errorMessage = null;
+      onOrdersLoaded?.call(_orders);
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
@@ -107,6 +113,7 @@ class OrderProvider extends ChangeNotifier {
         items: current.items,
       );
       notifyListeners();
+      onOrderCancelled?.call(current, reason);
     }
   }
 
@@ -171,6 +178,7 @@ class OrderProvider extends ChangeNotifier {
 
     _orders.insert(0, newOrder);
     notifyListeners();
+    onOrderCreated?.call(newOrder);
     return newOrder;
   }
 

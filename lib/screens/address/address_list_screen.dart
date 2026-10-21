@@ -11,10 +11,7 @@ import 'address_form_sheet.dart';
 class AddressListScreen extends StatefulWidget {
   final bool selectMode; // true nếu mở để chọn địa chỉ nhận hàng rồi đóng lại
 
-  const AddressListScreen({
-    super.key,
-    this.selectMode = false,
-  });
+  const AddressListScreen({super.key, this.selectMode = false});
 
   @override
   State<AddressListScreen> createState() => _AddressListScreenState();
@@ -222,8 +219,11 @@ class _AddressListScreenState extends State<AddressListScreen> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(LucideIcons.chevronLeft,
-              color: Color(0xFF1E293B), size: 24),
+          icon: const Icon(
+            LucideIcons.chevronLeft,
+            color: Color(0xFF1E293B),
+            size: 24,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -239,8 +239,11 @@ class _AddressListScreenState extends State<AddressListScreen> {
         actions: [
           IconButton(
             onPressed: _openAddModal,
-            icon: const Icon(LucideIcons.plus,
-                color: Color(0xFF2563EB), size: 22),
+            icon: const Icon(
+              LucideIcons.plus,
+              color: Color(0xFF2563EB),
+              size: 22,
+            ),
             tooltip: 'Thêm địa chỉ mới',
           ),
         ],
@@ -261,80 +264,84 @@ class _AddressListScreenState extends State<AddressListScreen> {
                   ),
                 )
               : addresses.isEmpty
-                  ? _buildEmptyState()
-                  : ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
+              ? _buildEmptyState()
+              : ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  children: [
+                    // Hint banner
+                    Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 16),
-                      children: [
-                        // Hint banner
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFDBEAFE)),
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFDBEAFE)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            LucideIcons.info,
+                            size: 18,
+                            color: Color(0xFF2563EB),
                           ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                LucideIcons.info,
-                                size: 18,
-                                color: Color(0xFF2563EB),
-                              ),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Đơn hàng tạo từ nút bấm thông minh sẽ tự động giao về địa chỉ mặc định.',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF1E40AF),
-                                    height: 1.4,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Section Title
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'ĐỊA CHỈ ĐÃ LƯU (${addresses.length})',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF64748B),
-                                letterSpacing: 0.5,
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Đơn hàng tạo từ nút bấm thông minh sẽ tự động giao về địa chỉ mặc định.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF1E40AF),
+                                height: 1.4,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                            if (widget.selectMode)
-                              const Text(
-                                'Chạm để chọn giao hàng',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF2563EB),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Section Title
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'ĐỊA CHỈ ĐÃ LƯU (${addresses.length})',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF64748B),
+                            letterSpacing: 0.5,
+                          ),
                         ),
-                        const SizedBox(height: 12),
-
-                        // List of address cards
-                        ...addresses.map((item) {
-                          final isSelected = selectedId == item.id;
-                          return _buildAddressCard(item, isSelected);
-                        }),
-
-                        const SizedBox(height: 80), // Padding for bottom button
+                        if (widget.selectMode)
+                          const Text(
+                            'Chạm để chọn giao hàng',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF2563EB),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+
+                    // List of address cards
+                    ...addresses.map((item) {
+                      final isSelected = selectedId == item.id;
+                      return _buildAddressCard(item, isSelected);
+                    }),
+
+                    const SizedBox(height: 80), // Padding for bottom button
+                  ],
+                ),
         ),
       ),
       bottomSheet: Container(
@@ -420,7 +427,9 @@ class _AddressListScreenState extends State<AddressListScreen> {
                     // Label Chip
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
@@ -428,8 +437,11 @@ class _AddressListScreenState extends State<AddressListScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(labelIcon,
-                              size: 12, color: const Color(0xFF475569)),
+                          Icon(
+                            labelIcon,
+                            size: 12,
+                            color: const Color(0xFF475569),
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             item.label,
@@ -462,18 +474,25 @@ class _AddressListScreenState extends State<AddressListScreen> {
                     if (item.isDefault)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFECFDF5),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                              color: const Color(0xFFA7F3D0), width: 1),
+                            color: const Color(0xFFA7F3D0),
+                            width: 1,
+                          ),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(LucideIcons.check,
-                                size: 12, color: Color(0xFF059669)),
+                            Icon(
+                              LucideIcons.check,
+                              size: 12,
+                              color: Color(0xFF059669),
+                            ),
                             SizedBox(width: 3),
                             Text(
                               'Mặc định',
@@ -493,8 +512,11 @@ class _AddressListScreenState extends State<AddressListScreen> {
                 // Phone number
                 Row(
                   children: [
-                    const Icon(LucideIcons.phone,
-                        size: 13, color: Color(0xFF94A3B8)),
+                    const Icon(
+                      LucideIcons.phone,
+                      size: 13,
+                      color: Color(0xFF94A3B8),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       item.phone,
@@ -555,7 +577,9 @@ class _AddressListScreenState extends State<AddressListScreen> {
                         borderRadius: BorderRadius.circular(8),
                         child: const Padding(
                           padding: EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 4),
+                            horizontal: 6,
+                            vertical: 4,
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -608,11 +632,16 @@ class _AddressListScreenState extends State<AddressListScreen> {
                           borderRadius: BorderRadius.circular(8),
                           child: const Padding(
                             padding: EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 6),
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
                             child: Row(
                               children: [
-                                Icon(LucideIcons.pencil,
-                                    size: 14, color: Color(0xFF2563EB)),
+                                Icon(
+                                  LucideIcons.pencil,
+                                  size: 14,
+                                  color: Color(0xFF2563EB),
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'Sửa',
@@ -634,11 +663,16 @@ class _AddressListScreenState extends State<AddressListScreen> {
                           borderRadius: BorderRadius.circular(8),
                           child: const Padding(
                             padding: EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 6),
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
                             child: Row(
                               children: [
-                                Icon(LucideIcons.trash2,
-                                    size: 14, color: Color(0xFFEF4444)),
+                                Icon(
+                                  LucideIcons.trash2,
+                                  size: 14,
+                                  color: Color(0xFFEF4444),
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'Xóa',
@@ -717,8 +751,10 @@ class _AddressListScreenState extends State<AddressListScreen> {
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

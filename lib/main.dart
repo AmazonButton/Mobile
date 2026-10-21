@@ -44,6 +44,7 @@ class SmartOrderButtonApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => AddressProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: MaterialApp(
         navigatorKey: navigatorKey,

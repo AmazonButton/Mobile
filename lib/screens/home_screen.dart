@@ -13,8 +13,10 @@ import '../providers/device_provider.dart';
 import '../providers/order_provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/address_provider.dart';
+import '../providers/notification_provider.dart';
 import '../services/user_profile_service.dart';
 import '../widgets/modals/product_selection_sheet.dart';
+import '../widgets/modals/notification_sheet.dart';
 import '../widgets/address_picker_sheet.dart';
 import 'home/widgets/widgets.dart';
 
@@ -72,8 +74,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try { Provider.of<DeviceProvider>(context, listen: false).loadDevices(); } catch (_) {}
       try { Provider.of<UserProvider>(context, listen: false).loadProfile(); } catch (_) {}
-      try { Provider.of<OrderProvider>(context, listen: false).loadOrders(); } catch (_) {}
+      try {
+        final orderProv = Provider.of<OrderProvider>(context, listen: false);
+        orderProv.loadOrders().then((_) {
+          try {
+            if (mounted) {
+              Provider.of<NotificationProvider>(context, listen: false).syncOrders(orderProv.orders);
+            }
+          } catch (_) {}
+        });
+      } catch (_) {}
       try { Provider.of<AddressProvider>(context, listen: false).loadAddresses(); } catch (_) {}
+      try { Provider.of<NotificationProvider>(context, listen: false).loadNotifications(); } catch (_) {}
     });
 
     _bannerTicker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -358,6 +370,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
     } catch (_) {}
 
+    NotificationProvider? notifProvider;
+    try {
+      notifProvider = Provider.of<NotificationProvider>(context);
+    } catch (_) {}
+
     final bool showActiveBanner = _hasActiveOrder && (currentActiveOrder != null || _hasActiveOrder);
     final String bannerTitle = currentActiveOrder?.displayTitle ?? '1× Nước Lavie 20L';
     final String bannerStatus = (currentActiveOrder != null && currentActiveOrder.isWithinSafetyWindow)
@@ -388,8 +405,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       userInitials: _userInitials,
                       userShortName: _userShortName,
                       userAddress: _userAddress,
+                      unreadNotificationCount: notifProvider?.unreadCount ?? 0,
                       onAccountTap: _showAccountSheet,
-                      onNotificationTap: () => _showToast('Không có thông báo mới'),
+                      onNotificationTap: () => NotificationSheet.show(context),
                       onLocationTap: _showLocationPicker,
                     ),
                     const SizedBox(height: 20),

@@ -12,6 +12,7 @@ class HomeHeaderCard extends StatelessWidget {
   final VoidCallback onAccountTap;
   final VoidCallback? onNotificationTap;
   final VoidCallback onLocationTap;
+  final int unreadNotificationCount;
 
   const HomeHeaderCard({
     super.key,
@@ -22,6 +23,7 @@ class HomeHeaderCard extends StatelessWidget {
     required this.onAccountTap,
     this.onNotificationTap,
     required this.onLocationTap,
+    this.unreadNotificationCount = 0,
   });
 
   @override
@@ -111,19 +113,20 @@ class HomeHeaderCard extends StatelessWidget {
                       size: 18,
                       color: Color(0xFF475569),
                     ),
-                    Positioned(
-                      top: 10,
-                      right: 10,
-                      child: Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEF4444),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1),
+                    if (unreadNotificationCount > 0)
+                      Positioned(
+                        top: 9,
+                        right: 9,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
