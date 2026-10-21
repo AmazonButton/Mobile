@@ -10,6 +10,7 @@ class OrderProvider extends ChangeNotifier {
   static void Function(OrderModel order)? onOrderCreated;
   static void Function(OrderModel order, String? reason)? onOrderCancelled;
   static void Function(List<OrderModel> orders)? onOrdersLoaded;
+  static void Function(String orderId, OrderModel updatedOrder)? onOrderPaid;
 
   List<OrderModel> _orders;
   bool _isLoading = false;
@@ -114,6 +115,22 @@ class OrderProvider extends ChangeNotifier {
       );
       notifyListeners();
       onOrderCancelled?.call(current, reason);
+    }
+  }
+
+  /// Đánh dấu đơn hàng đã thanh toán thành công (PayOS / VietQR) và cập nhật reactive state
+  void markOrderAsPaid(String orderId) {
+    final index = _orders.indexWhere((o) => o.id == orderId || o.orderCode == orderId);
+    if (index != -1) {
+      final current = _orders[index];
+      _orders[index] = current.copyWith(
+        paymentStatus: 'PAID',
+        paymentMethod: 'PAYOS',
+        rawStatus: current.rawStatus == 'PENDING' ? 'CONFIRMED' : current.rawStatus,
+        statusText: current.statusText == 'Chờ xác nhận' ? 'Đã xác nhận' : current.statusText,
+      );
+      notifyListeners();
+      onOrderPaid?.call(orderId, _orders[index]);
     }
   }
 

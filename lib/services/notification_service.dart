@@ -17,6 +17,9 @@ class NotificationService {
   /// Optional listener hook for in-app notification provider
   static void Function(NotificationItem item)? onNotificationReceived;
 
+  /// Optional callback hook triggered when an order payment is confirmed in real time
+  static void Function(String orderId, String? orderCode)? onPaymentConfirmed;
+
   static const String _prefFcmTokenKey = 'cached_fcm_token';
   static const String channelId = 'smart_order_alerts';
   static const String channelName = 'Thông báo Đơn hàng Thông minh';
@@ -201,20 +204,36 @@ class NotificationService {
       final notification = message.notification;
       final data = message.data;
 
+      final orderId = data['orderId']?.toString();
+      final orderCode = data['orderCode']?.toString();
+      final type = data['type']?.toString();
+      final status = data['status']?.toString();
+
       final title = notification?.title ??
-          (data['type'] == 'ORDER_CREATED' ? 'Đơn hàng mới' : 'Cập nhật đơn hàng');
+          (type == 'ORDER_PAYMENT_CONFIRMED' || status == 'PAID'
+              ? 'Thanh toán thành công'
+              : (type == 'ORDER_CREATED' ? 'Đơn hàng mới' : 'Cập nhật đơn hàng'));
       final body = notification?.body ??
-          (data['orderCode'] != null
-              ? 'Đơn hàng #${data['orderCode']} của bạn đã được cập nhật'
+          (orderCode != null
+              ? (type == 'ORDER_PAYMENT_CONFIRMED' || status == 'PAID'
+                  ? 'Đơn hàng #$orderCode đã được thanh toán thành công qua PayOS.'
+                  : 'Đơn hàng #$orderCode của bạn đã được cập nhật')
               : 'Bạn có thông báo mới từ hệ thống');
+
+      // Kích hoạt callback xác nhận thanh toán real-time
+      if (type == 'ORDER_PAYMENT_CONFIRMED' || status == 'PAID') {
+        if (orderId != null && orderId.isNotEmpty) {
+          onPaymentConfirmed?.call(orderId, orderCode);
+        }
+      }
 
       // Lưu vào danh sách thông báo in-app
       _recordInAppNotification(
         title: title,
         body: body,
-        orderId: data['orderId']?.toString(),
-        orderCode: data['orderCode']?.toString(),
-        type: data['type']?.toString(),
+        orderId: orderId,
+        orderCode: orderCode,
+        type: type,
       );
 
       const androidDetails = AndroidNotificationDetails(

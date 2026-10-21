@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/order_model.dart';
 import '../../../models/payos_payment_data.dart';
+import '../../../providers/order_provider.dart';
+import '../../../services/notification_service.dart';
 import '../../../services/payments_api_service.dart';
 import 'order_status_views.dart';
 
@@ -52,10 +56,58 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
   PayosPaymentData? _paymentData;
   bool _isSuccess = false;
 
+  Timer? _pollingTimer;
+  int _pollingAttempts = 0;
+
   @override
   void initState() {
     super.initState();
+    _initRealTimeListener();
     _loadPaymentLink();
+  }
+
+  void _initRealTimeListener() {
+    NotificationService.onPaymentConfirmed = (orderId, orderCode) {
+      if (orderId == widget.order.id ||
+          orderId == widget.order.orderCode ||
+          orderCode == widget.order.orderCode) {
+        markSuccess();
+      }
+    };
+  }
+
+  void _startAutoPolling() {
+    _pollingTimer?.cancel();
+    _pollingAttempts = 0;
+    // Tự động kiểm tra trạng thái mỗi 3.5 giây tối đa 100 lần (~5.8 phút)
+    _pollingTimer = Timer.periodic(const Duration(milliseconds: 3500), (timer) async {
+      _pollingAttempts++;
+      if (_isSuccess || !mounted || _pollingAttempts > 100) {
+        timer.cancel();
+        return;
+      }
+      if (_paymentData != null && !_isChecking) {
+        try {
+          final res = await _paymentsService.getPaymentRequestInfo(
+            _paymentData!.orderCode.toString(),
+          );
+          final status = (res['status'] ?? res['data']?['status'] ?? '').toString().toUpperCase();
+          if (status == 'PAID') {
+            timer.cancel();
+            markSuccess();
+          }
+        } catch (_) {}
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    if (NotificationService.onPaymentConfirmed != null) {
+      NotificationService.onPaymentConfirmed = null;
+    }
+    super.dispose();
   }
 
   Future<void> _loadPaymentLink() async {
@@ -74,6 +126,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
           _paymentData = data;
           _isLoading = false;
         });
+        _startAutoPolling();
       }
     } catch (e) {
       if (mounted) {
@@ -131,7 +184,16 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
   }
 
   void markSuccess() {
-    if (!mounted) return;
+    if (!mounted || _isSuccess) return;
+    _pollingTimer?.cancel();
+    HapticFeedback.heavyImpact();
+
+    // Cập nhật OrderProvider trong bộ nhớ để toàn bộ UI phản ánh trạng thái PAID ngay lập tức
+    try {
+      final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+      orderProvider.markOrderAsPaid(widget.order.id);
+    } catch (_) {}
+
     setState(() {
       _isSuccess = true;
     });

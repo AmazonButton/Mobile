@@ -46,6 +46,18 @@ class NotificationProvider extends ChangeNotifier {
       ));
     };
 
+    OrderProvider.onOrderPaid = (orderId, order) {
+      addNotification(NotificationItem(
+        id: 'paid_${order.id}_${DateTime.now().millisecondsSinceEpoch}',
+        title: 'Thanh toán thành công (PayOS)',
+        body: 'Đơn hàng ${order.orderCode} (${order.product}) đã được thanh toán thành công qua PayOS.',
+        createdAt: DateTime.now(),
+        type: 'ORDER_PAYMENT_CONFIRMED',
+        orderId: order.id,
+        orderCode: order.orderCode,
+      ));
+    };
+
     OrderProvider.onOrdersLoaded = (orders) {
       syncOrders(orders);
     };

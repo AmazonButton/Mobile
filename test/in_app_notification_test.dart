@@ -9,7 +9,6 @@ import 'package:smart_order_button/models/order_model.dart';
 import 'package:smart_order_button/providers/notification_provider.dart';
 import 'package:smart_order_button/providers/order_provider.dart';
 import 'package:smart_order_button/screens/home/widgets/home_header_card.dart';
-import 'package:smart_order_button/services/notification_service.dart';
 import 'package:smart_order_button/widgets/modals/notification_sheet.dart';
 
 void main() {
