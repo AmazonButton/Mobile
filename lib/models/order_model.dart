@@ -36,6 +36,8 @@ class OrderModel {
   final OrderStatus status;
   final String rawStatus;
   final String statusText;
+  final String paymentStatus;
+  final String paymentMethod;
   final IconData icon;
   final Map<String, dynamic>? rawJson;
   final List<OrderItemInfo> items;
@@ -57,6 +59,8 @@ class OrderModel {
     required this.status,
     this.rawStatus = 'PENDING',
     required this.statusText,
+    this.paymentStatus = 'UNPAID',
+    this.paymentMethod = 'COD',
     this.icon = LucideIcons.package,
     this.rawJson,
     this.items = const [],
@@ -68,6 +72,10 @@ class OrderModel {
   bool get isShipping => rawStatus == 'SHIPPING';
   bool get isCompleted => rawStatus == 'COMPLETED' || rawStatus == 'DELIVERED';
   bool get isCancelled => rawStatus == 'CANCELLED';
+
+  bool get isPaid => paymentStatus.toUpperCase() == 'PAID';
+  bool get isUnpaid => paymentStatus.toUpperCase() == 'UNPAID';
+  bool get isPayos => paymentMethod.toUpperCase() == 'PAYOS';
 
   /// Số giây còn lại trong cửa sổ an toàn 60 giây
   int get remainingSafetySeconds {
@@ -257,6 +265,9 @@ class OrderModel {
       icon = LucideIcons.shoppingBag;
     }
 
+    final paymentStatus = (json['paymentStatus'] ?? 'UNPAID').toString().toUpperCase();
+    final paymentMethod = (json['paymentMethod'] ?? 'COD').toString().toUpperCase();
+
     return OrderModel(
       id: id,
       orderCode: orderCode,
@@ -274,9 +285,59 @@ class OrderModel {
       status: status,
       rawStatus: rawStatus,
       statusText: statusText,
+      paymentStatus: paymentStatus,
+      paymentMethod: paymentMethod,
       icon: icon,
       rawJson: json,
       items: parsedItems,
+    );
+  }
+
+  OrderModel copyWith({
+    String? id,
+    String? orderCode,
+    String? customerName,
+    String? apartment,
+    String? product,
+    String? title,
+    String? buttonName,
+    String? storeName,
+    String? deviceId,
+    String? time,
+    DateTime? createdAt,
+    String? price,
+    num? rawAmount,
+    OrderStatus? status,
+    String? rawStatus,
+    String? statusText,
+    String? paymentStatus,
+    String? paymentMethod,
+    IconData? icon,
+    Map<String, dynamic>? rawJson,
+    List<OrderItemInfo>? items,
+  }) {
+    return OrderModel(
+      id: id ?? this.id,
+      orderCode: orderCode ?? this.orderCode,
+      customerName: customerName ?? this.customerName,
+      apartment: apartment ?? this.apartment,
+      product: product ?? this.product,
+      title: title ?? this.title,
+      buttonName: buttonName ?? this.buttonName,
+      storeName: storeName ?? this.storeName,
+      deviceId: deviceId ?? this.deviceId,
+      time: time ?? this.time,
+      createdAt: createdAt ?? this.createdAt,
+      price: price ?? this.price,
+      rawAmount: rawAmount ?? this.rawAmount,
+      status: status ?? this.status,
+      rawStatus: rawStatus ?? this.rawStatus,
+      statusText: statusText ?? this.statusText,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      icon: icon ?? this.icon,
+      rawJson: rawJson ?? this.rawJson,
+      items: items ?? this.items,
     );
   }
 

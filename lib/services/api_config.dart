@@ -104,4 +104,11 @@ class ApiConfig {
 
   // Notifications endpoints
   static const String notificationsFcmToken = '/notifications/fcm-token';
+
+  // Payments endpoints
+  static const String paymentsPayosCreateLink = '/payments/payos/create-link';
+  static String paymentsPayosRequest(String id) =>
+      '/payments/payos/payment-requests/$id';
+  static String paymentsPayosCancel(String id) =>
+      '/payments/payos/payment-requests/$id/cancel';
 }
