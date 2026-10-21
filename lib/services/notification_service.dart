@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart' show navigatorKey;
+import '../models/notification_item.dart';
 import '../screens/orders_screen.dart';
 import 'api_client.dart';
 import 'notifications_api_service.dart';
@@ -12,6 +13,9 @@ class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
+
+  /// Optional listener hook for in-app notification provider
+  static void Function(NotificationItem item)? onNotificationReceived;
 
   static const String _prefFcmTokenKey = 'cached_fcm_token';
   static const String channelId = 'smart_order_alerts';
@@ -204,6 +208,15 @@ class NotificationService {
               ? 'Đơn hàng #${data['orderCode']} của bạn đã được cập nhật'
               : 'Bạn có thông báo mới từ hệ thống');
 
+      // Lưu vào danh sách thông báo in-app
+      _recordInAppNotification(
+        title: title,
+        body: body,
+        orderId: data['orderId']?.toString(),
+        orderCode: data['orderCode']?.toString(),
+        type: data['type']?.toString(),
+      );
+
       const androidDetails = AndroidNotificationDetails(
         channelId,
         channelName,
@@ -228,6 +241,52 @@ class NotificationService {
       );
     } catch (e) {
       debugPrint('[NotificationService] Error showing local notification: $e');
+    }
+  }
+
+  /// Ghi nhận thông báo in-app vào provider và SharedPreferences
+  Future<void> _recordInAppNotification({
+    required String title,
+    required String body,
+    String? orderId,
+    String? orderCode,
+    String? type,
+  }) async {
+    try {
+      final item = NotificationItem(
+        id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
+        title: title,
+        body: body,
+        createdAt: DateTime.now(),
+        isRead: false,
+        type: type ?? 'ORDER_CREATED',
+        orderId: orderId,
+        orderCode: orderCode,
+      );
+
+      // Kích hoạt callback nếu đã có NotificationProvider lắng nghe
+      onNotificationReceived?.call(item);
+
+      // Đồng thời lưu trực tiếp vào local storage
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('cached_user_notifications');
+      List<NotificationItem> list = raw != null && raw.isNotEmpty
+          ? NotificationItem.decodeList(raw)
+          : [];
+
+      final isDup = list.any((n) =>
+          (item.orderCode != null && n.orderCode == item.orderCode && n.type == item.type) ||
+          n.id == item.id);
+      if (!isDup) {
+        list.insert(0, item);
+        if (list.length > 50) list = list.sublist(0, 50);
+        await prefs.setString(
+          'cached_user_notifications',
+          NotificationItem.encodeList(list),
+        );
+      }
+    } catch (e) {
+      debugPrint('[NotificationService] Error recording in-app notification: $e');
     }
   }
 
