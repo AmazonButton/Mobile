@@ -192,6 +192,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
     try {
       final orderProvider = Provider.of<OrderProvider>(context, listen: false);
       orderProvider.markOrderAsPaid(widget.order.id);
+      orderProvider.refreshOrders();
     } catch (_) {}
 
     setState(() {
