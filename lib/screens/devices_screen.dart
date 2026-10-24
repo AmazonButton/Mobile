@@ -63,30 +63,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
       context: context,
       buttonName: device.name,
       currentProductName: device.product,
-      onSave: (selectedProduct) {
-        try {
-          context.read<DeviceProvider>().updateDeviceProduct(device.id, selectedProduct);
-        } catch (_) {
-          final badge = selectedProduct.shortName.contains('Gas')
-              ? '12kg'
-              : selectedProduct.shortName.contains('500ml')
-                  ? '24 chai'
-                  : '20L';
-
-          final updated = device.copyWith(
-            product: selectedProduct.shortName,
-            price: selectedProduct.priceFormatted,
-            badgeText: badge,
-          );
-
-          setState(() {
-            final index = _fallbackDevices.indexWhere((d) => d.id == device.id);
-            if (index != -1) {
-              _fallbackDevices[index] = updated;
-            }
-          });
-        }
-
+      deviceId: device.id,
+      onSave: (selectedProduct) async {
+        await context.read<DeviceProvider>().updateDeviceProduct(device.id, selectedProduct);
+        if (!mounted) return;
         _showToast(
           'Đã gắn ${selectedProduct.shortName} cho ${device.name}',
         );

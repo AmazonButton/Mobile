@@ -41,25 +41,41 @@ class ButtonProductModel {
   });
 
   factory ButtonProductModel.fromJson(Map<String, dynamic> json) {
-    final id = json['productId']?.toString() ?? json['id']?.toString() ?? 'prod-00';
-    final name = json['productName']?.toString() ?? json['name']?.toString() ?? 'Sản phẩm';
+    final id =
+        json['productId']?.toString() ?? json['id']?.toString() ?? 'prod-00';
+    final name =
+        json['productName']?.toString() ??
+        json['name']?.toString() ??
+        'Sản phẩm';
     final rawPrice = json['basePrice'] ?? json['price'];
-    final priceVal = rawPrice is num ? rawPrice.toInt() : (int.tryParse(rawPrice?.toString() ?? '') ?? 50000);
-    final category = json['category']?['categoryName']?.toString() ??
-        json['category']?['name']?.toString() ??
-        json['category']?.toString() ??
+    final priceVal = rawPrice is num
+        ? rawPrice.round()
+        : (num.tryParse(rawPrice?.toString() ?? '')?.round() ?? 0);
+    final rawCategory = json['category'];
+    final category =
+        (rawCategory is Map
+                ? rawCategory['categoryName'] ?? rawCategory['name']
+                : rawCategory)
+            ?.toString() ??
         'Nhu yếu phẩm';
-    final desc = json['description']?.toString() ?? 'Sản phẩm chính hãng chất lượng cao.';
+    final desc =
+        json['description']?.toString() ??
+        'Sản phẩm chính hãng chất lượng cao.';
     final brand = json['brand']?.toString() ?? 'Chính hãng';
-    final specs = json['specs']?.toString() ?? json['unit']?.toString() ?? 'Tiêu chuẩn';
+    final specs =
+        json['specs']?.toString() ?? json['unit']?.toString() ?? 'Tiêu chuẩn';
 
     IconData icon = LucideIcons.package;
     final lower = name.toLowerCase();
-    if (lower.contains('nước') || lower.contains('water') || lower.contains('lavie')) {
+    if (lower.contains('nước') ||
+        lower.contains('water') ||
+        lower.contains('lavie')) {
       icon = LucideIcons.droplets;
     } else if (lower.contains('gas') || lower.contains('petrolimex')) {
       icon = LucideIcons.flame;
-    } else if (lower.contains('gạo') || lower.contains('rice') || lower.contains('st25')) {
+    } else if (lower.contains('gạo') ||
+        lower.contains('rice') ||
+        lower.contains('st25')) {
       icon = LucideIcons.shoppingBag;
     }
 
@@ -70,7 +86,8 @@ class ButtonProductModel {
       brand: brand,
       specs: specs,
       price: priceVal,
-      priceFormatted: '${priceVal.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ',
+      priceFormatted:
+          '${priceVal.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ',
       unitPriceFormatted: 'Giá tiêu chuẩn',
       badge: json['isFeatured'] == true ? 'Nổi bật' : null,
       discountTag: 'Ưu đãi đặt qua nút bấm',

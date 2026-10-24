@@ -15,6 +15,7 @@ import '../providers/user_provider.dart';
 import '../providers/address_provider.dart';
 import '../providers/notification_provider.dart';
 import '../services/user_profile_service.dart';
+import '../services/api_client.dart';
 import '../widgets/modals/product_selection_sheet.dart';
 import '../widgets/modals/notification_sheet.dart';
 import '../widgets/address_picker_sheet.dart';
@@ -173,7 +174,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     } catch (_) {}
 
     OrderModel? createdOrder;
-    if (orderProvider != null) {
+    try {
+      if (orderProvider == null) throw StateError('Thiếu dữ liệu đơn hàng');
       createdOrder = await orderProvider.createOneTouchOrder(
         deviceId: id,
         buttonName: currentName,
@@ -182,6 +184,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         customerName: _userName,
         apartment: _userAddress,
       );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _buttonStateMap[id] = 'idle');
+      _showToast(error is ApiException ? error.message : 'Không thể đặt hàng. Vui lòng thử lại.');
+      return;
     }
 
     if (!mounted) return;
@@ -337,15 +344,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       context: context,
       buttonName: device.name,
       currentProductName: device.product,
-      onSave: (selectedProduct) {
-        try {
-          context.read<DeviceProvider>().updateDeviceProduct(device.id, selectedProduct);
-        } catch (_) {
-          final badge = selectedProduct.shortName.toLowerCase().contains('gas') ? '12kg' : '20L';
-          final updated = device.copyWith(product: selectedProduct.shortName, price: selectedProduct.priceFormatted, badgeText: badge);
-          final idx = _fallbackDevices.indexWhere((d) => d.id == device.id);
-          if (idx != -1) setState(() => _fallbackDevices[idx] = updated);
-        }
+      deviceId: device.id,
+      onSave: (selectedProduct) async {
+        await context.read<DeviceProvider>().updateDeviceProduct(device.id, selectedProduct);
+        if (!mounted) return;
         _showToast('Đã gắn "${selectedProduct.name}" vào ${device.name}');
       },
     );

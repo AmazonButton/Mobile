@@ -10,9 +10,11 @@ class DeviceProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
-  DeviceProvider({DevicesApiService? apiService, List<DeviceModel>? initialDevices})
-      : _apiService = apiService ?? DevicesApiService(),
-        _devices = initialDevices ?? List.from(DeviceModel.sampleDevices);
+  DeviceProvider({
+    DevicesApiService? apiService,
+    List<DeviceModel>? initialDevices,
+  }) : _apiService = apiService ?? DevicesApiService(),
+       _devices = initialDevices ?? List.from(DeviceModel.sampleDevices);
 
   List<DeviceModel> get devices => List.unmodifiable(_devices);
   bool get isLoading => _isLoading;
@@ -45,49 +47,61 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
-  /// Cập nhật sản phẩm gán cho nút bấm và đồng bộ ngay lập tức sang các màn hình
-  Future<void> updateDeviceProduct(String deviceId, ButtonProductModel product) async {
-    final index = _devices.indexWhere((d) => d.id == deviceId);
+  /// Đổi cửa hàng và nhận lại cấu hình nút đã xóa sản phẩm cũ từ backend.
+  Future<void> updateDeviceStore(String deviceId, String storeId) async {
+    if (!_devices.any((device) => device.id == deviceId)) {
+      throw StateError('Không tìm thấy thiết bị');
+    }
+    final response = await _apiService.updateCustomerConfig(deviceId, storeId: storeId);
+    final updated = DeviceModel.fromJson(response);
+    final index = _devices.indexWhere((device) => device.id == deviceId);
     if (index == -1) return;
-
-    final current = _devices[index];
-    final badge = product.shortName.contains('Gas')
-        ? '12kg'
-        : product.shortName.contains('500ml')
-            ? '24 chai'
-            : '20L';
-
-    final updated = current.copyWith(
-      product: product.shortName,
-      price: product.priceFormatted,
-      badgeText: badge,
-    );
-
     _devices[index] = updated;
     notifyListeners();
+  }
 
-    try {
-      await _apiService.updateCustomerConfig(
-        deviceId,
-        productId: product.id,
-      );
-    } catch (_) {
-      // Best-effort remote update
-    }
+  /// Chỉ cập nhật sản phẩm trên giao diện sau khi backend xác nhận.
+  Future<void> updateDeviceProduct(
+    String deviceId,
+    ButtonProductModel product,
+  ) async {
+    final index = _devices.indexWhere((d) => d.id == deviceId);
+    if (index == -1) throw StateError('Không tìm thấy thiết bị');
+
+    await _apiService.updateCustomerConfig(deviceId, productId: product.id);
+    final currentIndex = _devices.indexWhere((d) => d.id == deviceId);
+    if (currentIndex == -1) return;
+
+    final updated = _devices[currentIndex].copyWith(
+      product: product.shortName,
+      price: product.priceFormatted,
+      badgeText: product.specs,
+    );
+
+    _devices[currentIndex] = updated;
+    notifyListeners();
   }
 
   /// Cập nhật sản phẩm tùy chỉnh (tên & giá) cho nút bấm (dùng cho gợi ý kệ hàng, chọn nhanh)
-  Future<void> updateDeviceProductByName(String deviceId, String productName, String price, {String? badgeText}) async {
+  Future<void> updateDeviceProductByName(
+    String deviceId,
+    String productName,
+    String price, {
+    String? badgeText,
+  }) async {
     final index = _devices.indexWhere((d) => d.id == deviceId);
     if (index == -1) return;
 
     final current = _devices[index];
-    final badge = badgeText ??
+    final badge =
+        badgeText ??
         (productName.contains('Gas')
             ? '12kg'
-            : (productName.contains('500ml') || productName.contains('chai') || productName.contains('lon'))
-                ? '24 món'
-                : '20L');
+            : (productName.contains('500ml') ||
+                  productName.contains('chai') ||
+                  productName.contains('lon'))
+            ? '24 món'
+            : '20L');
 
     final updated = current.copyWith(
       product: productName,
@@ -109,7 +123,11 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   /// Cập nhật tên và phòng của nút bấm
-  Future<void> updateDeviceInfo(String deviceId, {String? name, String? room}) async {
+  Future<void> updateDeviceInfo(
+    String deviceId, {
+    String? name,
+    String? room,
+  }) async {
     final index = _devices.indexWhere((d) => d.id == deviceId);
     if (index == -1) return;
 

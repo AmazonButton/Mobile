@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import '../providers/device_provider.dart';
 import '../widgets/modals/product_selection_sheet.dart';
+import '../widgets/modals/store_selection_sheet.dart';
 import '../widgets/modals/wifi_provisioning_sheet.dart';
 
 class DeviceDetailScreen extends StatefulWidget {
@@ -75,7 +76,12 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       context: context,
       buttonName: _deviceName,
       currentProductName: _productName,
-      onSave: (selectedProduct) {
+      deviceId: widget.deviceId,
+      onSave: (selectedProduct) async {
+        final deviceId = widget.deviceId;
+        if (deviceId == null || deviceId.isEmpty) throw StateError('Không tìm thấy thiết bị');
+        await context.read<DeviceProvider>().updateDeviceProduct(deviceId, selectedProduct);
+        if (!mounted) return;
         setState(() {
           _productName = selectedProduct.shortName;
           _productPrice = selectedProduct.priceFormatted;
@@ -106,18 +112,33 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
           }
         });
 
-        if (widget.deviceId != null && widget.deviceId!.isNotEmpty) {
-          try {
-            Provider.of<DeviceProvider>(context, listen: false).updateDeviceProduct(
-              widget.deviceId!,
-              selectedProduct,
-            );
-          } catch (_) {}
-        }
-
         _showToast('Đã gán $_productName vào $_deviceName');
       },
     );
+  }
+
+  Future<void> _handleChangeStore() async {
+    final deviceId = widget.deviceId;
+    if (deviceId == null || deviceId.isEmpty) {
+      _showToast('Không tìm thấy thiết bị');
+      return;
+    }
+    final provider = context.read<DeviceProvider>();
+    final saved = await StoreSelectionSheet.show(
+      context: context,
+      deviceId: deviceId,
+      onSave: (storeId) => provider.updateDeviceStore(deviceId, storeId),
+    );
+    if (!mounted || saved != true) return;
+    final device = provider.getDeviceById(deviceId);
+    if (device != null) {
+      setState(() {
+        _productName = device.product;
+        _productPrice = device.price;
+        _productImageUrl = device.imageUrl ?? '';
+      });
+    }
+    _showToast('Đã đổi cửa hàng. Hãy chọn sản phẩm của cửa hàng mới.');
   }
 
   void _handleResetWifi() {
@@ -251,6 +272,19 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
             const SizedBox(height: 28),
 
             // ================= GROUP 1: ASSIGNED PRODUCT =================
+            _SettingsGroup(
+              title: 'CỬA HÀNG',
+              children: [
+                ListTile(
+                  leading: const Icon(LucideIcons.store),
+                  title: Text(context.watch<DeviceProvider?>()?.getDeviceById(widget.deviceId ?? '')?.storeName ?? 'Cửa hàng của nút'),
+                  subtitle: const Text('Đổi cửa hàng'),
+                  trailing: const Icon(LucideIcons.chevronRight),
+                  onTap: _handleChangeStore,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             _buildActionBindingGroup(),
             const SizedBox(height: 24),
 

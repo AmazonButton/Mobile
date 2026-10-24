@@ -11,6 +11,7 @@ import '../../../models/payos_payment_data.dart';
 import '../../../providers/order_provider.dart';
 import '../../../services/notification_service.dart';
 import '../../../services/payments_api_service.dart';
+import '../../../services/api_client.dart';
 import 'order_status_views.dart';
 
 /// Modal Bottom Sheet hiển thị mã VietQR PayOS và thông tin thanh toán trực tiếp
@@ -131,7 +132,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceAll('ApiException: ', '');
+          _errorMessage = e is ApiException ? e.message : 'Không thể tạo mã thanh toán. Vui lòng thử lại.';
           _isLoading = false;
         });
       }
@@ -192,7 +193,6 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
     try {
       final orderProvider = Provider.of<OrderProvider>(context, listen: false);
       orderProvider.markOrderAsPaid(widget.order.id);
-      orderProvider.refreshOrders();
     } catch (_) {}
 
     setState(() {

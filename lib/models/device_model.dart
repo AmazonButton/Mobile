@@ -15,6 +15,8 @@ class DeviceModel {
   final DeviceStatus status;
   final String wifiSsid;
   final String? imageUrl;
+  final String? storeId;
+  final String? storeName;
 
   const DeviceModel({
     required this.id,
@@ -28,6 +30,8 @@ class DeviceModel {
     required this.status,
     this.wifiSsid = 'Home_Network_5G',
     this.imageUrl,
+    this.storeId,
+    this.storeName,
   });
 
   /// Backward-compatible alias for room
@@ -70,6 +74,8 @@ class DeviceModel {
     DeviceStatus? status,
     String? wifiSsid,
     String? imageUrl,
+    String? storeId,
+    String? storeName,
   }) {
     return DeviceModel(
       id: id ?? this.id,
@@ -83,13 +89,17 @@ class DeviceModel {
       status: status ?? this.status,
       wifiSsid: wifiSsid ?? this.wifiSsid,
       imageUrl: imageUrl ?? this.imageUrl,
+      storeId: storeId ?? this.storeId,
+      storeName: storeName ?? this.storeName,
     );
   }
 
   factory DeviceModel.fromJson(Map<String, dynamic> json) {
     final rawStatus = (json['status'] ?? 'ACTIVE').toString().toUpperCase();
     final rawBattery = json['batteryLevel'] ?? json['battery'] ?? 100;
-    final int batteryInt = rawBattery is int ? rawBattery : (int.tryParse(rawBattery.toString()) ?? 100);
+    final int batteryInt = rawBattery is int
+        ? rawBattery
+        : (int.tryParse(rawBattery.toString()) ?? 100);
 
     DeviceStatus status = DeviceStatus.online;
     if (rawStatus == 'OFFLINE' || rawStatus == 'DISABLED') {
@@ -98,12 +108,15 @@ class DeviceModel {
       status = DeviceStatus.warning;
     }
 
-    final id = json['deviceId']?.toString() ?? json['id']?.toString() ?? 'ESP32';
-    final name = json['buttonName']?.toString() ??
+    final id =
+        json['deviceId']?.toString() ?? json['id']?.toString() ?? 'ESP32';
+    final name =
+        json['buttonName']?.toString() ??
         json['name']?.toString() ??
         json['customName']?.toString() ??
         'Nút thông minh';
-    final room = json['roomLocation']?.toString() ??
+    final room =
+        json['roomLocation']?.toString() ??
         json['room']?.toString() ??
         json['location']?.toString() ??
         'Khu vực trong nhà';
@@ -113,19 +126,28 @@ class DeviceModel {
     String badge = '20L';
 
     final rawProds = json['products'] ?? json['buttonProducts'];
+    if (rawProds is List && rawProds.isEmpty) {
+      product = 'Chưa gán sản phẩm';
+      price = '';
+      badge = '';
+    }
     if (rawProds is List && rawProds.isNotEmpty) {
       final bp = rawProds.first;
       if (bp is Map) {
         final p = bp['product'];
         if (p is Map) {
-          product = p['productName']?.toString() ?? p['name']?.toString() ?? product;
+          product =
+              p['productName']?.toString() ?? p['name']?.toString() ?? product;
           final pPrice = p['basePrice'] ?? p['price'];
           if (pPrice != null) {
             final pStr = pPrice.toString();
             price = pStr.endsWith('đ') ? pStr : '${pStr}đ';
           }
         } else {
-          product = bp['productName']?.toString() ?? bp['name']?.toString() ?? product;
+          product =
+              bp['productName']?.toString() ??
+              bp['name']?.toString() ??
+              product;
           final bPrice = bp['basePrice'] ?? bp['price'];
           if (bPrice != null) {
             final bStr = bPrice.toString();
@@ -154,9 +176,15 @@ class DeviceModel {
       badge = '20L';
     }
 
-    final signal = json['signal']?.toString() ?? (status == DeviceStatus.online ? 'Rất tốt' : 'Mất tín hiệu');
-    final wifi = json['wifiSsid']?.toString() ?? json['wifi']?.toString() ?? 'Home_Network_5G';
-    final img = json['imageUrl']?.toString() ?? json['productImageUrl']?.toString();
+    final signal =
+        json['signal']?.toString() ??
+        (status == DeviceStatus.online ? 'Rất tốt' : 'Mất tín hiệu');
+    final wifi =
+        json['wifiSsid']?.toString() ??
+        json['wifi']?.toString() ??
+        'Home_Network_5G';
+    final img =
+        json['imageUrl']?.toString() ?? json['productImageUrl']?.toString();
 
     return DeviceModel(
       id: id,
@@ -170,6 +198,10 @@ class DeviceModel {
       status: status,
       wifiSsid: wifi,
       imageUrl: img,
+      storeId:
+          json['storeId']?.toString() ?? json['store']?['storeId']?.toString(),
+      storeName:
+          json['store']?['name']?.toString() ?? json['storeName']?.toString(),
     );
   }
 

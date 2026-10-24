@@ -16,6 +16,14 @@ class PaymentsApiService {
     String? returnUrl,
     String? cancelUrl,
   }) async {
+    if (!RegExp(r'^[1-9]\d*$').hasMatch(orderId.trim())) {
+      throw ApiException(
+        message:
+            'Đơn hàng này chưa có ID hợp lệ từ máy chủ. Vui lòng tải lại danh sách đơn hàng trước khi thanh toán.',
+        statusCode: 400,
+        errorCode: 'INVALID_ORDER_ID',
+      );
+    }
     final body = <String, dynamic>{
       'orderId': orderId.trim(),
       if (description != null && description.isNotEmpty)
@@ -37,7 +45,8 @@ class PaymentsApiService {
     }
 
     throw ApiException(
-      message: response['message']?.toString() ??
+      message:
+          response['message']?.toString() ??
           'Dữ liệu tạo link thanh toán PayOS không hợp lệ',
       statusCode: response['statusCode'] is int ? response['statusCode'] : 400,
       errorCode: response['code']?.toString(),

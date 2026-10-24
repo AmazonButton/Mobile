@@ -65,6 +65,7 @@ class DevicesApiService {
     String id, {
     String? buttonName,
     String? productId,
+    String? storeId,
     int? defaultQuantity,
     bool? isActive,
     String? roomLocation,
@@ -72,6 +73,7 @@ class DevicesApiService {
     final body = <String, dynamic>{};
     if (buttonName != null) body['buttonName'] = buttonName;
     if (productId != null) body['productId'] = productId;
+    if (storeId != null) body['storeId'] = storeId;
     if (defaultQuantity != null) body['defaultQuantity'] = defaultQuantity;
     if (isActive != null) body['isActive'] = isActive;
     if (roomLocation != null) body['roomLocation'] = roomLocation;

@@ -225,7 +225,7 @@ class OrderModel {
         'Cư dân';
 
     final apt = json['deliveryAddress'] ?? json['apartment'] ?? 'Căn hộ';
-    final id = json['orderId']?.toString() ?? json['orderNumber']?.toString() ?? json['id']?.toString() ?? 'SOB';
+    final id = json['orderId']?.toString() ?? json['id']?.toString() ?? json['orderNumber']?.toString() ?? 'SOB';
     final orderCode = json['orderCode']?.toString() ?? json['orderNumber']?.toString() ?? '#$id';
 
     // Robust Button Name extraction
