@@ -9,8 +9,19 @@ import 'package:smart_order_button/models/order_model.dart';
 import 'package:smart_order_button/providers/notification_provider.dart';
 import 'package:smart_order_button/providers/order_provider.dart';
 import 'package:smart_order_button/screens/home/widgets/home_header_card.dart';
-import 'package:smart_order_button/services/notification_service.dart';
 import 'package:smart_order_button/widgets/modals/notification_sheet.dart';
+import 'package:smart_order_button/services/orders_api_service.dart';
+
+class SuccessfulOrdersApi implements OrdersApiService {
+  @override
+  Future<Map<String, dynamic>> quickReorder({required String deviceId}) async => {
+    'success': true,
+    'data': {'order': {'orderId': '101', 'orderCode': 'ORD-101', 'orderStatus': 'PENDING', 'createdAt': DateTime.now().toIso8601String()}},
+  };
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -165,7 +176,7 @@ void main() {
 
     test('Automatically receives order creation via OrderProvider hook', () async {
       final notifProvider = NotificationProvider();
-      final orderProvider = OrderProvider(initialOrders: []);
+      final orderProvider = OrderProvider(apiService: SuccessfulOrdersApi(), initialOrders: []);
 
       await orderProvider.createOneTouchOrder(
         deviceId: 'btn-1',

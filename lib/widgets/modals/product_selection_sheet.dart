@@ -1,19 +1,25 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../models/button_product_model.dart';
+import '../../services/api_client.dart';
+import '../../services/devices_api_service.dart';
+import '../../services/products_api_service.dart';
 
 /// Minimalist Product Selection Bottom Sheet matching Screen 3 in the design.
 class ProductSelectionSheet extends StatefulWidget {
   final String buttonName;
   final String currentProductName;
-  final Function(ButtonProductModel selectedProduct) onSave;
+  final String? deviceId;
+  final FutureOr<void> Function(ButtonProductModel selectedProduct) onSave;
 
   const ProductSelectionSheet({
     super.key,
     required this.buttonName,
     required this.currentProductName,
+    this.deviceId,
     required this.onSave,
   });
 
@@ -22,7 +28,8 @@ class ProductSelectionSheet extends StatefulWidget {
     required BuildContext context,
     required String buttonName,
     required String currentProductName,
-    required Function(ButtonProductModel selectedProduct) onSave,
+    String? deviceId,
+    required FutureOr<void> Function(ButtonProductModel selectedProduct) onSave,
   }) {
     return showModalBottomSheet<ButtonProductModel>(
       context: context,
@@ -32,6 +39,7 @@ class ProductSelectionSheet extends StatefulWidget {
       builder: (ctx) => ProductSelectionSheet(
         buttonName: buttonName,
         currentProductName: currentProductName,
+        deviceId: deviceId,
         onSave: onSave,
       ),
     );
@@ -42,49 +50,98 @@ class ProductSelectionSheet extends StatefulWidget {
 }
 
 class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
-  late final List<ButtonProductModel> _products;
-  late ButtonProductModel _selectedProduct;
+  List<ButtonProductModel> _products = [];
+  ButtonProductModel? _selectedProduct;
+  bool _isLoading = true;
+  bool _isSaving = false;
+  String? _loadError;
+  String? _saveError;
   String _searchQuery = '';
-  String _selectedCategory = 'Tất cả'; // 'Tất cả', 'Nước uống', 'Gas'
+  String _selectedCategory = 'Tất cả';
 
-  final List<String> _categories = const ['Tất cả', 'Nước uống', 'Gas'];
+  List<String> get _categories => [
+    'Tất cả',
+    ..._products.map((p) => p.category).toSet(),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _products = ButtonProductModel.sampleProducts;
+    _loadProducts();
+  }
 
-    // Find initially selected product or default to first
-    _selectedProduct = _products.firstWhere(
-      (p) =>
-          p.shortName.toLowerCase() == widget.currentProductName.toLowerCase() ||
-          p.name.toLowerCase().contains(widget.currentProductName.toLowerCase()) ||
-          widget.currentProductName.toLowerCase().contains(p.shortName.toLowerCase()),
-      orElse: () => _products.first,
-    );
+  Future<void> _loadProducts() async {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    try {
+      final deviceId = widget.deviceId;
+      if (deviceId == null || deviceId.isEmpty) {
+        throw StateError('Missing device');
+      }
+      final device = await DevicesApiService().getDeviceById(deviceId);
+      final storeId = device['storeId']?.toString();
+      if (storeId == null || storeId.isEmpty) throw StateError('Missing store');
+      final rows = await ProductsApiService().getProducts(storeId: storeId);
+      final products = rows
+          .whereType<Map>()
+          .where(
+            (p) =>
+                p['status'] == 'ACTIVE' && p['storeId']?.toString() == storeId,
+          )
+          .map((p) => ButtonProductModel.fromJson(Map<String, dynamic>.from(p)))
+          .toList();
+      final mappings = device['products'] ?? device['buttonProducts'];
+      String? currentId;
+      if (mappings is List && mappings.isNotEmpty && mappings.first is Map) {
+        currentId =
+            (mappings.first['productId'] ??
+                    mappings.first['product']?['productId'])
+                ?.toString();
+      }
+      ButtonProductModel? selected;
+      for (final product in products) {
+        if (product.id == currentId ||
+            (currentId == null && product.name == widget.currentProductName)) {
+          selected = product;
+          break;
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _products = products;
+        _selectedProduct = selected;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = 'Không thể tải sản phẩm của cửa hàng. Vui lòng thử lại.';
+      });
+    }
   }
 
   bool _isProductGas(ButtonProductModel p) {
     final lower = '${p.shortName} ${p.name} ${p.category}'.toLowerCase();
-    return lower.contains('gas') || lower.contains('petrolimex') || lower.contains('saigon petro');
+    return lower.contains('gas') ||
+        lower.contains('petrolimex') ||
+        lower.contains('saigon petro');
   }
 
   List<ButtonProductModel> get _filteredProducts {
     return _products.where((p) {
       // Category filter
-      if (_selectedCategory == 'Nước uống') {
-        final lower = '${p.shortName} ${p.name} ${p.category}'.toLowerCase();
-        if (_isProductGas(p) || lower.contains('gạo') || lower.contains('rice')) {
-          return false;
-        }
-      } else if (_selectedCategory == 'Gas') {
-        if (!_isProductGas(p)) return false;
+      if (_selectedCategory != 'Tất cả' && p.category != _selectedCategory) {
+        return false;
       }
 
       // Search query filter
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
-        final matches = p.name.toLowerCase().contains(q) ||
+        final matches =
+            p.name.toLowerCase().contains(q) ||
             p.shortName.toLowerCase().contains(q) ||
             p.category.toLowerCase().contains(q);
         if (!matches) return false;
@@ -94,10 +151,26 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
     }).toList();
   }
 
-  void _handleSave() {
+  Future<void> _handleSave() async {
+    final product = _selectedProduct;
+    if (product == null || _isSaving || _isLoading) return;
     HapticFeedback.mediumImpact();
-    widget.onSave(_selectedProduct);
-    Navigator.of(context).pop(_selectedProduct);
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
+    try {
+      await widget.onSave(product);
+      if (mounted) Navigator.of(context).pop(product);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _saveError = error is ApiException
+            ? error.message
+            : 'Không thể lưu sản phẩm. Vui lòng thử lại.';
+      });
+    }
   }
 
   @override
@@ -135,13 +208,17 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Cấu hình ${widget.buttonName}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                          letterSpacing: -0.3,
+                      Expanded(
+                        child: Text(
+                          'Cấu hình ${widget.buttonName}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                            letterSpacing: -0.3,
+                          ),
                         ),
                       ),
                       GestureDetector(
@@ -189,7 +266,8 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
-                        onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                        onChanged: (val) =>
+                            setState(() => _searchQuery = val.trim()),
                         style: const TextStyle(
                           fontSize: 13.5,
                           color: Color(0xFF0F172A),
@@ -225,40 +303,51 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
             // ── Category Filter Chips ──
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: _categories.map((category) {
-                  final isSelected = _selectedCategory == category;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _selectedCategory = category);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF0F172A) : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _categories.map((category) {
+                    final isSelected = _selectedCategory == category;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() => _selectedCategory = category);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
                           ),
-                        ),
-                        child: Text(
-                          category,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                            color: isSelected ? Colors.white : const Color(0xFF475569),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF0F172A)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF0F172A)
+                                  : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          child: Text(
+                            category,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF475569),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                }).toList(),
+                    );
+                  }).toList(),
+                ),
               ),
             ),
 
@@ -269,11 +358,7 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  Icon(
-                    LucideIcons.check,
-                    size: 15,
-                    color: Color(0xFF16A34A),
-                  ),
+                  Icon(LucideIcons.check, size: 15, color: Color(0xFF16A34A)),
                   SizedBox(width: 6),
                   Text(
                     'Freeship cho đơn từ 150.000đ',
@@ -291,124 +376,154 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
 
             // ── Scrollable Radio Cards List ──
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                physics: const BouncingScrollPhysics(),
-                children: _filteredProducts.map((product) {
-                  final isSelected = product.id == _selectedProduct.id;
-                  final isGas = _isProductGas(product);
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _selectedProduct = product);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isSelected
-                                ? const Color(0xFF2563EB)
-                                : const Color(0xFFE2E8F0),
-                            width: isSelected ? 1.6 : 1.0,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _loadError != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_loadError!, textAlign: TextAlign.center),
+                          TextButton(
+                            onPressed: _loadProducts,
+                            child: const Text('Thử lại'),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            // Icon Box
-                            Container(
-                              width: 44,
-                              height: 44,
+                        ],
+                      ),
+                    )
+                  : _filteredProducts.isEmpty
+                  ? Center(
+                      child: Text(
+                        _products.isEmpty
+                            ? 'Cửa hàng chưa có sản phẩm đang bán'
+                            : 'Không tìm thấy sản phẩm',
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      physics: const BouncingScrollPhysics(),
+                      children: _filteredProducts.map((product) {
+                        final isSelected = product.id == _selectedProduct?.id;
+                        final isGas = _isProductGas(product);
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: GestureDetector(
+                            onTap: _isSaving
+                                ? null
+                                : () {
+                                    HapticFeedback.selectionClick();
+                                    setState(() => _selectedProduct = product);
+                                  },
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: isGas
-                                    ? const Color(0xFFFFF7ED)
-                                    : const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  isGas ? LucideIcons.flame : LucideIcons.droplets,
-                                  size: 20,
-                                  color: isGas
-                                      ? const Color(0xFFEA580C)
-                                      : const Color(0xFF2563EB),
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFF2563EB)
+                                      : const Color(0xFFE2E8F0),
+                                  width: isSelected ? 1.6 : 1.0,
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 14),
-
-                            // Product Info
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Text(
-                                    product.shortName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 14.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF0F172A),
+                                  // Icon Box
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: isGas
+                                          ? const Color(0xFFFFF7ED)
+                                          : const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Center(
+                                      child: Icon(
+                                        isGas
+                                            ? LucideIcons.flame
+                                            : LucideIcons.droplets,
+                                        size: 20,
+                                        color: isGas
+                                            ? const Color(0xFFEA580C)
+                                            : const Color(0xFF2563EB),
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    product.priceFormatted,
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                      color: isSelected
-                                          ? const Color(0xFF2563EB)
-                                          : const Color(0xFF475569),
+                                  const SizedBox(width: 14),
+
+                                  // Product Info
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          product.shortName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 14.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          product.priceFormatted,
+                                          style: TextStyle(
+                                            fontSize: 13.5,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.w500,
+                                            color: isSelected
+                                                ? const Color(0xFF2563EB)
+                                                : const Color(0xFF475569),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
+
+                                  const SizedBox(width: 10),
+
+                                  // Radio Check Icon
+                                  if (isSelected)
+                                    Container(
+                                      width: 22,
+                                      height: 22,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF2563EB),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Center(
+                                        child: Icon(
+                                          LucideIcons.check,
+                                          size: 14,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    Container(
+                                      width: 22,
+                                      height: 22,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: const Color(0xFFCBD5E1),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
-
-                            const SizedBox(width: 10),
-
-                            // Radio Check Icon
-                            if (isSelected)
-                              Container(
-                                width: 22,
-                                height: 22,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF2563EB),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    LucideIcons.check,
-                                    size: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              )
-                            else
-                              Container(
-                                width: 22,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: const Color(0xFFCBD5E1),
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  );
-                }).toList(),
-              ),
             ),
 
             // ── Sticky Persistent Bottom Bar ──
@@ -432,29 +547,33 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Đã chọn',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF64748B),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Đã chọn',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _selectedProduct.shortName,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
+                            const SizedBox(height: 2),
+                            Text(
+                              _selectedProduct?.shortName ?? 'Chọn sản phẩm',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       Text(
-                        _selectedProduct.priceFormatted,
+                        _selectedProduct?.priceFormatted ?? '',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -464,29 +583,42 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                     ],
                   ),
                   const SizedBox(height: 14),
+                  if (_saveError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        _saveError!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
 
                   // Save Changes Button
                   GestureDetector(
-                    onTap: _handleSave,
+                    onTap: _selectedProduct == null || _isSaving || _isLoading
+                        ? null
+                        : _handleSave,
                     child: Container(
                       width: double.infinity,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB),
+                        color:
+                            _selectedProduct == null || _isSaving || _isLoading
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF2563EB),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
+                          const Icon(
                             LucideIcons.check,
                             color: Colors.white,
                             size: 18,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
-                            'Lưu thay đổi',
-                            style: TextStyle(
+                            _isSaving ? 'Đang lưu...' : 'Lưu thay đổi',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14.5,
                               fontWeight: FontWeight.bold,

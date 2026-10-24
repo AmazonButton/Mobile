@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../models/order_model.dart';
 import 'order_status_views.dart';
+import 'payos_qr_payment_sheet.dart';
 
 /// Modal Bottom Sheet hiển thị thông tin chi tiết đơn hàng
 class OrderDetailBottomSheet extends StatelessWidget {
@@ -229,12 +230,101 @@ class OrderDetailBottomSheet extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Thanh toán',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: order.isPaid ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: order.isPaid ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              order.isPaid ? LucideIcons.checkCheck : LucideIcons.clock,
+                              size: 13,
+                              color: order.isPaid ? const Color(0xFF059669) : const Color(0xFFD97706),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              order.isPaid ? 'Đã thanh toán (PayOS)' : 'Chưa thanh toán (COD)',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: order.isPaid ? const Color(0xFF059669) : const Color(0xFFD97706),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
 
-            // Actions
+            // PayOS Payment Action Button for UNPAID orders
+            if (order.isUnpaid && !isCancelled && !order.isCompleted) ...[
+              SizedBox(
+                width: double.infinity,
+                child: TactileButton(
+                  scale: 0.96,
+                  onTap: () {
+                    PayosQrPaymentSheet.show(
+                      context,
+                      order: order,
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(LucideIcons.qrCode, size: 16, color: Colors.white),
+                        SizedBox(width: 8),
+                        Text(
+                          'Thanh toán trước bằng PayOS',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+
+            // Actions (Cancel or Reorder)
             if (isPending || isShipping) ...[
               SizedBox(
                 width: double.infinity,

@@ -10,6 +10,7 @@ class OrderProvider extends ChangeNotifier {
   static void Function(OrderModel order)? onOrderCreated;
   static void Function(OrderModel order, String? reason)? onOrderCancelled;
   static void Function(List<OrderModel> orders)? onOrdersLoaded;
+  static void Function(String orderId, OrderModel updatedOrder)? onOrderPaid;
 
   List<OrderModel> _orders;
   bool _isLoading = false;
@@ -17,7 +18,7 @@ class OrderProvider extends ChangeNotifier {
 
   OrderProvider({OrdersApiService? apiService, List<OrderModel>? initialOrders})
       : _apiService = apiService ?? OrdersApiService(),
-        _orders = initialOrders ?? List.from(OrderModel.sampleOrders);
+        _orders = initialOrders ?? [];
 
   List<OrderModel> get orders => List.unmodifiable(_orders);
   bool get isLoading => _isLoading;
@@ -117,12 +118,26 @@ class OrderProvider extends ChangeNotifier {
     }
   }
 
+  /// Đánh dấu đơn hàng đã thanh toán thành công (PayOS / VietQR) và cập nhật reactive state
+  void markOrderAsPaid(String orderId) {
+    final index = _orders.indexWhere((o) => o.id == orderId || o.orderCode == orderId);
+    if (index != -1) {
+      final current = _orders[index];
+      _orders[index] = current.copyWith(
+        paymentStatus: 'PAID',
+        paymentMethod: 'PAYOS',
+        rawStatus: current.rawStatus == 'PENDING' ? 'CONFIRMED' : current.rawStatus,
+        statusText: current.statusText == 'Chờ xác nhận' ? 'Đã xác nhận' : current.statusText,
+      );
+      notifyListeners();
+      onOrderPaid?.call(orderId, _orders[index]);
+    }
+  }
+
   /// Đặt lại đơn hàng siêu tốc qua deviceId
   Future<void> quickReorder(String deviceId) async {
-    try {
-      await _apiService.quickReorder(deviceId: deviceId);
-      await loadOrders();
-    } catch (_) {}
+    await _apiService.quickReorder(deviceId: deviceId);
+    await loadOrders();
   }
 
   /// Đặt hàng siêu tốc 1 chạm từ nút bấm và khởi tạo cửa sổ an toàn 60 giây
@@ -134,46 +149,15 @@ class OrderProvider extends ChangeNotifier {
     String? customerName,
     String? apartment,
   }) async {
-    OrderModel? newOrder;
-
-    // 1. Thử gọi API backend nếu deviceId hợp lệ
-    if (!deviceId.startsWith('btn-') && !deviceId.startsWith('mock-')) {
-      try {
-        final res = await _apiService.quickReorder(deviceId: deviceId);
-        if (res['order'] != null) {
-          final raw = res['order'] is Map<String, dynamic>
-              ? res['order'] as Map<String, dynamic>
-              : Map<String, dynamic>.from(res['order']);
-          newOrder = OrderModel.fromJson(raw);
-        }
-      } catch (_) {
-        // Fallback tạo đơn cục bộ nếu không có kết nối server
-      }
+    final response = await _apiService.quickReorder(deviceId: deviceId);
+    final data = response['data'] ?? response;
+    final rawOrder = data is Map ? data['order'] : null;
+    if (rawOrder is! Map) {
+      throw ApiException(message: 'Không nhận được đơn hàng từ máy chủ. Vui lòng tải lại danh sách đơn hàng.', statusCode: 502, errorCode: 'INVALID_ORDER_RESPONSE');
     }
-
-    // 2. Tạo đơn hàng với createdAt = DateTime.now() để kích hoạt cửa sổ an toàn 60 giây
-    if (newOrder == null) {
-      final now = DateTime.now();
-      final idCode = now.millisecondsSinceEpoch.toString();
-      final numPrice = num.tryParse(productPrice.replaceAll(RegExp(r'[^\d]'), '')) ?? 65000;
-
-      newOrder = OrderModel(
-        id: 'SOB-$idCode',
-        orderCode: '#ORD-${idCode.substring(idCode.length - 4)}',
-        customerName: customerName ?? 'Nguyễn Văn An',
-        apartment: apartment ?? 'Căn hộ 12.04, Tháp A, Masteri Thảo Điền',
-        product: productName,
-        title: '1x $productName',
-        buttonName: buttonName,
-        deviceId: deviceId,
-        time: 'Vừa xong',
-        createdAt: now,
-        price: productPrice.endsWith('đ') ? productPrice : '$productPriceđ',
-        rawAmount: numPrice,
-        status: OrderStatus.warning,
-        rawStatus: 'PENDING',
-        statusText: 'Chờ xác nhận',
-      );
+    final newOrder = OrderModel.fromJson(Map<String, dynamic>.from(rawOrder));
+    if (!RegExp(r'^[1-9]\d*$').hasMatch(newOrder.id)) {
+      throw ApiException(message: 'Đơn hàng từ máy chủ thiếu ID hợp lệ. Vui lòng tải lại danh sách đơn hàng.', statusCode: 502, errorCode: 'INVALID_ORDER_RESPONSE');
     }
 
     _orders.insert(0, newOrder);

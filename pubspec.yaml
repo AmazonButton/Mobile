@@ -46,6 +46,7 @@ dependencies:
   network_info_plus: ^5.0.0
   permission_handler: ^11.3.0
   http: ^1.6.0
+  url_launcher: ^6.3.1
   shared_preferences: ^2.5.6
   provider: ^6.1.2
   firebase_core: ^3.12.1

@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../models/order_model.dart';
 import 'order_status_views.dart';
+import 'payos_qr_payment_sheet.dart';
 
 /// Thẻ hiển thị đơn hàng đa trạng thái (Đang chờ khẩn cấp, Đang giao hàng, hoặc Lịch sử hoàn tất/hủy)
 class OrderCardItem extends StatelessWidget {
@@ -12,6 +13,7 @@ class OrderCardItem extends StatelessWidget {
   final VoidCallback? onCancel;
   final VoidCallback? onReorder;
   final VoidCallback? onTrack;
+  final VoidCallback? onPay;
   final VoidCallback? onDetailTap;
 
   const OrderCardItem({
@@ -22,6 +24,7 @@ class OrderCardItem extends StatelessWidget {
     this.onCancel,
     this.onReorder,
     this.onTrack,
+    this.onPay,
     this.onDetailTap,
   });
 
@@ -279,6 +282,47 @@ class OrderCardItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
 
+                // 3b. PayOS Pre-payment button for UNPAID order
+                if (order.isUnpaid) ...[
+                  Builder(
+                    builder: (ctx) => TactileButton(
+                      scale: 0.96,
+                      onTap: onPay ?? () => PayosQrPaymentSheet.show(ctx, order: order),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(LucideIcons.qrCode, color: Colors.white, size: 16),
+                            SizedBox(width: 8),
+                            Text(
+                              'Thanh toán PayOS (VietQR)',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
                 // 4. Emergency Cancel Button
                 TactileButton(
                   scale: 0.96,
@@ -404,13 +448,69 @@ class OrderCardItem extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 3),
-          Text(
-            '${order.buttonName} • ${order.price}',
-            style: const TextStyle(
-              fontSize: 13,
-              color: Color(0xFF64748B),
-            ),
+          Row(
+            children: [
+              Text(
+                '${order.buttonName} • ${order.price}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: order.isPaid ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: order.isPaid ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A),
+                  ),
+                ),
+                child: Text(
+                  order.isPaid ? 'Đã thanh toán (PayOS)' : 'Chưa thanh toán (COD)',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: order.isPaid ? const Color(0xFF059669) : const Color(0xFFD97706),
+                  ),
+                ),
+              ),
+            ],
           ),
+          if (order.isUnpaid) ...[
+            const SizedBox(height: 10),
+            Builder(
+              builder: (ctx) => TactileButton(
+                scale: 0.96,
+                onTap: onPay ?? () => PayosQrPaymentSheet.show(ctx, order: order),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(LucideIcons.qrCode, color: Color(0xFF2563EB), size: 15),
+                      SizedBox(width: 6),
+                      Text(
+                        'Thanh toán PayOS (VietQR)',
+                        style: TextStyle(
+                          color: Color(0xFF2563EB),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 22),
           OrderTimeline(isShipping: isShipping),
           const SizedBox(height: 20),
@@ -550,20 +650,46 @@ class OrderCardItem extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isCancelled ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        isCancelled ? 'Đã hủy' : 'Đã giao',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: isCancelled ? const Color(0xFFDC2626) : const Color(0xFF059669),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isCancelled ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            isCancelled ? 'Đã hủy' : 'Đã giao',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isCancelled ? const Color(0xFFDC2626) : const Color(0xFF059669),
+                            ),
+                          ),
                         ),
-                      ),
+                        if (!isCancelled) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: order.isPaid ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: order.isPaid ? const Color(0xFFA7F3D0) : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: Text(
+                              order.isPaid ? 'PayOS' : 'COD',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: order.isPaid ? const Color(0xFF059669) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
