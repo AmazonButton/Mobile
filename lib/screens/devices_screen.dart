@@ -64,8 +64,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
       buttonName: device.name,
       currentProductName: device.product,
       deviceId: device.id,
-      onSave: (selectedProduct) async {
-        await context.read<DeviceProvider>().updateDeviceProduct(device.id, selectedProduct);
+      onSave: (selectedProduct, quantity) async {
+        await context.read<DeviceProvider>().updateDeviceProduct(device.id, selectedProduct, quantity: quantity);
         if (!mounted) return;
         _showToast(
           'Đã gắn ${selectedProduct.shortName} cho ${device.name}',

@@ -1,3 +1,4 @@
+import 'stock_service.dart';
 import '../models/order_model.dart';
 import 'api_client.dart';
 import 'api_config.dart';
@@ -8,6 +9,7 @@ class OrdersApiService {
   OrdersApiService._internal();
 
   final ApiClient _client = ApiClient();
+  final Set<String> _ordering = {};
 
   /// Lấy danh sách lịch sử đơn hàng của người dùng được ánh xạ thành strongly-typed OrderModel
   Future<List<OrderModel>> getOrders({String? status}) async {
@@ -37,11 +39,35 @@ class OrdersApiService {
 
   /// Đặt hàng siêu tốc 1 chạm bằng deviceId của nút bấm IoT
   Future<Map<String, dynamic>> quickReorder({required String deviceId}) async {
-    final response = await _client.post(
-      ApiConfig.ordersQuickReorder,
-      body: {'deviceId': deviceId.trim()},
-    );
-    return response;
+    final id = deviceId.trim();
+    if (!_ordering.add(id)) {
+      throw ApiException(message: 'Đang xử lý đặt hàng', statusCode: 409);
+    }
+    try {
+      await StockService.instance.verify(id);
+      final response = await _client.post(
+        ApiConfig.ordersQuickReorder,
+        body: {'deviceId': id},
+      );
+      await StockService.instance.refreshDevice(id);
+      return response;
+    } catch (error) {
+      await StockService.instance.refreshDevice(id);
+      if (error is ApiException &&
+          error.errorCode != 'MOBILE_STOCK_UNAVAILABLE' &&
+          (error.message.contains('P0007') ||
+              error.message.toLowerCase().contains('không đủ tồn kho'))) {
+        throw ApiException(
+          message:
+              'Sản phẩm vừa hết hoặc không đủ số lượng. Vui lòng kiểm tra lại tồn kho.',
+          statusCode: error.statusCode,
+          errorCode: 'MOBILE_STOCK_UNAVAILABLE',
+        );
+      }
+      rethrow;
+    } finally {
+      _ordering.remove(id);
+    }
   }
 
   /// Hủy đơn hàng với lý do cụ thể

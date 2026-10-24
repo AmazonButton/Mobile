@@ -16,6 +16,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late List<Map<String, dynamic>> products;
   late List<http.Request> requests;
+  int configuredQuantity = 1;
   bool loadFails = false;
   bool saveFails = false;
   Completer<http.Response>? pendingSave;
@@ -31,6 +32,11 @@ void main() {
         'basePrice': '12000.00',
         'storeId': '7',
         'status': 'ACTIVE',
+        'inventory': {
+          'quantityOnHand': 10,
+          'reservedQuantity': 0,
+          'minStockAlert': 5,
+        },
         'category': {'categoryName': 'Bánh kẹo'},
       },
       {
@@ -39,6 +45,11 @@ void main() {
         'basePrice': 65000,
         'storeId': '7',
         'status': 'ACTIVE',
+        'inventory': {
+          'quantityOnHand': 10,
+          'reservedQuantity': 0,
+          'minStockAlert': 5,
+        },
         'category': {'categoryName': 'Nước uống'},
       },
       {
@@ -46,6 +57,11 @@ void main() {
         'productName': 'Other store',
         'storeId': '8',
         'status': 'ACTIVE',
+        'inventory': {
+          'quantityOnHand': 10,
+          'reservedQuantity': 0,
+          'minStockAlert': 5,
+        },
       },
       {
         'productId': '91',
@@ -54,6 +70,7 @@ void main() {
         'status': 'INACTIVE',
       },
     ];
+    configuredQuantity = 1;
     loadFails = false;
     saveFails = false;
     pendingSave = null;
@@ -68,7 +85,23 @@ void main() {
             headers: const {'content-type': 'application/json; charset=utf-8'},
           );
         }
-        return http.Response(jsonEncode({'success': true, 'data': {}}), 200);
+        final body = jsonDecode(request.body);
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'deviceId': '12',
+              'products': [
+                {
+                  'productId': body['productId'],
+                  'productName': 'Candy',
+                  'quantity': body['quantity'],
+                },
+              ],
+            },
+          }),
+          200,
+        );
       }
       if (loadFails) {
         return http.Response(jsonEncode({'message': 'Unavailable'}), 503);
@@ -82,7 +115,7 @@ void main() {
                   'buttonId': '12',
                   'storeId': '7',
                   'products': [
-                    {'productId': '89'},
+                    {'productId': '89', 'quantity': configuredQuantity},
                   ],
                 },
         }),
@@ -95,7 +128,7 @@ void main() {
 
   Future<void> open(
     WidgetTester tester, {
-    FutureOr<void> Function(ButtonProductModel)? onSave,
+    FutureOr<void> Function(ButtonProductModel, int)? onSave,
   }) async {
     tester.view.physicalSize = const Size(500, 950);
     tester.view.devicePixelRatio = 1;
@@ -113,7 +146,7 @@ void main() {
                 deviceId: '12',
                 buttonName: 'Nút Nước Lavie Bếp Ăn E2E',
                 currentProductName: 'Lavie',
-                onSave: onSave ?? (_) {},
+                onSave: onSave ?? (_, _) {},
               ),
               child: const Text('Open'),
             ),
@@ -133,7 +166,7 @@ void main() {
       expect(apiProducts.length, 4, reason: 'Decode the API catalog');
       await open(
         tester,
-        onSave: (p) {
+        onSave: (p, quantity) {
           saved = p;
         },
       );
@@ -172,7 +205,7 @@ void main() {
     bool saved = false;
     await open(
       tester,
-      onSave: (_) {
+      onSave: (_, _) {
         saved = true;
       },
     );
@@ -209,7 +242,11 @@ void main() {
           ),
         ],
       );
-      await open(tester, onSave: (p) => provider.updateDeviceProduct('12', p));
+      await open(
+        tester,
+        onSave: (p, quantity) =>
+            provider.updateDeviceProduct('12', p, quantity: quantity),
+      );
       await tester.tap(find.text('Candy'));
       pendingSave = Completer<http.Response>();
       await tester.tap(find.text('Lưu thay đổi'));
@@ -230,8 +267,20 @@ void main() {
       pendingSave = null;
       await tester.tap(find.text('Lưu thay đổi'));
       await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
       expect(provider.devices.single.product, 'Candy');
-      expect(jsonDecode(requests.last.body)['productId'], '88');
+      expect(
+        jsonDecode(
+          requests.lastWhere((r) => r.method == 'PUT').body,
+        )['productId'],
+        '88',
+      );
+      expect(
+        jsonDecode(
+          requests.lastWhere((r) => r.method == 'PUT').body,
+        )['quantity'],
+        1,
+      );
       expect(find.byType(ProductSelectionSheet), findsNothing);
     },
   );
@@ -249,4 +298,110 @@ void main() {
       expect(product.category, 'Bánh kẹo');
     },
   );
+  testWidgets('Selected quantity is returned on save', (tester) async {
+    int? savedQuantity;
+    await open(
+      tester,
+      onSave: (_, q) {
+        savedQuantity = q;
+      },
+    );
+    await tester.tap(find.byTooltip('Tăng số lượng'));
+    await tester.pump();
+    await tester.tap(find.text('Lưu thay đổi'));
+    await tester.pumpAndSettle();
+    expect(savedQuantity, 2);
+  });
+  testWidgets('Out of stock and missing inventory cannot be newly selected', (
+    tester,
+  ) async {
+    products[0]['inventory'] = {'quantityOnHand': 0, 'reservedQuantity': 0};
+    products[1].remove('inventory');
+    var saved = false;
+    await open(
+      tester,
+      onSave: (_, _) {
+        saved = true;
+      },
+    );
+    expect(find.text('Hết hàng'), findsOneWidget);
+    await tester.tap(find.text('Candy'));
+    await tester.tap(find.text('Lưu thay đổi'));
+    await tester.pump();
+    expect(saved, isFalse);
+  });
+
+  testWidgets(
+    'Saved quantity above current stock is retained and requires adjustment',
+    (tester) async {
+      configuredQuantity = 3;
+      products[1]['inventory'] = {'quantityOnHand': 2, 'reservedQuantity': 0};
+      int? saved;
+      await open(
+        tester,
+        onSave: (_, q) {
+          saved = q;
+        },
+      );
+      expect(find.text('Còn 2, cần 3'), findsOneWidget);
+      await tester.tap(find.text('Lưu thay đổi'));
+      expect(saved, isNull);
+      await tester.tap(find.byTooltip('Giảm số lượng'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (w) => w is IconButton && w.tooltip == 'Tăng số lượng',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.text('Lưu thay đổi'));
+      await tester.pumpAndSettle();
+      expect(saved, 2);
+    },
+  );
+  testWidgets('Changing product resets quantity and minimum is one', (
+    tester,
+  ) async {
+    configuredQuantity = 3;
+    int? saved;
+    await open(
+      tester,
+      onSave: (_, q) {
+        saved = q;
+      },
+    );
+    await tester.tap(find.text('Candy'));
+    await tester.pump();
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byWidgetPredicate(
+              (w) => w is IconButton && w.tooltip == 'Giảm số lượng',
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.tap(find.text('Lưu thay đổi'));
+    await tester.pumpAndSettle();
+    expect(saved, 1);
+  });
+  testWidgets('Failed refresh blocks saving stale stock', (tester) async {
+    var saved = false;
+    await open(
+      tester,
+      onSave: (_, _) {
+        saved = true;
+      },
+    );
+    loadFails = true;
+    await tester.tap(find.text('Kiểm tra lại tồn kho'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lưu thay đổi'));
+    expect(saved, isFalse);
+  });
 }

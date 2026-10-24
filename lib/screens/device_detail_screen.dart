@@ -1,3 +1,4 @@
+import '../widgets/device_stock_status.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -77,10 +78,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       buttonName: _deviceName,
       currentProductName: _productName,
       deviceId: widget.deviceId,
-      onSave: (selectedProduct) async {
+      onSave: (selectedProduct, quantity) async {
         final deviceId = widget.deviceId;
         if (deviceId == null || deviceId.isEmpty) throw StateError('Không tìm thấy thiết bị');
-        await context.read<DeviceProvider>().updateDeviceProduct(deviceId, selectedProduct);
+        await context.read<DeviceProvider>().updateDeviceProduct(deviceId, selectedProduct, quantity: quantity);
         if (!mounted) return;
         setState(() {
           _productName = selectedProduct.shortName;
@@ -461,6 +462,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (widget.deviceId != null) DeviceStockStatus(deviceId: widget.deviceId!),
                     Text(
                       _productName,
                       style: const TextStyle(

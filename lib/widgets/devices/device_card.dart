@@ -1,3 +1,5 @@
+import '../device_stock_status.dart';
+import '../../services/stock_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -41,11 +43,18 @@ class DeviceCard extends StatelessWidget {
 
   bool get _isGas {
     final lower = '$name $product'.toLowerCase();
-    return lower.contains('gas') || lower.contains('bếp ga') || lower.contains('petrolimex');
+    return lower.contains('gas') ||
+        lower.contains('bếp ga') ||
+        lower.contains('petrolimex');
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: StockService.instance,
+    builder: (context, _) => _buildCard(context),
+  );
+
+  Widget _buildCard(BuildContext context) {
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
@@ -76,14 +85,18 @@ class DeviceCard extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: _isGas ? const Color(0xFFFFF7ED) : const Color(0xFFEFF6FF),
+                    color: _isGas
+                        ? const Color(0xFFFFF7ED)
+                        : const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
                     child: Icon(
                       _isGas ? LucideIcons.flame : LucideIcons.droplets,
                       size: 20,
-                      color: _isGas ? const Color(0xFFEA580C) : const Color(0xFF2563EB),
+                      color: _isGas
+                          ? const Color(0xFFEA580C)
+                          : const Color(0xFF2563EB),
                     ),
                   ),
                 ),
@@ -184,6 +197,7 @@ class DeviceCard extends StatelessWidget {
 
             const SizedBox(height: 12),
 
+            DeviceStockStatus(deviceId: id),
             // ── 3. Bottom Row: Online Status & Battery ──
             Row(
               children: [
@@ -192,7 +206,9 @@ class DeviceCard extends StatelessWidget {
                   width: 7,
                   height: 7,
                   decoration: BoxDecoration(
-                    color: isOnline ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                    color: isOnline
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF94A3B8),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -212,7 +228,9 @@ class DeviceCard extends StatelessWidget {
                 Icon(
                   LucideIcons.battery,
                   size: 14,
-                  color: batteryLevel <= 20 ? const Color(0xFFD97706) : const Color(0xFF64748B),
+                  color: batteryLevel <= 20
+                      ? const Color(0xFFD97706)
+                      : const Color(0xFF64748B),
                 ),
                 const SizedBox(width: 5),
                 Text(
@@ -220,7 +238,9 @@ class DeviceCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: batteryLevel <= 20 ? const Color(0xFFD97706) : const Color(0xFF475569),
+                    color: batteryLevel <= 20
+                        ? const Color(0xFFD97706)
+                        : const Color(0xFF475569),
                   ),
                 ),
               ],

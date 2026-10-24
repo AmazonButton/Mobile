@@ -142,7 +142,7 @@ void main() {
                     deviceId: '12',
                     buttonName: 'Nút bếp',
                     currentProductName: provider.devices.single.product,
-                    onSave: (_) {},
+                    onSave: (_, _) {},
                   ),
                   child: const Text('Open products'),
                 ),

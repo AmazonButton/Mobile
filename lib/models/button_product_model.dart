@@ -1,7 +1,9 @@
+import 'product_stock.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ButtonProductModel {
+  final ProductStock? stock;
   final String id;
   final String name;
   final String shortName;
@@ -21,6 +23,7 @@ class ButtonProductModel {
   final Color themeColor;
 
   const ButtonProductModel({
+    this.stock,
     required this.id,
     required this.name,
     required this.shortName,
@@ -80,6 +83,7 @@ class ButtonProductModel {
     }
 
     return ButtonProductModel(
+      stock: ProductStock.fromJson(json['inventory']),
       id: id,
       name: name,
       shortName: name.length > 25 ? '${name.substring(0, 23)}...' : name,

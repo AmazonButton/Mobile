@@ -25,6 +25,7 @@ class _OrdersScreenState extends State<OrdersScreen>
   int _cancelCountdown = 60;
   Timer? _countdownTimer;
 
+  final Set<String> _reordering = {};
   bool _isLoading = true;
   String? _localErrorMessage;
   List<OrderModel> _activeOrders = [];
@@ -138,6 +139,7 @@ class _OrdersScreenState extends State<OrdersScreen>
       return;
     }
 
+    if (!_reordering.add(order.deviceId)) return;
     try {
       OrderProvider? provider;
       try {
@@ -150,11 +152,12 @@ class _OrdersScreenState extends State<OrdersScreen>
         await OrdersApiService().quickReorder(deviceId: order.deviceId);
         await _loadOrders();
       }
+      if (!mounted) return;
       _showFloatingToast('Đã đặt lại thành công: ${order.displayTitle}');
       _tabController.animateTo(0);
     } catch (e) {
-      _showFloatingToast('Lỗi đặt hàng: ${e is ApiException ? e.message : e.toString()}');
-    }
+      if (mounted) _showFloatingToast('Lỗi đặt hàng: ${e is ApiException ? e.message : e.toString()}');
+    } finally { _reordering.remove(order.deviceId); }
   }
 
   void _showOrderDetail(OrderModel order) {
