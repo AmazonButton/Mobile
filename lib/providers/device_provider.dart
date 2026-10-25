@@ -122,6 +122,29 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
+  /// Đổi tên sau khi máy chủ xác nhận, giữ nguyên cấu hình đặt hàng.
+  Future<void> renameDevice(String deviceId, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed.length > 100) {
+      throw ArgumentError('Tên nút phải có từ 1 đến 100 ký tự');
+    }
+    if (getDeviceById(deviceId) == null) {
+      throw StateError('Không tìm thấy thiết bị');
+    }
+    final response = await _apiService.updateCustomerConfig(
+      deviceId,
+      buttonName: trimmed,
+    );
+    final savedName = response['buttonName'] ?? response['name'] ?? response['customName'];
+    if (savedName is! String || savedName.trim().isEmpty) {
+      throw const FormatException('Phản hồi không có tên nút đã lưu');
+    }
+    final index = _devices.indexWhere((device) => device.id == deviceId);
+    if (index == -1) return;
+    _devices[index] = _devices[index].copyWith(name: savedName);
+    notifyListeners();
+  }
+
   /// Cập nhật tên và phòng của nút bấm
   Future<void> updateDeviceInfo(
     String deviceId, {

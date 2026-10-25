@@ -10,6 +10,7 @@ import '../providers/device_provider.dart';
 import '../widgets/modals/product_selection_sheet.dart';
 import '../widgets/modals/store_selection_sheet.dart';
 import '../widgets/modals/wifi_provisioning_sheet.dart';
+import '../widgets/modals/rename_device_dialog.dart';
 
 class DeviceDetailScreen extends StatefulWidget {
   final String? deviceId;
@@ -68,6 +69,31 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       return 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&auto=format&fit=crop&q=80';
     }
     return 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=200&auto=format&fit=crop&q=80';
+  }
+
+  Future<void> _handleRename() async {
+    final id = widget.deviceId;
+    if (id == null || id.isEmpty) {
+      _showToast('Không tìm thấy thiết bị');
+      return;
+    }
+    final provider = context.read<DeviceProvider>();
+    final current = provider.getDeviceById(id);
+    if (current == null) {
+      _showToast('Không tìm thấy thiết bị');
+      return;
+    }
+    final saved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => RenameDeviceDialog(
+        initialName: current.name,
+        onSave: (name) => provider.renameDevice(id, name),
+      ),
+    );
+    if (!mounted || saved != true) return;
+    setState(() => _deviceName = provider.getDeviceById(id)?.name ?? _deviceName);
+    _showToast('Đã đổi tên nút');
   }
 
   void _handleChangeProduct() {
@@ -359,6 +385,12 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
             letterSpacing: -0.4,
           ),
         ),
+          TextButton.icon(
+            key: const ValueKey('renameDevice'),
+            onPressed: _handleRename,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            label: const Text('Đổi tên'),
+          ),
         if (_room.isNotEmpty) ...[
           const SizedBox(height: 2),
           Text(
