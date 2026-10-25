@@ -52,6 +52,23 @@ void main() {
     };
     ApiClient().testClient = MockClient((request) async {
       requests.add(request);
+      if (request.url.path.contains('/devices/')) {
+        return response({
+          'data': {
+            'products': [
+              {'productId': '88', 'quantity': 1},
+            ],
+          },
+        }, 200);
+      }
+      if (request.url.path.contains('/products/')) {
+        return response({
+          'data': {
+            'status': 'ACTIVE',
+            'inventory': {'quantityOnHand': 10, 'reservedQuantity': 0},
+          },
+        }, 200);
+      }
       if (request.url.path.endsWith('/quick-reorder')) {
         return response(orderResponse, orderStatus);
       }

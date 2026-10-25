@@ -52,7 +52,9 @@ class DevicesApiService {
   }
 
   /// Cấu hình và kích hoạt nút trực tiếp qua mã code / QR
-  Future<Map<String, dynamic>> configureByCode(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> configureByCode(
+    Map<String, dynamic> payload,
+  ) async {
     final response = await _client.post(
       ApiConfig.devicesConfigureByCode,
       body: payload,
@@ -67,6 +69,7 @@ class DevicesApiService {
     String? productId,
     String? storeId,
     int? defaultQuantity,
+    int? quantity,
     bool? isActive,
     String? roomLocation,
   }) async {
@@ -74,10 +77,11 @@ class DevicesApiService {
     if (buttonName != null) body['buttonName'] = buttonName;
     if (productId != null) body['productId'] = productId;
     if (storeId != null) body['storeId'] = storeId;
-    if (defaultQuantity != null) body['defaultQuantity'] = defaultQuantity;
+    if (quantity != null || defaultQuantity != null) {
+      body['quantity'] = quantity ?? defaultQuantity;
+    }
     if (isActive != null) body['isActive'] = isActive;
     if (roomLocation != null) body['roomLocation'] = roomLocation;
-
 
     final response = await _client.put(
       ApiConfig.deviceCustomerConfig(id),
@@ -96,7 +100,10 @@ class DevicesApiService {
   }
 
   /// Giả lập nhấn nút từ app để kích hoạt tạo đơn hàng tự động
-  Future<Map<String, dynamic>> simulatePress(String id, {String eventType = 'SINGLE_PRESS'}) async {
+  Future<Map<String, dynamic>> simulatePress(
+    String id, {
+    String eventType = 'SINGLE_PRESS',
+  }) async {
     final response = await _client.post(
       ApiConfig.deviceSimulatePress(id),
       body: {'eventType': eventType},

@@ -1,3 +1,4 @@
+import '../../services/stock_service.dart';
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -13,7 +14,11 @@ class ProductSelectionSheet extends StatefulWidget {
   final String buttonName;
   final String currentProductName;
   final String? deviceId;
-  final FutureOr<void> Function(ButtonProductModel selectedProduct) onSave;
+  final FutureOr<void> Function(
+    ButtonProductModel selectedProduct,
+    int quantity,
+  )
+  onSave;
 
   const ProductSelectionSheet({
     super.key,
@@ -29,7 +34,11 @@ class ProductSelectionSheet extends StatefulWidget {
     required String buttonName,
     required String currentProductName,
     String? deviceId,
-    required FutureOr<void> Function(ButtonProductModel selectedProduct) onSave,
+    required FutureOr<void> Function(
+      ButtonProductModel selectedProduct,
+      int quantity,
+    )
+    onSave,
   }) {
     return showModalBottomSheet<ButtonProductModel>(
       context: context,
@@ -49,9 +58,19 @@ class ProductSelectionSheet extends StatefulWidget {
   State<ProductSelectionSheet> createState() => _ProductSelectionSheetState();
 }
 
-class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
+class _ProductSelectionSheetState extends State<ProductSelectionSheet>
+    with WidgetsBindingObserver {
   List<ButtonProductModel> _products = [];
   ButtonProductModel? _selectedProduct;
+  int _quantity = 1;
+  bool get _canSave =>
+      _loadError == null &&
+      !_isLoading &&
+      !_isSaving &&
+      _selectedProduct?.stock != null &&
+      _quantity > 0 &&
+      _quantity <= _selectedProduct!.stock!.available;
+  bool _initialized = false;
   bool _isLoading = true;
   bool _isSaving = false;
   String? _loadError;
@@ -67,7 +86,21 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadProducts();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_isSaving && !_isLoading) {
+      _loadProducts();
+    }
   }
 
   Future<void> _loadProducts() async {
@@ -84,6 +117,12 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
       final storeId = device['storeId']?.toString();
       if (storeId == null || storeId.isEmpty) throw StateError('Missing store');
       final rows = await ProductsApiService().getProducts(storeId: storeId);
+      for (final row in rows.whereType<Map>()) {
+        StockService.instance.remember(
+          (row['productId'] ?? row['id']).toString(),
+          row['inventory'],
+        );
+      }
       final products = rows
           .whereType<Map>()
           .where(
@@ -94,7 +133,10 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
           .toList();
       final mappings = device['products'] ?? device['buttonProducts'];
       String? currentId;
+      int savedQuantity = 1;
       if (mappings is List && mappings.isNotEmpty && mappings.first is Map) {
+        savedQuantity =
+            int.tryParse(mappings.first['quantity'].toString()) ?? 1;
         currentId =
             (mappings.first['productId'] ??
                     mappings.first['product']?['productId'])
@@ -111,7 +153,14 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
       if (!mounted) return;
       setState(() {
         _products = products;
-        _selectedProduct = selected;
+        if (!_initialized) {
+          _selectedProduct = selected;
+          _quantity = savedQuantity;
+          _initialized = true;
+        } else {
+          final id = _selectedProduct?.id;
+          _selectedProduct = products.where((p) => p.id == id).firstOrNull;
+        }
         _isLoading = false;
       });
     } catch (_) {
@@ -153,14 +202,14 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
 
   Future<void> _handleSave() async {
     final product = _selectedProduct;
-    if (product == null || _isSaving || _isLoading) return;
+    if (product == null || !_canSave) return;
     HapticFeedback.mediumImpact();
     setState(() {
       _isSaving = true;
       _saveError = null;
     });
     try {
-      await widget.onSave(product);
+      await widget.onSave(product, _quantity);
       if (mounted) Navigator.of(context).pop(product);
     } catch (error) {
       if (!mounted) return;
@@ -360,12 +409,14 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                 children: [
                   Icon(LucideIcons.check, size: 15, color: Color(0xFF16A34A)),
                   SizedBox(width: 6),
-                  Text(
-                    'Freeship cho đơn từ 150.000đ',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF16A34A),
+                  Expanded(
+                    child: Text(
+                      'Freeship cho đơn từ 150.000đ',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF16A34A),
+                      ),
                     ),
                   ),
                 ],
@@ -409,11 +460,19 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: GestureDetector(
-                            onTap: _isSaving
+                            onTap:
+                                _isSaving ||
+                                    product.stock == null ||
+                                    product.stock!.available == 0
                                 ? null
                                 : () {
                                     HapticFeedback.selectionClick();
-                                    setState(() => _selectedProduct = product);
+                                    setState(() {
+                                      if (_selectedProduct?.id != product.id) {
+                                        _quantity = 1;
+                                      }
+                                      _selectedProduct = product;
+                                    });
                                   },
                             child: Container(
                               padding: const EdgeInsets.all(14),
@@ -468,6 +527,10 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
                                             fontWeight: FontWeight.bold,
                                             color: Color(0xFF0F172A),
                                           ),
+                                        ),
+                                        Text(
+                                          product.stock?.label() ??
+                                              'Chưa kiểm tra được tồn kho',
                                         ),
                                         const SizedBox(height: 3),
                                         Text(
@@ -543,6 +606,39 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (_selectedProduct != null) ...[
+                    Row(
+                      children: [
+                        const Expanded(child: Text('Số lượng')),
+                        IconButton(
+                          tooltip: 'Giảm số lượng',
+                          onPressed: !_isSaving && _quantity > 1
+                              ? () => setState(() => _quantity--)
+                              : null,
+                          icon: const Icon(Icons.remove),
+                        ),
+                        Text('$_quantity'),
+                        IconButton(
+                          tooltip: 'Tăng số lượng',
+                          onPressed:
+                              !_isSaving &&
+                                  _quantity <
+                                      (_selectedProduct?.stock?.available ?? 0)
+                              ? () => setState(() => _quantity++)
+                              : null,
+                          icon: const Icon(Icons.add),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      _selectedProduct?.stock?.label(_quantity) ??
+                          'Chưa kiểm tra được tồn kho',
+                    ),
+                  ],
+                  TextButton(
+                    onPressed: _isSaving || _isLoading ? null : _loadProducts,
+                    child: const Text('Kiểm tra lại tồn kho'),
+                  ),
                   // Selected Item Summary
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -594,15 +690,12 @@ class _ProductSelectionSheetState extends State<ProductSelectionSheet> {
 
                   // Save Changes Button
                   GestureDetector(
-                    onTap: _selectedProduct == null || _isSaving || _isLoading
-                        ? null
-                        : _handleSave,
+                    onTap: !_canSave ? null : _handleSave,
                     child: Container(
                       width: double.infinity,
                       height: 48,
                       decoration: BoxDecoration(
-                        color:
-                            _selectedProduct == null || _isSaving || _isLoading
+                        color: !_canSave
                             ? const Color(0xFF94A3B8)
                             : const Color(0xFF2563EB),
                         borderRadius: BorderRadius.circular(14),

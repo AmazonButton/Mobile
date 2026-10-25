@@ -156,6 +156,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _handleButtonPress(String id, String name, String product) async {
     HapticFeedback.lightImpact();
+    if (_buttonStateMap[id] == 'ordering') return;
     setState(() => _buttonStateMap[id] = 'ordering');
 
     DeviceModel? targetDevice;
@@ -345,8 +346,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       buttonName: device.name,
       currentProductName: device.product,
       deviceId: device.id,
-      onSave: (selectedProduct) async {
-        await context.read<DeviceProvider>().updateDeviceProduct(device.id, selectedProduct);
+      onSave: (selectedProduct, quantity) async {
+        await context.read<DeviceProvider>().updateDeviceProduct(device.id, selectedProduct, quantity: quantity);
         if (!mounted) return;
         _showToast('Đã gắn "${selectedProduct.name}" vào ${device.name}');
       },

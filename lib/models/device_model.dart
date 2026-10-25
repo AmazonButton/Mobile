@@ -4,6 +4,8 @@ import '../constants/app_colors.dart';
 enum DeviceStatus { online, warning, offline }
 
 class DeviceModel {
+  final String? productId;
+  final int quantity;
   final String id;
   final String name;
   final String room;
@@ -19,6 +21,8 @@ class DeviceModel {
   final String? storeName;
 
   const DeviceModel({
+    this.productId,
+    this.quantity = 1,
     required this.id,
     this.name = 'Nút thông minh',
     required this.room,
@@ -63,6 +67,8 @@ class DeviceModel {
   String get batteryText => isOffline ? 'Offline' : '$battery%';
 
   DeviceModel copyWith({
+    String? productId,
+    int? quantity,
     String? id,
     String? name,
     String? room,
@@ -78,6 +84,8 @@ class DeviceModel {
     String? storeName,
   }) {
     return DeviceModel(
+      productId: productId ?? this.productId,
+      quantity: quantity ?? this.quantity,
       id: id ?? this.id,
       name: name ?? this.name,
       room: room ?? this.room,
@@ -141,7 +149,7 @@ class DeviceModel {
           final pPrice = p['basePrice'] ?? p['price'];
           if (pPrice != null) {
             final pStr = pPrice.toString();
-            price = pStr.endsWith('đ') ? pStr : '${pStr}đ';
+            price = pStr.endsWith('đ') ? pStr : '$pStrđ';
           }
         } else {
           product =
@@ -151,7 +159,7 @@ class DeviceModel {
           final bPrice = bp['basePrice'] ?? bp['price'];
           if (bPrice != null) {
             final bStr = bPrice.toString();
-            price = bStr.endsWith('đ') ? bStr : '${bStr}đ';
+            price = bStr.endsWith('đ') ? bStr : '$bStrđ';
           }
         }
       }
@@ -163,7 +171,7 @@ class DeviceModel {
 
     if (json['price'] != null) {
       final pr = json['price'].toString();
-      price = pr.endsWith('đ') ? pr : '${pr}đ';
+      price = pr.endsWith('đ') ? pr : '$prđ';
     }
 
     if (json['badgeText'] != null) {
@@ -187,6 +195,12 @@ class DeviceModel {
         json['imageUrl']?.toString() ?? json['productImageUrl']?.toString();
 
     return DeviceModel(
+      productId: rawProds is List && rawProds.isNotEmpty
+          ? rawProds.first['productId']?.toString()
+          : null,
+      quantity: rawProds is List && rawProds.isNotEmpty
+          ? int.tryParse(rawProds.first['quantity'].toString()) ?? 1
+          : 1,
       id: id,
       name: name,
       room: room,
