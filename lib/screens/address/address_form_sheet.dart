@@ -1,3 +1,6 @@
+import 'dart:async';
+import '../../services/address_service.dart';
+import '../../models/address_prediction.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -5,17 +8,14 @@ import 'package:provider/provider.dart';
 import '../../models/address_model.dart';
 import '../../providers/address_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../services/address_service.dart';
+import '../../services/address_api_service.dart';
+import '../../services/goong_service.dart';
 
 class AddressFormSheet extends StatefulWidget {
   final AddressModel? initialAddress;
   final Function(AddressModel savedAddress)? onSaved;
 
-  const AddressFormSheet({
-    super.key,
-    this.initialAddress,
-    this.onSaved,
-  });
+  const AddressFormSheet({super.key, this.initialAddress, this.onSaved});
 
   /// Phương thức tĩnh mở bottom sheet thêm/sửa địa chỉ tiện lợi
   static Future<AddressModel?> show(
@@ -28,10 +28,8 @@ class AddressFormSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => AddressFormSheet(
-        initialAddress: initialAddress,
-        onSaved: onSaved,
-      ),
+      builder: (ctx) =>
+          AddressFormSheet(initialAddress: initialAddress, onSaved: onSaved),
     );
   }
 
@@ -55,14 +53,58 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
 
   final List<String> _labelOptions = ['Nhà riêng', 'Cơ quan', 'Khác'];
 
-  // Gợi ý tòa nhà / chung cư phổ biến
-  final List<String> _quickSuggestions = [
-    'Tòa S1.01 - Vinhomes Grand Park',
-    'Tòa S2.05 - Vinhomes Grand Park',
-    'Tòa S3.01 - Vinhomes Grand Park',
-    'Tòa Masteri M2 - Centre Point',
-    'Landmark 81 - Central Park',
-  ];
+  Timer? _searchTimer;
+  int _searchVersion = 0;
+  bool _searching = false;
+  String? _searchError;
+  List<AddressPrediction> _predictions = [];
+
+  void _searchAddress(String query) {
+    _searchTimer?.cancel();
+    final version = ++_searchVersion;
+    setState(() {
+      _predictions = [];
+      _searchError = null;
+      _searching = query.trim().length >= 2;
+    });
+    if (!_searching) return;
+    _searchTimer = Timer(const Duration(milliseconds: 400), () async {
+      try {
+        final results = await AddressService.autocomplete(query);
+        if (!mounted || version != _searchVersion) return;
+        setState(() {
+          _predictions = results.take(5).toList();
+          _searching = false;
+          if (results.isEmpty)
+            _searchError =
+                'Không tìm thấy gợi ý. Bạn có thể nhập địa chỉ thủ công.';
+        });
+      } catch (_) {
+        if (!mounted || version != _searchVersion) return;
+        setState(() {
+          _searching = false;
+          _searchError = const String.fromEnvironment('GOONG_API_KEY').isEmpty
+              ? 'Chưa cấu hình tìm kiếm địa chỉ. Vui lòng khởi động lại ứng dụng với cấu hình Goong.'
+              : 'Chưa tải được gợi ý. Bạn có thể nhập địa chỉ thủ công.';
+        });
+      }
+    });
+  }
+
+  void _selectPrediction(AddressPrediction prediction) {
+    _searchTimer?.cancel();
+    ++_searchVersion;
+    setState(() {
+      _detailController.text = prediction.fullAddress;
+      _wardController.clear();
+      _districtController.clear();
+      _provinceController.clear();
+      _predictions = [];
+      _searching = false;
+      _searchError = null;
+    });
+    FocusScope.of(context).unfocus();
+  }
 
   @override
   void initState() {
@@ -79,16 +121,15 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
     } catch (_) {}
 
     _nameController = TextEditingController(
-        text: a?.recipientName ?? (defaultName.isNotEmpty ? defaultName : ''));
+      text: a?.recipientName ?? (defaultName.isNotEmpty ? defaultName : ''),
+    );
     _phoneController = TextEditingController(
-        text: a?.phone ?? (defaultPhone.isNotEmpty ? defaultPhone : ''));
+      text: a?.phone ?? (defaultPhone.isNotEmpty ? defaultPhone : ''),
+    );
     _detailController = TextEditingController(text: a?.addressDetail ?? '');
-    _wardController =
-        TextEditingController(text: a?.ward ?? 'Phường Long Thạnh Mỹ');
-    _districtController =
-        TextEditingController(text: a?.district ?? 'TP. Thủ Đức');
-    _provinceController =
-        TextEditingController(text: a?.province ?? 'TP. Hồ Chí Minh');
+    _wardController = TextEditingController(text: a?.ward ?? '');
+    _districtController = TextEditingController(text: a?.district ?? '');
+    _provinceController = TextEditingController(text: a?.province ?? '');
 
     _isDefault = a?.isDefault ?? false;
     _selectedLabel = a?.label ?? 'Nhà riêng';
@@ -96,6 +137,8 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
 
   @override
   void dispose() {
+    _searchTimer?.cancel();
+    ++_searchVersion;
     _nameController.dispose();
     _phoneController.dispose();
     _detailController.dispose();
@@ -116,7 +159,18 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
     setState(() => _isSubmitting = true);
     HapticFeedback.mediumImpact();
 
+    final point = await GoongService().geocode(
+      [
+        _detailController.text,
+        _wardController.text,
+        _districtController.text,
+        _provinceController.text,
+      ].where((s) => s.trim().isNotEmpty).join(', '),
+    );
+    if (!mounted) return;
     final address = AddressModel(
+      latitude: point?.$1,
+      longitude: point?.$2,
       id: widget.initialAddress?.id ?? '',
       recipientName: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
@@ -144,13 +198,16 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
         }
       } else {
         // Fallback trực tiếp qua AddressService nếu không có provider
-        await AddressService.saveRecentAddress(address.fullAddress);
-        saved = address;
+        saved = _isEditing
+            ? await AddressApiService().updateAddress(address)
+            : await AddressApiService().createAddress(address);
       }
 
+      if (saved == null)
+        throw Exception(provider?.errorMessage ?? "Không thể lưu địa chỉ");
       if (mounted) {
-        widget.onSaved?.call(saved ?? address);
-        Navigator.pop(context, saved ?? address);
+        widget.onSaved?.call(saved);
+        Navigator.pop(context, saved);
       }
     } catch (e) {
       if (mounted) {
@@ -233,8 +290,11 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(LucideIcons.x,
-                        color: Color(0xFF94A3B8), size: 20),
+                    icon: const Icon(
+                      LucideIcons.x,
+                      color: Color(0xFF94A3B8),
+                      size: 20,
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -267,7 +327,8 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                         children: _labelOptions.map((label) {
                           final isSelected = _selectedLabel == label;
                           IconData iconData = LucideIcons.home;
-                          if (label == 'Cơ quan') iconData = LucideIcons.briefcase;
+                          if (label == 'Cơ quan')
+                            iconData = LucideIcons.briefcase;
                           if (label == 'Khác') iconData = LucideIcons.mapPin;
 
                           return Padding(
@@ -390,6 +451,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                       const SizedBox(height: 8),
                       _buildTextField(
                         controller: _detailController,
+                        onChanged: _searchAddress,
                         hint: 'Nhập số phòng, tòa nhà, tên đường...',
                         prefixIcon: LucideIcons.building,
                         maxLines: 2,
@@ -401,49 +463,44 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                         },
                       ),
 
-                      // Gợi ý nhanh tòa nhà
-                      const SizedBox(height: 8),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: _quickSuggestions.map((sug) {
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ActionChip(
-                                label: Text(
-                                  sug,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF2563EB),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                backgroundColor: const Color(0xFFEFF6FF),
-                                side: const BorderSide(
-                                    color: Color(0xFFDBEAFE)),
-                                padding: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    if (_detailController.text.contains('P.')) {
-                                      final roomPart = _detailController.text
-                                          .split('-')
-                                          .first
-                                          .trim();
-                                      _detailController.text = '$roomPart - $sug';
-                                    } else {
-                                      _detailController.text = sug;
-                                    }
-                                  });
-                                },
-                              ),
-                            );
-                          }).toList(),
+                      if (_searching)
+                        const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: LinearProgressIndicator(),
                         ),
-                      ),
-                      const SizedBox(height: 14),
+                      if (_searchError != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            _searchError!,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      if (_predictions.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            children: _predictions
+                                .map(
+                                  (prediction) => ListTile(
+                                    dense: true,
+                                    leading: const Icon(
+                                      Icons.location_on_outlined,
+                                      color: Color(0xFF2563EB),
+                                    ),
+                                    title: Text(prediction.primaryText),
+                                    subtitle: Text(prediction.secondaryText),
+                                    onTap: () => _selectPrediction(prediction),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ),
+                      const SizedBox(height: 20),
 
                       // 5. Phường / Xã, Quận / Huyện, Tỉnh / Thành
                       const Text(
@@ -486,7 +543,9 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                       // 6. Đặt làm mặc định toggle
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(16),
@@ -559,7 +618,8 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white),
+                                      Colors.white,
+                                    ),
                                   ),
                                 )
                               : Text(
@@ -593,6 +653,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
     String? Function(String?)? validator,
+    ValueChanged<String>? onChanged,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -606,6 +667,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
         keyboardType: keyboardType,
         maxLines: maxLines,
         validator: validator,
+        onChanged: onChanged,
         style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
@@ -615,14 +677,8 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
           icon: Icon(prefixIcon, size: 18, color: const Color(0xFF64748B)),
           border: InputBorder.none,
           hintText: hint,
-          hintStyle: const TextStyle(
-            color: Color(0xFF94A3B8),
-            fontSize: 13,
-          ),
-          errorStyle: const TextStyle(
-            fontSize: 11,
-            color: Color(0xFFEF4444),
-          ),
+          hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+          errorStyle: const TextStyle(fontSize: 11, color: Color(0xFFEF4444)),
         ),
       ),
     );

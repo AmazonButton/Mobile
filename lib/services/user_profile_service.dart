@@ -10,7 +10,7 @@ class UserProfileService extends ChangeNotifier {
   String _name = 'Nguyễn Văn Minh';
   String _phone = '090 123 4567';
   String _email = 'minh.nguyen@gmail.com';
-  String _address = 'P.1204 - Tòa S2.05, Vinhomes Grand Park';
+  String _address = '';
   File? _avatarFile;
 
   String get name => _name;
@@ -62,7 +62,7 @@ class UserProfileService extends ChangeNotifier {
 
   void updateAddress(String newAddress) {
     final trimmed = newAddress.trim();
-    if (trimmed.isNotEmpty && trimmed != _address) {
+    if (trimmed != _address) {
       _address = trimmed;
       notifyListeners();
     }

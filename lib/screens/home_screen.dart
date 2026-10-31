@@ -48,7 +48,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String get _userName => _userProvider?.name ?? _userService.name;
   String get _userShortName => _userProvider?.shortName ?? _userService.shortName;
   String get _userEmail => _userProvider?.email ?? _userService.email;
-  String get _userAddress => _userProvider?.address ?? _userService.address;
+  String get _userAddress {
+    final address = context.read<AddressProvider>().currentAddressDisplay;
+    return address.isEmpty ? 'Thêm địa chỉ giao hàng' : address;
+  }
   String get _userInitials => _userProvider?.initials ?? _userService.initials;
   File? get _userAvatar => _userProvider?.avatarFile ?? _userService.avatarFile;
 
@@ -356,6 +359,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<AddressProvider>();
     List<DeviceModel> displayDevices = _fallbackDevices;
     bool isDevLoading = false;
     try {
@@ -464,10 +468,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                     const SizedBox(height: 16),
 
-                    HomeQuickShopShelf(
-                      onAddProduct: (prod) => _showAssignProductSheet(prod, displayDevices),
-                      onSeeAll: () => _showToast('Xem danh mục sản phẩm gợi ý'),
-                    ).animate().fade(duration: 400.ms),
+                    const HomeQuickShopShelf().animate().fade(duration: 400.ms),
                     const SizedBox(height: 24),
 
                     const Row(

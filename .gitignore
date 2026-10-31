@@ -51,3 +51,5 @@ android/.gradle/
 3.harness/
 .harness/state/
 
+
+/goong.local.json
