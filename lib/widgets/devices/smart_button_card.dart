@@ -1,3 +1,5 @@
+import '../device_stock_status.dart';
+import '../../services/stock_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -33,12 +35,20 @@ class SmartButtonCard extends StatelessWidget {
 
   bool get _isGas {
     final lower = '$name $product'.toLowerCase();
-    return lower.contains('gas') || lower.contains('petrolimex') || lower.contains('bếp ga');
+    return lower.contains('gas') ||
+        lower.contains('petrolimex') ||
+        lower.contains('bếp ga');
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: StockService.instance,
+    builder: (context, _) => _buildCard(context),
+  );
+
+  Widget _buildCard(BuildContext context) {
     final isOrdering = state == 'ordering';
+    final blocked = StockService.instance.problem(id) != null;
     final isOrdered = state == 'ordered';
 
     return Container(
@@ -69,7 +79,9 @@ class SmartButtonCard extends StatelessWidget {
               child: Icon(
                 _isGas ? LucideIcons.flame : LucideIcons.droplets,
                 size: 20,
-                color: _isGas ? const Color(0xFFEA580C) : const Color(0xFF2563EB),
+                color: _isGas
+                    ? const Color(0xFFEA580C)
+                    : const Color(0xFF2563EB),
               ),
             ),
           ),
@@ -92,6 +104,7 @@ class SmartButtonCard extends StatelessWidget {
                     letterSpacing: -0.2,
                   ),
                 ),
+                DeviceStockStatus(deviceId: id),
                 const SizedBox(height: 3),
                 if (_isGas) ...[
                   Text(
@@ -155,32 +168,34 @@ class SmartButtonCard extends StatelessWidget {
 
           // ── "Đặt ngay" Button ──
           GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              if (!isOrdering) {
-                onOrder?.call();
-              }
-            },
+            onTap: blocked || isOrdering
+                ? null
+                : () {
+                    HapticFeedback.lightImpact();
+                    if (!isOrdering) {
+                      if (StockService.instance.problem(id) == null) {
+                        onOrder?.call();
+                      }
+                    }
+                  },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 9,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
               decoration: BoxDecoration(
                 color: isOrdered
                     ? const Color(0xFF16A34A)
-                    : isOrdering
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF2563EB),
+                    : isOrdering || blocked
+                    ? const Color(0xFF94A3B8)
+                    : const Color(0xFF2563EB),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
-                  if (!isOrdering)
+                  if (!isOrdering && !blocked)
                     BoxShadow(
-                      color: (isOrdered
-                              ? const Color(0xFF16A34A)
-                              : const Color(0xFF2563EB))
-                          .withValues(alpha: 0.25),
+                      color:
+                          (isOrdered
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFF2563EB))
+                              .withValues(alpha: 0.25),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -189,9 +204,9 @@ class SmartButtonCard extends StatelessWidget {
               child: Text(
                 isOrdered
                     ? 'Đã đặt'
-                    : isOrdering
-                        ? 'Đang gửi...'
-                        : 'Đặt ngay',
+                    : isOrdering || blocked
+                    ? (isOrdering ? 'Đang gửi...' : 'Chưa thể đặt')
+                    : 'Đặt ngay',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,

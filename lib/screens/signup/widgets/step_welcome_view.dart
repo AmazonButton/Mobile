@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import '../../../widgets/auth_guide.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'signup_theme.dart';
 import 'signup_ui_components.dart';
@@ -28,20 +28,16 @@ class StepWelcomeView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Spacer(flex: 1),
-                  // Mascot Illustration
-                  Center(
-                    child: Image.asset(
-                      'assets/illustrations/welcome.png',
-                      height: 200,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const SignupFallbackIllustration(icon: LucideIcons.sparkles),
-                    ),
-                  ).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.95, 0.95)),
+                  const AuthGuide(
+                    large: true,
+                    mood: GuideMood.welcome,
+                    message: 'Xin chào! Mình sẽ đồng hành cùng bạn.',
+                  ),
                   const SizedBox(height: 28),
 
                   // Title & Subtitle
                   const Text(
-                    'Cùng cài đặt thiết bị của bạn nhé!',
+                    'Một nút bấm. Kết nối dễ dàng.',
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
@@ -55,7 +51,7 @@ class StepWelcomeView extends StatelessWidget {
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Chỉ mất khoảng 2 phút.',
+                      'Cùng bắt đầu với Smart Order Button nhé!',
                       style: TextStyle(
                         fontSize: 15,
                         color: SignupTheme.figmaMuted,
@@ -67,7 +63,10 @@ class StepWelcomeView extends StatelessWidget {
 
                   // Feature pill card
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: SignupTheme.figmaInputBg,
                       borderRadius: BorderRadius.circular(16),
@@ -81,7 +80,11 @@ class StepWelcomeView extends StatelessWidget {
                             color: SignupTheme.figmaBlueLight,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(LucideIcons.sparkles, color: SignupTheme.figmaBlue, size: 18),
+                          child: const Icon(
+                            LucideIcons.sparkles,
+                            color: SignupTheme.figmaBlue,
+                            size: 18,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         const Expanded(
@@ -102,13 +105,10 @@ class StepWelcomeView extends StatelessWidget {
                   const Spacer(flex: 2),
 
                   // Bottom CTAs
-                  SignupPrimaryButton(
-                    label: 'Bắt đầu',
-                    onTap: onStart,
-                  ),
+                  SignupPrimaryButton(label: 'Bắt đầu', onTap: onStart),
                   const SizedBox(height: 8),
                   SignupSecondaryButton(
-                    label: 'Tôi đã có tài khoản',
+                    label: 'Tôi đã có tài khoản rồi',
                     onTap: onLogin,
                   ),
                   const SizedBox(height: 16),

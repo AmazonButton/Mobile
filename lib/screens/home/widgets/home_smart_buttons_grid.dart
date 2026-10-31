@@ -146,7 +146,7 @@ class HomeSmartButtonsGrid extends StatelessWidget {
           )
         else
           Column(
-            children: devices.map(
+            children: devices.take(3).map(
               (device) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: GestureDetector(

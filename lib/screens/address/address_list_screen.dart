@@ -42,6 +42,9 @@ class _AddressListScreenState extends State<AddressListScreen> {
   Future<void> _loadData() async {
     if (_addressProvider != null) {
       await _addressProvider!.loadAddresses();
+      if (mounted && _addressProvider!.errorMessage != null) {
+        _showFloatingToast(_addressProvider!.errorMessage!);
+      }
     } else {
       setState(() => _isLocalLoading = true);
       final list = await _apiService.getAddresses();
@@ -149,7 +152,14 @@ class _AddressListScreenState extends State<AddressListScreen> {
               HapticFeedback.heavyImpact();
 
               if (_addressProvider != null) {
-                await _addressProvider!.deleteAddress(address.id);
+                final ok = await _addressProvider!.deleteAddress(address.id);
+                if (!ok) {
+                  if (mounted)
+                    _showFloatingToast(
+                      _addressProvider!.errorMessage ?? 'Không thể xóa địa chỉ',
+                    );
+                  return;
+                }
               } else {
                 await _apiService.deleteAddress(address.id);
                 _loadData();
@@ -182,7 +192,14 @@ class _AddressListScreenState extends State<AddressListScreen> {
   void _setDefault(AddressModel address) async {
     HapticFeedback.lightImpact();
     if (_addressProvider != null) {
-      await _addressProvider!.setDefaultAddress(address.id);
+      final ok = await _addressProvider!.setDefaultAddress(address.id);
+      if (!ok) {
+        if (mounted)
+          _showFloatingToast(
+            _addressProvider!.errorMessage ?? 'Không thể đặt địa chỉ mặc định',
+          );
+        return;
+      }
     } else {
       await _apiService.setDefaultAddress(address.id);
       _userService.updateAddress(address.fullAddress);

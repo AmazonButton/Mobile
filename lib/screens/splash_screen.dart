@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import '../services/services.dart';
 import 'dashboard_screen.dart';
-import 'login_screen.dart';
+import 'welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -69,16 +69,13 @@ class _SplashScreenState extends State<SplashScreen>
 
     final Widget targetScreen = isAuthenticated
         ? const DashboardScreen()
-        : const LoginScreen();
+        : const WelcomeScreen();
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
+          return FadeTransition(opacity: animation, child: child);
         },
         transitionDuration: const Duration(milliseconds: 600),
       ),
@@ -160,12 +157,13 @@ class _SplashScreenState extends State<SplashScreen>
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) =>
                                     Image.asset(
-                                  'assets/fpt_toggle_button.png',
-                                  width: 180,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error2, stackTrace2) =>
-                                      const SizedBox.shrink(),
-                                ),
+                                      'assets/fpt_toggle_button.png',
+                                      width: 180,
+                                      fit: BoxFit.contain,
+                                      errorBuilder:
+                                          (context, error2, stackTrace2) =>
+                                              const SizedBox.shrink(),
+                                    ),
                               ),
                               const SizedBox(height: 12),
                               Padding(

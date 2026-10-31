@@ -7,21 +7,25 @@ class SignupPrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool isEnabled;
+  final bool isLoading;
 
   const SignupPrimaryButton({
     super.key,
     required this.label,
     required this.onTap,
     this.isEnabled = true,
+    this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 56,
-      width: double.infinity,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: 56,
+        minWidth: double.infinity,
+      ),
       child: ElevatedButton(
-        onPressed: isEnabled ? onTap : null,
+        onPressed: (isEnabled && !isLoading) ? onTap : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: SignupTheme.figmaBlue,
           disabledBackgroundColor: const Color(0xFFE2E8F0),
@@ -30,15 +34,25 @@ class SignupPrimaryButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isEnabled ? Colors.white : const Color(0xFF94A3B8),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            fontFamily: SignupTheme.fontFamily,
-          ),
-        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isEnabled ? Colors.white : const Color(0xFF94A3B8),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: SignupTheme.fontFamily,
+                ),
+              ),
       ),
     );
   }
@@ -57,9 +71,11 @@ class SignupSecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      width: double.infinity,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: 48,
+        minWidth: double.infinity,
+      ),
       child: TextButton(
         onPressed: onTap,
         style: TextButton.styleFrom(
@@ -69,6 +85,7 @@ class SignupSecondaryButton extends StatelessWidget {
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             color: SignupTheme.figmaBlue,
             fontSize: 15,
@@ -97,9 +114,7 @@ class SignupFallbackIllustration extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: SignupTheme.figmaBlueBorder, width: 2),
       ),
-      child: Center(
-        child: Icon(icon, color: SignupTheme.figmaBlue, size: 56),
-      ),
+      child: Center(child: Icon(icon, color: SignupTheme.figmaBlue, size: 56)),
     );
   }
 }
@@ -139,7 +154,11 @@ void showSignupHelpBottomSheet(BuildContext context) {
                       color: SignupTheme.figmaBlueLight,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(LucideIcons.helpCircle, color: SignupTheme.figmaBlue, size: 20),
+                    child: const Icon(
+                      LucideIcons.helpCircle,
+                      color: SignupTheme.figmaBlue,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Text(

@@ -1,25 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../services/stock_service.dart';
+import '../sample_a.dart';
+import 'a_stock_status.dart';
 
-/// Minimalist Tactile Device Card matching the modern simplified design.
 class DeviceCard extends StatelessWidget {
-  final String id;
-  final String name;
-  final String room;
-  final String product;
-  final String price;
+  final String id, name, room, product, price, badgeText, signal, state;
   final int batteryLevel;
   final String? imageUrl;
-  final String badgeText;
-  final String signal;
-  final bool isOnline;
-  final VoidCallback? onTap;
-  final VoidCallback? onSettings;
-  final VoidCallback? onOrder;
-  final String state;
-  final bool showOrderButton;
-
+  final bool isOnline, showOrderButton;
+  final VoidCallback? onTap, onSettings, onOrder;
   const DeviceCard({
     super.key,
     required this.id,
@@ -36,198 +26,132 @@ class DeviceCard extends StatelessWidget {
     this.onSettings,
     this.onOrder,
     this.state = 'idle',
-    this.showOrderButton = false,
+    this.showOrderButton = true,
   });
-
-  bool get _isGas {
-    final lower = '$name $product'.toLowerCase();
-    return lower.contains('gas') || lower.contains('bếp ga') || lower.contains('petrolimex');
-  }
-
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap?.call();
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 12,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: StockService.instance,
+    builder: (context, _) {
+      final problem = StockService.instance.problem(id);
+      return ACard(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── 1. Top Row: Icon + Name & Room + Settings Gear ──
-            Row(
-              children: [
-                // Minimalist category icon box
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: _isGas ? const Color(0xFFFFF7ED) : const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      _isGas ? LucideIcons.flame : LucideIcons.droplets,
-                      size: 20,
-                      color: _isGas ? const Color(0xFFEA580C) : const Color(0xFF2563EB),
+            InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    AProductImage(
+                      product: product,
+                      imageUrl: imageUrl,
+                      size: 48,
                     ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-
-                // Name and Room
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                          letterSpacing: -0.3,
-                        ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            maxLines:
+                                MediaQuery.textScalerOf(context).scale(16) > 21
+                                ? null
+                                : 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: SampleA.body.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(product, style: SampleA.caption),
+                          const SizedBox(height: 6),
+                          AStatus(
+                            label: !isOnline
+                                ? 'Mất kết nối'
+                                : batteryLevel <= 20
+                                ? 'Pin yếu · $batteryLevel%'
+                                : 'Sẵn sàng',
+                            icon: !isOnline
+                                ? LucideIcons.wifiOff
+                                : batteryLevel <= 20
+                                ? LucideIcons.batteryLow
+                                : LucideIcons.check,
+                            color: !isOnline
+                                ? SampleA.danger
+                                : batteryLevel <= 20
+                                ? SampleA.warning
+                                : SampleA.primary,
+                            background: !isOnline
+                                ? SampleA.dangerLight
+                                : batteryLevel <= 20
+                                ? SampleA.warningLight
+                                : SampleA.pale,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        room,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Gear Settings Button
-                GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    onSettings?.call();
-                  },
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF1F5F9),
-                      shape: BoxShape.circle,
                     ),
-                    child: const Center(
-                      child: Icon(
+                    IconButton(
+                      tooltip: 'Cài đặt $name',
+                      onPressed: onSettings,
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                      icon: const Icon(
                         LucideIcons.settings,
-                        size: 18,
-                        color: Color(0xFF475569),
+                        size: 20,
+                        color: SampleA.muted,
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // ── 2. Middle Row: Product & Price Strip ──
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFF1F5F9)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      product,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF334155),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    price,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ],
               ),
             ),
-
-            const SizedBox(height: 12),
-
-            // ── 3. Bottom Row: Online Status & Battery ──
-            Row(
-              children: [
-                // Online Indicator
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: isOnline ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  isOnline ? 'Online' : 'Offline',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF475569),
-                  ),
-                ),
-
-                const SizedBox(width: 16),
-
-                // Battery Indicator
-                Icon(
-                  LucideIcons.battery,
-                  size: 14,
-                  color: batteryLevel <= 20 ? const Color(0xFFD97706) : const Color(0xFF64748B),
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  price.contains('[') ? 'Pin [%]' : 'Pin $batteryLevel%',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: batteryLevel <= 20 ? const Color(0xFFD97706) : const Color(0xFF475569),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 10),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final priceWidget = Text(price, style: SampleA.section);
+                final action = AButton(
+                  label: !isOnline ? 'Kết nối lại' : 'Đặt lại',
+                  onPressed: !isOnline
+                      ? onSettings
+                      : problem == null
+                      ? onOrder
+                      : null,
+                  kind: !isOnline ? AButtonKind.secondary : AButtonKind.primary,
+                  busy: state == 'ordering',
+                );
+                return constraints.maxWidth < 250 ||
+                        MediaQuery.textScalerOf(context).scale(16) > 21
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          priceWidget,
+                          const SizedBox(height: 12),
+                          action,
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: priceWidget),
+                          const SizedBox(width: 12),
+                          SizedBox(width: 128, child: action),
+                        ],
+                      );
+              },
             ),
+            if (isOnline)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: AStockStatus(deviceId: id),
+              ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
 }

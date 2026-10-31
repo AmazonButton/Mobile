@@ -1,3 +1,4 @@
+import '../../../widgets/auth_guide.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -8,10 +9,7 @@ import 'signup_ui_components.dart';
 class StepBlePairingView extends StatefulWidget {
   final VoidCallback onPairingComplete;
 
-  const StepBlePairingView({
-    super.key,
-    required this.onPairingComplete,
-  });
+  const StepBlePairingView({super.key, required this.onPairingComplete});
 
   @override
   State<StepBlePairingView> createState() => StepBlePairingViewState();
@@ -66,9 +64,7 @@ class StepBlePairingViewState extends State<StepBlePairingView> {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: IntrinsicHeight(
-              child: _buildSubPhaseContent(),
-            ),
+            child: IntrinsicHeight(child: _buildSubPhaseContent()),
           ),
         );
       },
@@ -82,13 +78,9 @@ class StepBlePairingViewState extends State<StepBlePairingView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          Center(
-            child: Image.asset(
-              'assets/illustrations/step3_wake_device.png',
-              height: 180,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SignupFallbackIllustration(icon: LucideIcons.bluetooth),
-            ),
+          AuthGuide(
+            message: 'Đặt nút bấm ở gần điện thoại để cùng kết nối nhé!',
+            mood: GuideMood.guiding,
           ),
           const SizedBox(height: 24),
           const Text(
@@ -127,7 +119,11 @@ class StepBlePairingViewState extends State<StepBlePairingView> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(LucideIcons.radio, color: SignupTheme.figmaBlue, size: 22),
+                  child: const Icon(
+                    LucideIcons.radio,
+                    color: SignupTheme.figmaBlue,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 const Expanded(
@@ -179,15 +175,11 @@ class StepBlePairingViewState extends State<StepBlePairingView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          Center(
-            child: Image.asset(
-              _isScanningBle
-                  ? 'assets/illustrations/step3_searching.png'
-                  : 'assets/illustrations/step3_select_device.png',
-              height: 180,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SignupFallbackIllustration(icon: LucideIcons.bluetooth),
-            ),
+          AuthGuide(
+            mood: _isScanningBle ? GuideMood.waiting : GuideMood.happy,
+            message: _isScanningBle
+                ? 'Mình đang tìm nút bấm ở gần bạn…'
+                : 'Tìm thấy rồi! Hãy chọn nút bấm của bạn nhé.',
           ),
           const SizedBox(height: 24),
           Text(
@@ -201,7 +193,9 @@ class StepBlePairingViewState extends State<StepBlePairingView> {
           ),
           const SizedBox(height: 6),
           Text(
-            _isScanningBle ? 'Xin vui lòng đưa nút bấm lại gần điện thoại.' : 'Đây có phải nút nhấn của bạn không?',
+            _isScanningBle
+                ? 'Xin vui lòng đưa nút bấm lại gần điện thoại.'
+                : 'Đây có phải nút nhấn của bạn không?',
             style: const TextStyle(
               fontSize: 15,
               color: SignupTheme.figmaMuted,
@@ -230,9 +224,15 @@ class StepBlePairingViewState extends State<StepBlePairingView> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: SignupTheme.figmaBlueBorder),
+                          border: Border.all(
+                            color: SignupTheme.figmaBlueBorder,
+                          ),
                         ),
-                        child: const Icon(LucideIcons.disc, color: SignupTheme.figmaBlue, size: 24),
+                        child: const Icon(
+                          LucideIcons.disc,
+                          color: SignupTheme.figmaBlue,
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -260,7 +260,11 @@ class StepBlePairingViewState extends State<StepBlePairingView> {
                           ],
                         ),
                       ),
-                      const Icon(LucideIcons.checkCircle2, color: SignupTheme.figmaBlue, size: 24),
+                      const Icon(
+                        LucideIcons.checkCircle2,
+                        color: SignupTheme.figmaBlue,
+                        size: 24,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -314,7 +318,8 @@ class StepBlePairingViewState extends State<StepBlePairingView> {
             'assets/illustrations/step3_pairing.png',
             height: 200,
             fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const SignupFallbackIllustration(icon: LucideIcons.bluetooth),
+            errorBuilder: (_, _, _) =>
+                const SignupFallbackIllustration(icon: LucideIcons.bluetooth),
           ),
           const SizedBox(height: 32),
           const Text(

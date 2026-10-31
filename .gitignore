@@ -51,3 +51,11 @@ android/.gradle/
 3.harness/
 .harness/state/
 
+
+/goong.local.json
+
+# Local credentials and generated audit evidence
+.env
+.env.*
+!.env.example
+/audit/

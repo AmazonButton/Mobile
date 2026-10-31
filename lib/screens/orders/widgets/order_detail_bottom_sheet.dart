@@ -1,31 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-
 import '../../../models/order_model.dart';
-import 'order_status_views.dart';
+import '../../../widgets/sample_a.dart';
+import 'order_card_item.dart';
 import 'payos_qr_payment_sheet.dart';
 
-/// Modal Bottom Sheet hiển thị thông tin chi tiết đơn hàng
 class OrderDetailBottomSheet extends StatelessWidget {
   final OrderModel order;
-  final VoidCallback? onReorder;
-  final VoidCallback? onCancel;
-
+  final VoidCallback? onReorder, onCancel;
   const OrderDetailBottomSheet({
     super.key,
     required this.order,
     this.onReorder,
     this.onCancel,
   });
-
   static void show(
     BuildContext context, {
     required OrderModel order,
     VoidCallback? onReorder,
     VoidCallback? onCancel,
   }) {
-    HapticFeedback.lightImpact();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -33,7 +27,7 @@ class OrderDetailBottomSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (ctx) => OrderDetailBottomSheet(
+      builder: (_) => OrderDetailBottomSheet(
         order: order,
         onReorder: onReorder,
         onCancel: onCancel,
@@ -42,360 +36,160 @@ class OrderDetailBottomSheet extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final isCancelled = order.isCancelled;
-    final isPending = order.isPending;
-    final isShipping = order.isShipping;
-
-    Color badgeBg;
-    Color badgeColor;
-    String badgeText;
-
-    if (isCancelled) {
-      badgeBg = const Color(0xFFFEF2F2);
-      badgeColor = const Color(0xFFDC2626);
-      badgeText = 'Đã hủy';
-    } else if (isPending) {
-      badgeBg = const Color(0xFFFEF2F2);
-      badgeColor = const Color(0xFFEF4444);
-      badgeText = 'Đang xác nhận';
-    } else if (isShipping) {
-      badgeBg = const Color(0xFFEFF6FF);
-      badgeColor = const Color(0xFF2563EB);
-      badgeText = 'Đang giao hàng';
-    } else {
-      badgeBg = const Color(0xFFECFDF5);
-      badgeColor = const Color(0xFF059669);
-      badgeText = 'Đã hoàn tất';
-    }
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+  Widget build(BuildContext context) => DraggableScrollableSheet(
+    expand: false,
+    initialChildSize: .9,
+    minChildSize: .45,
+    maxChildSize: .96,
+    builder: (context, controller) => SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        controller: controller,
+        padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Chi tiết đơn hàng',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      order.orderCode,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
+                const Expanded(
+                  child: Text('Chi tiết đơn hàng', style: SampleA.section),
                 ),
-                IconButton(
+                AIconButton(
+                  icon: LucideIcons.x,
+                  tooltip: 'Đóng',
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, color: Color(0xFF94A3B8)),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-
-            // Status Badge card
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: badgeBg,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    isCancelled
-                        ? LucideIcons.xCircle
-                        : (isShipping ? LucideIcons.truck : LucideIcons.checkCircle2),
-                    size: 18,
-                    color: badgeColor,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    badgeText,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: badgeColor,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    order.time,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: badgeColor.withValues(alpha: 0.8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // Products list
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFF1F5F9)),
-              ),
+            ACard(
+              color: SampleA.pale,
+              border: false,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: Icon(order.icon, size: 22, color: const Color(0xFF64748B)),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              order.displayTitle,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E293B),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Nút đặt: ${order.buttonName}${order.storeName.isNotEmpty ? " • ${order.storeName}" : ""}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        order.price,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                    ],
+                  OrderStatusBadge(order: order),
+                  const SizedBox(height: 12),
+                  Text(
+                    order.orderCode,
+                    style: SampleA.title.copyWith(fontSize: 24),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Divider(height: 1, color: Color(0xFFE2E8F0)),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Tổng thanh toán',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF475569),
-                        ),
-                      ),
-                      Text(
-                        order.price,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2563EB),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Thanh toán',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: order.isPaid ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: order.isPaid ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              order.isPaid ? LucideIcons.checkCheck : LucideIcons.clock,
-                              size: 13,
-                              color: order.isPaid ? const Color(0xFF059669) : const Color(0xFFD97706),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              order.isPaid ? 'Đã thanh toán (PayOS)' : 'Chưa thanh toán (COD)',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
-                                color: order.isPaid ? const Color(0xFF059669) : const Color(0xFFD97706),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  if (order.time.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(order.time, style: SampleA.caption),
+                    ),
                 ],
               ),
             ),
+            if (!order.isCancelled) ...[
+              const SizedBox(height: 16),
+              OrderTimeline(rawStatus: order.rawStatus),
+            ],
+            if (order.apartment.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              ACard(
+                color: const Color(0xFFF8FAFC),
+                border: false,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(LucideIcons.mapPin, color: SampleA.primary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (order.customerName.isNotEmpty)
+                            Text(
+                              order.customerName,
+                              style: SampleA.body.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          Text(order.apartment, style: SampleA.body),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            OrderProductLine(order: order),
+            if (order.items.length > 1) ...[
+              const SizedBox(height: 12),
+              for (final item in order.items.skip(1))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    '${item.quantity} × ${item.name}',
+                    style: SampleA.body,
+                  ),
+                ),
+            ],
             const SizedBox(height: 20),
-
-            // PayOS Payment Action Button for UNPAID orders
-            if (order.isUnpaid && !isCancelled && !order.isCompleted) ...[
-              SizedBox(
-                width: double.infinity,
-                child: TactileButton(
-                  scale: 0.96,
-                  onTap: () {
-                    PayosQrPaymentSheet.show(
-                      context,
-                      order: order,
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB),
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF2563EB).withValues(alpha: 0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(LucideIcons.qrCode, size: 16, color: Colors.white),
-                        SizedBox(width: 8),
-                        Text(
-                          'Thanh toán trước bằng PayOS',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+            const Divider(color: SampleA.border),
+            const SizedBox(height: 12),
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                const Text('Tổng thanh toán', style: SampleA.body),
+                Text(order.price, style: SampleA.title.copyWith(fontSize: 24)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              order.isPaid
+                  ? 'Đã thanh toán · ${order.paymentMethod}'
+                  : order.isPayos
+                  ? 'Chưa thanh toán · PayOS'
+                  : 'Thanh toán khi nhận hàng',
+              style: SampleA.caption,
+            ),
+            const SizedBox(height: 24),
+            if (order.isUnpaid && !order.isCancelled && !order.isCompleted) ...[
+              AButton(
+                label: order.isPayos
+                    ? 'Thanh toán'
+                    : 'Thanh toán trước bằng PayOS',
+                onPressed: () =>
+                    PayosQrPaymentSheet.show(context, order: order),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
             ],
-
-            // Actions (Cancel or Reorder)
-            if (isPending || isShipping) ...[
-              SizedBox(
-                width: double.infinity,
-                child: TactileButton(
-                  scale: 0.96,
-                  onTap: () {
-                    Navigator.pop(context);
-                    onCancel?.call();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFFECDD3)),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(LucideIcons.x, size: 16, color: Color(0xFFF43F5E)),
-                        SizedBox(width: 8),
-                        Text(
-                          'Hủy đơn hàng này',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFF43F5E),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+            if (order.isEmergencyCancellable && onCancel != null) ...[
+              AButton(
+                label: 'Hủy đơn hàng này',
+                kind: AButtonKind.danger,
+                onPressed: () {
+                  Navigator.pop(context);
+                  onCancel!();
+                },
               ),
-            ] else ...[
-              SizedBox(
-                width: double.infinity,
-                child: TactileButton(
-                  scale: 0.96,
-                  onTap: () {
-                    Navigator.pop(context);
-                    onReorder?.call();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(LucideIcons.rotateCcw, size: 16, color: Colors.white),
-                        SizedBox(width: 8),
-                        Text(
-                          'Đặt lại đơn này',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              const SizedBox(height: 12),
             ],
+            if (order.isCompleted && onReorder != null) ...[
+              AButton(
+                label: 'Đặt lại đơn này',
+                onPressed: () {
+                  Navigator.pop(context);
+                  onReorder!();
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+            AButton(
+              label: 'Quay lại đơn hàng',
+              kind: AButtonKind.secondary,
+              onPressed: () => Navigator.pop(context),
+            ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }

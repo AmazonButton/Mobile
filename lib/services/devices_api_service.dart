@@ -1,6 +1,7 @@
 import '../models/device_model.dart';
 import 'api_client.dart';
 import 'api_config.dart';
+import 'products_api_service.dart';
 
 class DevicesApiService {
   static final DevicesApiService _instance = DevicesApiService._internal();
@@ -18,7 +19,7 @@ class DevicesApiService {
     final response = await _client.get(ApiConfig.devices, queryParams: query);
     final data = response['data'] ?? response;
     if (data is List) {
-      return data.map((item) {
+      final devices = data.map((item) {
         if (item is Map<String, dynamic>) {
           return DeviceModel.fromJson(item);
         } else if (item is Map) {
@@ -26,6 +27,25 @@ class DevicesApiService {
         }
         return DeviceModel.fromJson({});
       }).toList();
+      if (!devices.any((device) => device.imageUrl == null)) return devices;
+      try {
+        final products = await ProductsApiService().getProducts();
+        final byId = <String, Map>{
+          for (final product in products)
+            if (product is Map && (product['productId'] ?? product['id']) != null)
+              (product['productId'] ?? product['id']).toString(): product,
+        };
+        return devices.map((device) {
+          final product = byId[device.productId];
+          if (device.imageUrl != null || product == null) return device;
+          final enriched = DeviceModel.fromJson({
+            'products': [{'product': product}],
+          });
+          return device.copyWith(imageUrl: enriched.imageUrl);
+        }).toList();
+      } catch (_) {
+        return devices;
+      }
     }
     return [];
   }
@@ -52,7 +72,9 @@ class DevicesApiService {
   }
 
   /// Cấu hình và kích hoạt nút trực tiếp qua mã code / QR
-  Future<Map<String, dynamic>> configureByCode(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> configureByCode(
+    Map<String, dynamic> payload,
+  ) async {
     final response = await _client.post(
       ApiConfig.devicesConfigureByCode,
       body: payload,
@@ -67,6 +89,7 @@ class DevicesApiService {
     String? productId,
     String? storeId,
     int? defaultQuantity,
+    int? quantity,
     bool? isActive,
     String? roomLocation,
   }) async {
@@ -74,10 +97,11 @@ class DevicesApiService {
     if (buttonName != null) body['buttonName'] = buttonName;
     if (productId != null) body['productId'] = productId;
     if (storeId != null) body['storeId'] = storeId;
-    if (defaultQuantity != null) body['defaultQuantity'] = defaultQuantity;
+    if (quantity != null || defaultQuantity != null) {
+      body['quantity'] = quantity ?? defaultQuantity;
+    }
     if (isActive != null) body['isActive'] = isActive;
     if (roomLocation != null) body['roomLocation'] = roomLocation;
-
 
     final response = await _client.put(
       ApiConfig.deviceCustomerConfig(id),
@@ -96,7 +120,10 @@ class DevicesApiService {
   }
 
   /// Giả lập nhấn nút từ app để kích hoạt tạo đơn hàng tự động
-  Future<Map<String, dynamic>> simulatePress(String id, {String eventType = 'SINGLE_PRESS'}) async {
+  Future<Map<String, dynamic>> simulatePress(
+    String id, {
+    String eventType = 'SINGLE_PRESS',
+  }) async {
     final response = await _client.post(
       ApiConfig.deviceSimulatePress(id),
       body: {'eventType': eventType},

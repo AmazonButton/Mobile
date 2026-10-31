@@ -1,3 +1,4 @@
+import '../services/stock_service.dart';
 import 'package:flutter/material.dart';
 import '../models/button_product_model.dart';
 import '../models/device_model.dart';
@@ -37,6 +38,9 @@ class DeviceProvider extends ChangeNotifier {
     try {
       final fetched = await _apiService.getDevices();
       _devices = fetched;
+      await Future.wait(
+        fetched.map((d) => StockService.instance.refreshDevice(d.id)),
+      );
       _errorMessage = null;
     } catch (e) {
       _errorMessage = e.toString();
@@ -52,7 +56,10 @@ class DeviceProvider extends ChangeNotifier {
     if (!_devices.any((device) => device.id == deviceId)) {
       throw StateError('Không tìm thấy thiết bị');
     }
-    final response = await _apiService.updateCustomerConfig(deviceId, storeId: storeId);
+    final response = await _apiService.updateCustomerConfig(
+      deviceId,
+      storeId: storeId,
+    );
     final updated = DeviceModel.fromJson(response);
     final index = _devices.indexWhere((device) => device.id == deviceId);
     if (index == -1) return;
@@ -63,22 +70,21 @@ class DeviceProvider extends ChangeNotifier {
   /// Chỉ cập nhật sản phẩm trên giao diện sau khi backend xác nhận.
   Future<void> updateDeviceProduct(
     String deviceId,
-    ButtonProductModel product,
-  ) async {
+    ButtonProductModel product, {
+    int quantity = 1,
+  }) async {
     final index = _devices.indexWhere((d) => d.id == deviceId);
     if (index == -1) throw StateError('Không tìm thấy thiết bị');
 
-    await _apiService.updateCustomerConfig(deviceId, productId: product.id);
+    final response = await _apiService.updateCustomerConfig(
+      deviceId,
+      productId: product.id,
+      quantity: quantity,
+    );
     final currentIndex = _devices.indexWhere((d) => d.id == deviceId);
     if (currentIndex == -1) return;
-
-    final updated = _devices[currentIndex].copyWith(
-      product: product.shortName,
-      price: product.priceFormatted,
-      badgeText: product.specs,
-    );
-
-    _devices[currentIndex] = updated;
+    _devices[currentIndex] = DeviceModel.fromJson(response);
+    await StockService.instance.refreshDevice(deviceId);
     notifyListeners();
   }
 

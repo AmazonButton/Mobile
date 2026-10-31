@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_order_button/screens/dashboard_screen.dart';
 import 'package:smart_order_button/screens/login_screen.dart';
+import 'package:smart_order_button/screens/welcome_screen.dart';
 import 'package:smart_order_button/services/api_client.dart';
 
 void main() {
@@ -18,97 +19,83 @@ void main() {
       await ApiClient().clearTokens();
     });
 
-    testWidgets('Remains on LoginScreen and shows error SnackBar on 401 ApiException', (WidgetTester tester) async {
-      final client = ApiClient();
-      client.testClient = MockClient((request) async {
-        return Response(
-          jsonEncode({
-            'statusCode': 401,
-            'message': 'Tài khoản hoặc mật khẩu không chính xác',
-          }),
-          401,
-          headers: {'content-type': 'application/json'},
+    testWidgets(
+      'Remains on LoginScreen and shows error SnackBar on 401 ApiException',
+      (WidgetTester tester) async {
+        final client = ApiClient();
+        client.testClient = MockClient((request) async {
+          return Response(
+            jsonEncode({
+              'statusCode': 401,
+              'message': 'Tài khoản hoặc mật khẩu không chính xác',
+            }),
+            401,
+            headers: {'content-type': 'application/json'},
+          );
+        });
+
+        await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+
+        await enterCredentials(tester, 'WrongPassword123!');
+
+        // Tap submit button
+        final submitButton = find.text('Đăng nhập');
+        expect(submitButton, findsOneWidget);
+        await tester.tap(submitButton);
+
+        await tester.pumpAndSettle();
+
+        // Verify SnackBar with error message is shown
+        expect(
+          find.text('Tài khoản hoặc mật khẩu không chính xác'),
+          findsOneWidget,
         );
-      });
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: LoginScreen(),
-        ),
-      );
+        // Verify user STAYS on LoginScreen and does NOT bypass to DashboardScreen
+        expect(find.byType(LoginScreen), findsOneWidget);
+        expect(find.byType(DashboardScreen), findsNothing);
+      },
+    );
 
-      // Find Email and Password TextFields
-      final textFields = find.byType(TextField);
-      expect(textFields, findsNWidgets(2));
+    testWidgets(
+      'Remains on LoginScreen and shows error SnackBar on network failure',
+      (WidgetTester tester) async {
+        final client = ApiClient();
+        client.testClient = MockClient((request) async {
+          throw SocketException('Connection refused');
+        });
 
-      await tester.enterText(textFields.at(0), 'user@example.com');
-      await tester.enterText(textFields.at(1), 'WrongPassword123!');
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
 
-      // Tap submit button
-      final submitButton = find.text('Đăng nhập');
-      expect(submitButton, findsOneWidget);
-      await tester.tap(submitButton);
+        await enterCredentials(tester, 'AnyPassword123!');
 
-      await tester.pumpAndSettle();
+        final submitButton = find.text('Đăng nhập');
+        await tester.tap(submitButton);
 
-      // Verify SnackBar with error message is shown
-      expect(find.text('Tài khoản hoặc mật khẩu không chính xác'), findsOneWidget);
+        await tester.pumpAndSettle();
 
-      // Verify user STAYS on LoginScreen and does NOT bypass to DashboardScreen
-      expect(find.byType(LoginScreen), findsOneWidget);
+        // Verify user stays on LoginScreen
+        expect(find.byType(LoginScreen), findsOneWidget);
+        expect(find.byType(DashboardScreen), findsNothing);
+
+        // Verify network error message is displayed in SnackBar
+        expect(find.byType(SnackBar), findsOneWidget);
+      },
+    );
+
+    testWidgets('Method selection cannot bypass authentication', (
+      tester,
+    ) async {
+      await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+      expect(find.text('Đăng nhập bằng email'), findsOneWidget);
+      expect(find.text('Đăng nhập bằng số điện thoại / OTP'), findsOneWidget);
       expect(find.byType(DashboardScreen), findsNothing);
+      expect(ApiClient().isAuthenticated, isFalse);
     });
 
-    testWidgets('Remains on LoginScreen and shows error SnackBar on network failure', (WidgetTester tester) async {
-      final client = ApiClient();
-      client.testClient = MockClient((request) async {
-        throw SocketException('Connection refused');
-      });
-
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: LoginScreen(),
-        ),
-      );
-
-      final textFields = find.byType(TextField);
-      await tester.enterText(textFields.at(0), 'user@example.com');
-      await tester.enterText(textFields.at(1), 'AnyPassword123!');
-      await tester.pumpAndSettle();
-
-      final submitButton = find.text('Đăng nhập');
-      await tester.tap(submitButton);
-
-      await tester.pumpAndSettle();
-
-      // Verify user stays on LoginScreen
-      expect(find.byType(LoginScreen), findsOneWidget);
-      expect(find.byType(DashboardScreen), findsNothing);
-
-      // Verify network error message is displayed in SnackBar
-      expect(find.byType(SnackBar), findsOneWidget);
-    });
-
-    testWidgets('Social login buttons show development notice and do not bypass to Dashboard', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: LoginScreen(),
-        ),
-      );
-
-      // Tap Google button
-      final googleButton = find.text('Google');
-      expect(googleButton, findsOneWidget);
-      await tester.tap(googleButton);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Đăng nhập bằng Google đang được phát triển'), findsOneWidget);
-      expect(find.byType(LoginScreen), findsOneWidget);
-      expect(find.byType(DashboardScreen), findsNothing);
-    });
-
-    testWidgets('Navigates to DashboardScreen on valid login credentials', (WidgetTester tester) async {
+    testWidgets('Navigates to DashboardScreen on valid login credentials', (
+      WidgetTester tester,
+    ) async {
       final client = ApiClient();
       client.testClient = MockClient((request) async {
         if (request.url.path.contains('/auth/login')) {
@@ -131,16 +118,12 @@ void main() {
         return Response('Not Found', 404);
       });
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: LoginScreen(),
-        ),
-      );
+      await tester.pumpWidget(const MaterialApp(home: WelcomeScreen()));
 
-      final textFields = find.byType(TextField);
-      await tester.enterText(textFields.at(0), 'user@example.com');
-      await tester.enterText(textFields.at(1), 'CorrectPass123!');
+      await tester.ensureVisible(find.text('Tôi đã có tài khoản rồi'));
+      await tester.tap(find.text('Tôi đã có tài khoản rồi'));
       await tester.pumpAndSettle();
+      await enterCredentials(tester, 'CorrectPass123!');
 
       final submitButton = find.text('Đăng nhập');
       await tester.tap(submitButton);
@@ -153,7 +136,26 @@ void main() {
 
       // Verify navigated to DashboardScreen
       expect(find.byType(DashboardScreen), findsOneWidget);
+      expect(
+        Navigator.of(tester.element(find.byType(DashboardScreen))).canPop(),
+        isFalse,
+      );
       expect(find.byType(LoginScreen), findsNothing);
     });
   });
+}
+
+Future<void> enterCredentials(WidgetTester tester, String password) async {
+  await tester.tap(find.text('Đăng nhập bằng email'));
+  await tester.pumpAndSettle();
+  await tester.enterText(
+    find.byKey(const ValueKey('loginIdentifier')),
+    'user@example.com',
+  );
+  await tester.pump();
+  await tester.tap(find.text('Tiếp tục'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byKey(const ValueKey('loginPassword')), password);
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('Đăng nhập'));
 }
