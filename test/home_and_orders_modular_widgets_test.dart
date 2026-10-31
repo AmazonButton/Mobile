@@ -1,3 +1,5 @@
+import 'package:provider/provider.dart';
+import 'package:smart_order_button/providers/address_provider.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -426,7 +428,10 @@ void main() {
 
   group('Story 4.3 - Orchestrators Smoke Tests', () {
     testWidgets('HomeScreen renders without throwing', (tester) async {
-      await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+      await tester.pumpWidget(ChangeNotifierProvider(
+        create: (_) => AddressProvider(),
+        child: const MaterialApp(home: HomeScreen()),
+      ));
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(HomeScreen), findsOneWidget);
