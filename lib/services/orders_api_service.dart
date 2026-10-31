@@ -1,4 +1,5 @@
 import 'stock_service.dart';
+import 'products_api_service.dart';
 import '../models/order_model.dart';
 import 'api_client.dart';
 import 'api_config.dart';
@@ -19,7 +20,44 @@ class OrdersApiService {
     final response = await _client.get(ApiConfig.orders, queryParams: query);
     final data = response['data'] ?? response;
     if (data is List) {
+      // Older order responses omit images; resolve by product ID, never by name.
+      final catalog = <String, Map>{};
+      try {
+        final products = await ProductsApiService().getProducts();
+        for (final product in products) {
+          if (product is Map) {
+            final id = product['productId'] ?? product['id'];
+            if (id != null) catalog[id.toString()] = product;
+          }
+        }
+      } catch (_) {
+        // Product lookup must not prevent customers from viewing their orders.
+      }
       return data.map((item) {
+        if (item is Map) {
+          item = Map<String, dynamic>.from(item);
+          final key = item['items'] is List ? 'items' : 'orderItems';
+          final items = item[key];
+          if (items is List) {
+            item[key] = items.map((line) {
+              if (line is! Map) return line;
+              final copy = Map<String, dynamic>.from(line);
+              final nested = copy['product'];
+              final id = copy['productId'] ??
+                  (nested is Map ? nested['productId'] ?? nested['id'] : null);
+              final product = id == null ? null : catalog[id.toString()];
+              if (product != null) {
+                copy['product'] = {
+                  ...product,
+                  if (nested is Map) ...nested,
+                  'imageUrl': product['imageUrl'] ?? product['thumbnailUrl'],
+                  'images': product['images'],
+                };
+              }
+              return copy;
+            }).toList();
+          }
+        }
         if (item is Map<String, dynamic>) {
           return OrderModel.fromJson(item);
         } else if (item is Map) {

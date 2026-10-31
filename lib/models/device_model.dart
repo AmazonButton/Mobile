@@ -102,6 +102,29 @@ class DeviceModel {
     );
   }
 
+  static String? _imageOf(Map? product) {
+    if (product == null) return null;
+    String? valid(dynamic value) {
+      if (value is! String) return null;
+      final uri = Uri.tryParse(value.trim());
+      return uri != null && (uri.scheme == 'https' || uri.scheme == 'http') &&
+          uri.host.isNotEmpty ? value.trim() : null;
+    }
+    final direct = valid(product['imageUrl']) ?? valid(product['thumbnailUrl']);
+    if (direct != null) return direct;
+    final images = product['images'];
+    if (images is List) {
+      for (final image in [
+        ...images.where((e) => e is Map && e['isThumbnail'] == true),
+        ...images,
+      ]) {
+        final url = valid(image is Map ? image['imageUrl'] : image);
+        if (url != null) return url;
+      }
+    }
+    return null;
+  }
+
   factory DeviceModel.fromJson(Map<String, dynamic> json) {
     final rawStatus = (json['status'] ?? 'ACTIVE').toString().toUpperCase();
     final rawBattery = json['batteryLevel'] ?? json['battery'] ?? 100;
@@ -191,8 +214,14 @@ class DeviceModel {
         json['wifiSsid']?.toString() ??
         json['wifi']?.toString() ??
         'Home_Network_5G';
-    final img =
-        json['imageUrl']?.toString() ?? json['productImageUrl']?.toString();
+    final assigned = rawProds is List && rawProds.isNotEmpty && rawProds.first is Map
+        ? rawProds.first as Map
+        : null;
+    final assignedProduct = assigned?['product'] is Map
+        ? assigned!['product'] as Map
+        : json['product'] is Map ? json['product'] as Map : null;
+    final img = _imageOf(assignedProduct) ?? _imageOf(assigned) ??
+        _imageOf(json) ?? json['productImageUrl']?.toString();
 
     return DeviceModel(
       productId: rawProds is List && rawProds.isNotEmpty

@@ -1,205 +1,205 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../services/stores_api_service.dart';
+import '../../../services/goong_service.dart';
+import '../../../providers/address_provider.dart';
+import 'package:provider/provider.dart';
 
-/// Horizontal shopping recommendations shelf for HomeScreen.
-class HomeQuickShopShelf extends StatelessWidget {
-  final ValueChanged<Map<String, String>> onAddProduct;
-  final VoidCallback onSeeAll;
+/// Stores loaded from the authenticated stores API.
+class HomeQuickShopShelf extends StatefulWidget {
+  const HomeQuickShopShelf({super.key});
 
-  const HomeQuickShopShelf({
-    super.key,
-    required this.onAddProduct,
-    required this.onSeeAll,
+  @override
+  State<HomeQuickShopShelf> createState() => _HomeQuickShopShelfState();
+}
+
+class _HomeQuickShopShelfState extends State<HomeQuickShopShelf> {
+  late Future<List<dynamic>> _stores;
+  String? _addressKey;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final address = context.watch<AddressProvider>().selectedAddress;
+    final key =
+        '${address?.fullAddress}|${address?.latitude}|${address?.longitude}';
+    if (_addressKey == key) return;
+    _addressKey = key;
+    _stores = _loadStores();
+  }
+
+  Future<List<dynamic>> _loadStores() async {
+    final address = context.read<AddressProvider>().selectedAddress;
+    final stores = (await StoresApiService().getStores())
+        .whereType<Map>()
+        .where((s) => s['status'] == 'ACTIVE')
+        .map((s) => Map<String, dynamic>.from(s))
+        .toList();
+    final goong = GoongService();
+    final origin = address?.latitude != null && address?.longitude != null
+        ? (address!.latitude!, address.longitude!)
+        : await goong.geocode(address?.fullAddress ?? '');
+    if (origin == null) return stores;
+    for (final store in stores) {
+      final point = await goong.geocode(store['address']?.toString() ?? '');
+      if (point != null)
+        store['distanceKm'] = GoongService.distanceKm(origin, point);
+    }
+    stores.sort(
+      (a, b) => ((a['distanceKm'] as double?) ?? double.infinity).compareTo(
+        (b['distanceKm'] as double?) ?? double.infinity,
+      ),
+    );
+    return stores;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Loading starts when the selected delivery address is available.
+  }
+
+  void _retry() => setState(() {
+    _stores = _loadStores();
   });
 
-  static const List<Map<String, String>> _products = [
-    {'name': 'Gạo ST25 Ông Cua 5kg', 'price': '180.000đ', 'tag': 'Bán chạy'},
-    {
-      'name': 'Bia Heineken Silver 24 lon',
-      'price': '435.000đ',
-      'tag': 'Cuối tuần',
-    },
-    {
-      'name': 'Nước giặt OMO Matic 3.6kg',
-      'price': '175.000đ',
-      'tag': 'Khuyên dùng',
-    },
-    {'name': 'Thùng Aquafina 500ml', 'price': '98.000đ', 'tag': 'Giao 2h'},
-    {'name': 'Giấy Pulppy 10 cuộn', 'price': '85.000đ', 'tag': 'Nhu yếu phẩm'},
-  ];
+  void _openStore(Map store) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                store['name']?.toString() ?? 'Cửa hàng',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              Text(store['address']?.toString() ?? 'Chưa có địa chỉ'),
+              if (store['phone'] != null) ...[
+                const SizedBox(height: 12),
+                SelectableText('Điện thoại: ${store['phone']}'),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Gợi ý cho bạn',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
-                letterSpacing: -0.3,
-              ),
-            ),
-            GestureDetector(
-              onTap: onSeeAll,
-              child: const Text(
-                'Xem tất cả',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ),
-          ],
+        const Text(
+          'Các cửa hàng gần đây',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1E293B),
+          ),
         ),
         const SizedBox(height: 12),
-        SizedBox(
-          height: 195,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: _products.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final item = _products[index];
-              return Container(
-                width: 136,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top: Thumbnail placeholder with pill badge
-                    Container(
-                      height: 72,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
+        FutureBuilder<List<dynamic>>(
+          future: _stores,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const SizedBox(
+                height: 150,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (snapshot.hasError) {
+              return Column(
+                children: [
+                  const Text('Không thể tải cửa hàng.'),
+                  TextButton(onPressed: _retry, child: const Text('Thử lại')),
+                ],
+              );
+            }
+            final stores = (snapshot.data ?? [])
+                .whereType<Map>()
+                .where((s) => s['status'] == 'ACTIVE')
+                .toList();
+            if (stores.isEmpty)
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Text('Chưa có cửa hàng đang hoạt động.'),
+              );
+            return SizedBox(
+              height: 184,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: stores.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final store = stores[index];
+                  return SizedBox(
+                    width: 144,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => _openStore(store),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            item['name']!.contains('Gạo')
-                                ? LucideIcons.wheat
-                                : item['name']!.contains('Bia')
-                                ? LucideIcons.wine
-                                : item['name']!.contains('giặt')
-                                ? LucideIcons.sparkles
-                                : item['name']!.contains('Aquafina')
-                                ? LucideIcons.droplets
-                                : LucideIcons.package,
-                            size: 26,
-                            color: const Color(0xFF64748B),
+                          Container(
+                            height: 94,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F0FE),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.storefront,
+                              size: 52,
+                              color: Color(0xFF4478BB),
+                            ),
                           ),
-                          if (item['tag'] != null)
-                            Positioned(
-                              top: 4,
-                              left: 4,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1E293B),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
+                          const SizedBox(height: 8),
+                          Text(
+                            store['name']?.toString() ?? 'Cửa hàng',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.location_on_outlined,
+                                size: 15,
+                                color: Color(0xFF2563EB),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
                                 child: Text(
-                                  item['tag']!,
+                                  store['distanceKm'] != null
+                                      ? '${(store['distanceKm'] as double).toStringAsFixed(1)} km (đường thẳng)'
+                                      : store['address']?.toString() ??
+                                            'Chưa có địa chỉ',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-
-                    // Middle: Name & Price
-                    Text(
-                      item['name']!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1E293B),
-                        height: 1.25,
-                      ),
-                    ),
-                    const Spacer(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item['price']!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF334155),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            onAddProduct(item);
-                          },
-                          child: Container(
-                            width: 26,
-                            height: 26,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: const Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                LucideIcons.plus,
-                                size: 14,
-                                color: Color(0xFF2563EB),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
+            );
+          },
         ),
       ],
     );

@@ -1,12 +1,12 @@
-import '../widgets/device_stock_status.dart';
-import 'package:flutter/cupertino.dart';
+import '../widgets/devices/a_stock_status.dart';
+import '../widgets/devices/device_order_sheet.dart';
+import '../widgets/sample_a.dart';
+import '../services/stock_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart';
 import '../providers/device_provider.dart';
 import '../widgets/modals/product_selection_sheet.dart';
 import '../widgets/modals/store_selection_sheet.dart';
@@ -39,6 +39,8 @@ class DeviceDetailScreen extends StatefulWidget {
   State<DeviceDetailScreen> createState() => _DeviceDetailScreenState();
 }
 
+enum _DevicePage { overview, order, connection }
+
 class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   late String _deviceName;
   late String _room;
@@ -47,7 +49,8 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   late String _productImageUrl;
   late int _battery;
   late String _wifiSsid;
-  bool _doubleConfirm = true;
+  _DevicePage _page = _DevicePage.overview;
+  bool _wifiChanged = false;
 
   @override
   void initState() {
@@ -56,20 +59,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     _room = widget.room;
     _productName = widget.productName;
     _productPrice = widget.productPrice;
-    _productImageUrl = widget.productImageUrl ?? _resolveInitialImage(_productName);
+    _productImageUrl = widget.productImageUrl ?? '';
     _battery = widget.battery;
     _wifiSsid = widget.wifiSsid;
-  }
-
-  String _resolveInitialImage(String name) {
-    final lower = name.toLowerCase();
-    if (lower.contains('gas') || lower.contains('petrolimex')) {
-      return 'https://images.unsplash.com/photo-1584281722572-881585869106?w=200&auto=format&fit=crop&q=80';
-    }
-    if (lower.contains('gạo') || lower.contains('st25')) {
-      return 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&auto=format&fit=crop&q=80';
-    }
-    return 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=200&auto=format&fit=crop&q=80';
   }
 
   Future<void> _handleRename() async {
@@ -93,7 +85,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       ),
     );
     if (!mounted || saved != true) return;
-    setState(() => _deviceName = provider.getDeviceById(id)?.name ?? _deviceName);
+    setState(
+      () => _deviceName = provider.getDeviceById(id)?.name ?? _deviceName,
+    );
     _showToast('Đã đổi tên nút');
   }
 
@@ -106,37 +100,20 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       deviceId: widget.deviceId,
       onSave: (selectedProduct, quantity) async {
         final deviceId = widget.deviceId;
-        if (deviceId == null || deviceId.isEmpty) throw StateError('Không tìm thấy thiết bị');
-        await context.read<DeviceProvider>().updateDeviceProduct(deviceId, selectedProduct, quantity: quantity);
+        if (deviceId == null || deviceId.isEmpty) {
+          throw StateError('Không tìm thấy thiết bị');
+        }
+        await context.read<DeviceProvider>().updateDeviceProduct(
+          deviceId,
+          selectedProduct,
+          quantity: quantity,
+        );
         if (!mounted) return;
         setState(() {
           _productName = selectedProduct.shortName;
           _productPrice = selectedProduct.priceFormatted;
 
-          final lower =
-              '${selectedProduct.shortName} ${selectedProduct.name}'.toLowerCase();
-          if (lower.contains('petrolimex')) {
-            _productImageUrl =
-                'https://images.unsplash.com/photo-1584281722572-881585869106?w=200&auto=format&fit=crop&q=80';
-          } else if (lower.contains('gas') || lower.contains('saigon')) {
-            _productImageUrl =
-                'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=200&auto=format&fit=crop&q=80';
-          } else if (lower.contains('gạo') || lower.contains('st25')) {
-            _productImageUrl =
-                'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&auto=format&fit=crop&q=80';
-          } else if (lower.contains('aquafina')) {
-            _productImageUrl =
-                'https://images.unsplash.com/photo-1560023907-5f339617ea30?w=200&auto=format&fit=crop&q=80';
-          } else if (lower.contains('omo')) {
-            _productImageUrl =
-                'https://images.unsplash.com/photo-1585338107529-13afc5f02586?w=200&auto=format&fit=crop&q=80';
-          } else if (lower.contains('pulppy')) {
-            _productImageUrl =
-                'https://images.unsplash.com/photo-1584556812952-905ffd0c611a?w=200&auto=format&fit=crop&q=80';
-          } else {
-            _productImageUrl =
-                'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=200&auto=format&fit=crop&q=80';
-          }
+          _productImageUrl = '';
         });
 
         _showToast('Đã gán $_productName vào $_deviceName');
@@ -174,7 +151,9 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       context: context,
       initialSsid: _wifiSsid,
       onConnected: (newSsid) {
+        if (!mounted) return;
         setState(() {
+          _wifiChanged = true;
           _wifiSsid = newSsid;
         });
         _showToast('Đã kết nối Wi-Fi thành công: $newSsid');
@@ -195,14 +174,20 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         title: const Text(
           'Xóa thiết bị',
           style: TextStyle(
+            fontFamily: 'SampleA Vietnam',
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: Color(0xFF1E293B),
           ),
         ),
         content: Text(
-          'Bạn có chắc chắn muốn xóa "$_deviceName"? Nút bấm sẽ được ngắt kết nối và chuyển về trạng thái ban đầu.',
-          style: const TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.4),
+          'Bạn có chắc chắn muốn xóa "$_deviceName"? Thao tác này sẽ gỡ thiết bị khỏi tài khoản.',
+          style: const TextStyle(
+            fontFamily: 'SampleA Vietnam',
+            fontSize: 14,
+            color: Color(0xFF64748B),
+            height: 1.4,
+          ),
         ),
         actions: [
           TextButton(
@@ -210,6 +195,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
             child: const Text(
               'Hủy',
               style: TextStyle(
+                fontFamily: 'SampleA Vietnam',
                 color: Color(0xFF64748B),
                 fontWeight: FontWeight.w500,
               ),
@@ -218,11 +204,14 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              Navigator.maybePop(context);
+              _showToast(
+                'Chức năng xóa thiết bị hiện chưa khả dụng. Vui lòng liên hệ cửa hàng.',
+              );
             },
             child: Text(
               'Xóa',
               style: TextStyle(
+                fontFamily: 'SampleA Vietnam',
                 color: Colors.red.shade600,
                 fontWeight: FontWeight.bold,
               ),
@@ -252,6 +241,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         content: Text(
           message,
           style: const TextStyle(
+            fontFamily: 'SampleA Vietnam',
             color: Colors.white,
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -261,541 +251,403 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Slate 50
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        leading: _TactileBounce(
-          onTap: () => Navigator.maybePop(context),
-          child: const Center(
-            child: Icon(
-              LucideIcons.chevronLeft,
-              color: Color(0xFF1E293B),
-              size: 22,
-            ),
-          ),
-        ),
-        title: const Text(
-          'Cài đặt thiết bị',
-          style: TextStyle(
-            fontSize: 18,
-            color: Color(0xFF1E293B),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 48),
-        child: Column(
-          children: [
-            // ================= 1. HERO SECTION =================
-            _buildHeroSection(),
-            const SizedBox(height: 28),
-
-            // ================= GROUP 1: ASSIGNED PRODUCT =================
-            _SettingsGroup(
-              title: 'CỬA HÀNG',
-              children: [
-                ListTile(
-                  leading: const Icon(LucideIcons.store),
-                  title: Text(context.watch<DeviceProvider?>()?.getDeviceById(widget.deviceId ?? '')?.storeName ?? 'Cửa hàng của nút'),
-                  subtitle: const Text('Đổi cửa hàng'),
-                  trailing: const Icon(LucideIcons.chevronRight),
-                  onTap: _handleChangeStore,
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            _buildActionBindingGroup(),
-            const SizedBox(height: 24),
-
-            // ================= GROUP 2: NETWORK & TRIGGERS =================
-            _buildNetworkGroup(),
-            const SizedBox(height: 32),
-
-            // ================= GROUP 3: DANGER ZONE =================
-            _buildDangerZoneGroup(),
-          ]
-              .animate(interval: 50.ms)
-              .fade(duration: 300.ms)
-              .slideY(begin: 0.05, curve: Curves.easeOut),
-        ),
-      ),
-    );
+  void _showPage(_DevicePage page) {
+    FocusScope.of(context).unfocus();
+    setState(() => _page = page);
   }
 
-  // --- Sub-widgets ---
-
-  Widget _buildHeroSection() {
-    final isLowBattery = _battery <= 20;
-
-    return Column(
-      children: [
-        // Large Circular Avatar (Radius 40 => 80x80)
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFFE2E8F0),
-              width: 1.5,
+  @override
+  Widget build(BuildContext context) {
+    final device = context.watch<DeviceProvider?>()?.getDeviceById(
+      widget.deviceId ?? '',
+    );
+    final name = device?.name ?? _deviceName;
+    final room = device?.room ?? _room;
+    final product = device?.product ?? _productName;
+    final price = device?.price ?? _productPrice;
+    final battery = device?.battery ?? _battery;
+    final store = device?.storeName ?? 'Chưa chọn cửa hàng';
+    final wifi = _wifiChanged ? _wifiSsid : device?.wifiSsid ?? _wifiSsid;
+    final offline = device?.isOffline ?? false;
+    final title = switch (_page) {
+      _DevicePage.overview => name,
+      _DevicePage.order => 'Thiết lập đặt hàng',
+      _DevicePage.connection => 'Kết nối & thiết bị',
+    };
+    return PopScope(
+      canPop: _page == _DevicePage.overview,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _showPage(_DevicePage.overview);
+      },
+      child: Scaffold(
+        backgroundColor: SampleA.background,
+        appBar: AppBar(
+          backgroundColor: SampleA.background,
+          surfaceTintColor: Colors.transparent,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
+          toolbarHeight: 64,
+          leadingWidth: 72,
+          leading: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+            child: AIconButton(
+              tooltip: 'Quay lại',
+              icon: LucideIcons.chevronLeft,
+              onPressed: () {
+                if (_page == _DevicePage.overview) {
+                  Navigator.of(context).maybePop();
+                } else {
+                  _showPage(_DevicePage.overview);
+                }
+              },
             ),
           ),
-          child: ClipOval(
-            child: CachedNetworkImage(
-              imageUrl:
-                  'https://images.unsplash.com/photo-1558002038-1055907df827?w=200&auto=format&fit=crop&q=80',
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Shimmer.fromColors(
-                baseColor: const Color(0xFFE2E8F0),
-                highlightColor: const Color(0xFFF8FAFC),
-                child: Container(
-                  color: const Color(0xFFE2E8F0),
+          title: Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: SampleA.section,
+          ),
+          actions: [
+            if (_page == _DevicePage.overview)
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: AIconButton(
+                  key: const ValueKey('renameDevice'),
+                  tooltip: 'Đổi tên',
+                  icon: LucideIcons.pencil,
+                  onPressed: _handleRename,
                 ),
               ),
-              errorWidget: (context, url, error) => Container(
-                color: const Color(0xFFF1F5F9),
-                child: const Center(
-                  child: Icon(
-                    LucideIcons.radio,
-                    size: 36,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Device Name
-        Text(
-          _deviceName,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E293B),
-            letterSpacing: -0.4,
-          ),
-        ),
-          TextButton.icon(
-            key: const ValueKey('renameDevice'),
-            onPressed: _handleRename,
-            icon: const Icon(Icons.edit_outlined, size: 18),
-            label: const Text('Đổi tên'),
-          ),
-        if (_room.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            _room,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Color(0xFF94A3B8),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-        const SizedBox(height: 6),
-
-        // Status Row (Pulsing green/red dot + text)
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: isLowBattery
-                    ? Colors.red.shade600
-                    : const Color(0xFF10B981),
-                shape: BoxShape.circle,
-              ),
-            )
-                .animate(onPlay: (controller) => controller.repeat(reverse: true))
-                .scale(
-                  begin: const Offset(0.85, 0.85),
-                  end: const Offset(1.3, 1.3),
-                  duration: 1000.ms,
-                  curve: Curves.easeInOut,
-                )
-                .fade(begin: 0.5, end: 1.0, duration: 1000.ms),
-            const SizedBox(width: 8),
-            Text(
-              isLowBattery
-                  ? 'Pin yếu: $_battery% • Cần sạc'
-                  : 'Đang hoạt động • Pin $_battery%',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: isLowBattery ? Colors.red.shade600 : const Color(0xFF64748B),
-              ),
-            ),
           ],
         ),
-      ],
-    );
-  }
-
-  Widget _buildActionBindingGroup() {
-    return _SettingsGroup(
-      title: 'SẢN PHẨM ĐƯỢC GẮN',
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              // 48x48 Rounded Container with CachedNetworkImage
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: const Color(0xFFE2E8F0),
-                    width: 1,
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(9),
-                  child: CachedNetworkImage(
-                    imageUrl: _productImageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Shimmer.fromColors(
-                      baseColor: const Color(0xFFE2E8F0),
-                      highlightColor: const Color(0xFFF8FAFC),
-                      child: Container(color: const Color(0xFFE2E8F0)),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: const Color(0xFFF1F5F9),
-                      child: const Center(
-                        child: Icon(
-                          LucideIcons.package,
-                          size: 22,
-                          color: Color(0xFF94A3B8),
+        body: SafeArea(
+          top: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: SingleChildScrollView(
+                key: ValueKey(_page),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: switch (_page) {
+                    _DevicePage.overview => [
+                      ACard(
+                        color: SampleA.pale,
+                        border: false,
+                        child: Row(
+                          children: [
+                            AProductImage(
+                              product: product,
+                              imageUrl: device?.imageUrl ?? _productImageUrl,
+                              size: 64,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    room,
+                                    style: SampleA.body.copyWith(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  AStatus(
+                                    label: offline
+                                        ? 'Mất kết nối'
+                                        : 'Đang kết nối',
+                                    icon: offline
+                                        ? LucideIcons.wifiOff
+                                        : LucideIcons.check,
+                                    color: offline
+                                        ? SampleA.danger
+                                        : SampleA.primary,
+                                    background: offline
+                                        ? SampleA.dangerLight
+                                        : Colors.white,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-
-              // Title & Subtitle
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (widget.deviceId != null) DeviceStockStatus(deviceId: widget.deviceId!),
-                    Text(
-                      _productName,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
+                      const SizedBox(height: 16),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final stats = [
+                            _stat(
+                              LucideIcons.battery,
+                              '$battery%',
+                              'Pin thiết bị',
+                            ),
+                            _stat(
+                              LucideIcons.wifi,
+                              offline ? 'Ngoại tuyến' : 'Đã kết nối',
+                              wifi,
+                            ),
+                          ];
+                          return constraints.maxWidth < 300 ||
+                                  MediaQuery.textScalerOf(context).scale(16) >
+                                      22
+                              ? Column(
+                                  children: [
+                                    stats[0],
+                                    const SizedBox(height: 12),
+                                    stats[1],
+                                  ],
+                                )
+                              : Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: stats[0]),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: stats[1]),
+                                  ],
+                                );
+                        },
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      _productPrice,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w500,
+                      const SizedBox(height: 16),
+                      const Text('Sản phẩm đã gán', style: SampleA.section),
+                      const SizedBox(height: 12),
+                      ACard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                AProductImage(
+                                  product: product,
+                                  imageUrl:
+                                      device?.imageUrl ?? _productImageUrl,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        product,
+                                        style: SampleA.body.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        price,
+                                        style: SampleA.body.copyWith(
+                                          color: SampleA.primary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(store, style: SampleA.caption),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (widget.deviceId != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: AStockStatus(deviceId: widget.deviceId!),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 14),
+                      ListenableBuilder(
+                        listenable: StockService.instance,
+                        builder: (context, _) => AButton(
+                          label: offline
+                              ? 'Kết nối lại'
+                              : 'Đặt ${device?.quantity ?? 1} sản phẩm',
+                          onPressed: offline
+                              ? () => _showPage(_DevicePage.connection)
+                              : device == null ||
+                                    StockService.instance.problem(device.id) !=
+                                        null
+                              ? null
+                              : () => showDeviceOrderSheet(context, device),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      AButton(
+                        label: 'Đổi sản phẩm',
+                        onPressed: _handleChangeProduct,
+                        kind: AButtonKind.secondary,
+                      ),
+                      const SizedBox(height: 16),
+                      _SettingsRow(
+                        icon: LucideIcons.package,
+                        title: 'Thiết lập đặt hàng',
+                        onTap: () => _showPage(_DevicePage.order),
+                      ),
+                      _SettingsRow(
+                        icon: LucideIcons.settings,
+                        title: 'Kết nối & thiết bị',
+                        onTap: () => _showPage(_DevicePage.connection),
+                      ),
+                      const SizedBox(height: 14),
+                      AButton(
+                        key: const ValueKey('deleteDevice'),
+                        label: 'Xóa thiết bị',
+                        onPressed: _handleDeleteDevice,
+                        kind: AButtonKind.danger,
+                      ),
+                    ],
+                    _DevicePage.order => [
+                      const Text(
+                        'Đơn hàng của nút bấm',
+                        style: SampleA.section,
+                      ),
+                      const SizedBox(height: 16),
+                      ACard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            _SettingsRow(
+                              icon: LucideIcons.store,
+                              title: 'Cửa hàng',
+                              subtitle: store,
+                              onTap: _handleChangeStore,
+                            ),
+                            const Divider(height: 1, color: SampleA.border),
+                            _SettingsRow(
+                              icon: LucideIcons.package,
+                              title: 'Sản phẩm',
+                              subtitle: [
+                                product,
+                                if (price.isNotEmpty) price,
+                              ].join(' · '),
+                              onTap: _handleChangeProduct,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      AButton(
+                        label: 'Xong',
+                        onPressed: () => _showPage(_DevicePage.overview),
+                      ),
+                    ],
+                    _DevicePage.connection => [
+                      const Text('Mạng Wi-Fi', style: SampleA.section),
+                      const SizedBox(height: 16),
+                      ACard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            _SettingsRow(
+                              icon: LucideIcons.wifi,
+                              title: wifi.isEmpty ? 'Chưa kết nối Wi-Fi' : wifi,
+                              subtitle: offline || wifi.isEmpty
+                                  ? 'Chưa kết nối'
+                                  : 'Đã kết nối',
+                            ),
+                            const Divider(height: 1, color: SampleA.border),
+                            _SettingsRow(
+                              title: 'Thay đổi Wi-Fi',
+                              onTap: () {
+                                _wifiSsid = wifi;
+                                _handleResetWifi();
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      AButton(
+                        label: 'Xong',
+                        onPressed: () => _showPage(_DevicePage.overview),
+                      ),
+                    ],
+                  },
                 ),
               ),
-
-              // Custom premium text button "Thay đổi" with tactile bounce
-              _TactileBounce(
-                onTap: _handleChangeProduct,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: const Color(0xFFDBEAFE),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Text(
-                    'Thay đổi',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1D4ED8), // Primary Blue
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNetworkGroup() {
-    return _SettingsGroup(
-      title: 'KẾT NỐI & TÙY CHỈNH',
-      children: [
-        // Tile 1: Wi-Fi hiện tại
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              const Icon(LucideIcons.wifi, size: 20, color: Color(0xFF64748B)),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Text(
-                  'Wi-Fi hiện tại',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-              ),
-              Text(
-                _wifiSsid,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF64748B), // Strict text color Color(0xFF64748B)
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Tile 2: Thiết lập lại mạng
-        _TactileBounce(
-          onTap: _handleResetWifi,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Icon(LucideIcons.refreshCw, size: 20, color: Color(0xFF64748B)),
-                SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    'Thiết lập lại mạng',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                ),
-                Icon(
-                  LucideIcons.chevronRight,
-                  size: 16,
-                  color: Color(0xFF94A3B8),
-                ),
-              ],
             ),
           ),
         ),
-
-        // Tile 3: Xác nhận kép (Safety Toggle)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              const Icon(
-                LucideIcons.shieldCheck,
-                size: 20,
-                color: Color(0xFF64748B),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Xác nhận kép',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Hỏi trên điện thoại trước khi chốt đơn',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              CupertinoSwitch(
-                value: _doubleConfirm,
-                activeTrackColor: const Color(0xFF1D4ED8), // Primary Blue
-                onChanged: (val) {
-                  HapticFeedback.selectionClick();
-                  setState(() => _doubleConfirm = val);
-                },
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildDangerZoneGroup() {
-    return _SettingsGroup(
-      title: 'VÙNG NGUY HIỂM',
-      children: [
-        _TactileBounce(
-          onTap: _handleDeleteDevice,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Icon(
-                  LucideIcons.trash2,
-                  size: 20,
-                  color: Colors.red.shade600,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    'Xóa thiết bị',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red.shade600,
-                    ),
-                  ),
-                ),
-                Icon(
-                  LucideIcons.chevronRight,
-                  size: 16,
-                  color: Colors.red.shade300,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// =========================================================================
-// REUSABLE SETTINGS GROUP (APPLE HOME / MIHOME STYLE)
-// =========================================================================
-
-class _SettingsGroup extends StatelessWidget {
-  final String title;
-  final List<Widget> children;
-
-  const _SettingsGroup({
-    required this.title,
-    required this.children,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
+  Widget _stat(IconData icon, String value, String label) => ACard(
+    padding: const EdgeInsets.all(12),
+    child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF64748B), // Slate 500
-              letterSpacing: 0.5,
-            ),
+        Icon(icon, size: 22, color: SampleA.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: SampleA.body.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Text(label, style: SampleA.caption),
+            ],
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFFE2E8F0), // Thin slate border
-              width: 1,
-            ),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(15),
+      ],
+    ),
+  );
+}
+
+class _SettingsRow extends StatelessWidget {
+  final IconData? icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  const _SettingsRow({
+    this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(16),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 24, color: SampleA.primary),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (int i = 0; i < children.length; i++) ...[
-                  children[i],
-                  if (i < children.length - 1)
-                    const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: Color(0xFFF1F5F9),
-                    ),
+                Text(
+                  title,
+                  style: SampleA.body.copyWith(fontWeight: FontWeight.w600),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 6),
+                  Text(subtitle!, style: SampleA.caption),
                 ],
               ],
             ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-// =========================================================================
-// TACTILE BOUNCE HELPER (0.96 SCALE ON TAP)
-// =========================================================================
-
-class _TactileBounce extends StatefulWidget {
-  final Widget child;
-  final VoidCallback? onTap;
-
-  const _TactileBounce({
-    required this.child,
-    this.onTap,
-  });
-
-  @override
-  State<_TactileBounce> createState() => _TactileBounceState();
-}
-
-class _TactileBounceState extends State<_TactileBounce> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) {
-        HapticFeedback.lightImpact();
-        setState(() => _isPressed = true);
-      },
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeOutCubic,
-        child: widget.child,
+          if (onTap != null)
+            const Icon(
+              LucideIcons.chevronRight,
+              size: 20,
+              color: SampleA.muted,
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

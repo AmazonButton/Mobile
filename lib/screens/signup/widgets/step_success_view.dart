@@ -1,5 +1,5 @@
+import '../../../widgets/auth_guide.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'signup_theme.dart';
 import 'signup_ui_components.dart';
@@ -34,14 +34,10 @@ class StepSuccessView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 8),
-                  Center(
-                    child: Image.asset(
-                      'assets/illustrations/step5_complete.png',
-                      height: 180,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const SignupFallbackIllustration(icon: LucideIcons.partyPopper),
-                    ),
-                  ).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.95, 0.95)),
+                  AuthGuide(
+                    message: 'Tuyệt vời! Bạn đã hoàn tất cài đặt.',
+                    mood: GuideMood.happy,
+                  ),
                   const SizedBox(height: 24),
 
                   Text(
@@ -71,7 +67,10 @@ class StepSuccessView extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: SignupTheme.figmaBlueLight,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: SignupTheme.figmaBlue, width: 2),
+                      border: Border.all(
+                        color: SignupTheme.figmaBlue,
+                        width: 2,
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,9 +83,15 @@ class StepSuccessView extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: SignupTheme.figmaBlueBorder),
+                                border: Border.all(
+                                  color: SignupTheme.figmaBlueBorder,
+                                ),
                               ),
-                              child: const Icon(LucideIcons.disc, color: SignupTheme.figmaBlue, size: 24),
+                              child: const Icon(
+                                LucideIcons.disc,
+                                color: SignupTheme.figmaBlue,
+                                size: 24,
+                              ),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -114,13 +119,21 @@ class StepSuccessView extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            const Icon(LucideIcons.checkCircle2, color: SignupTheme.figmaSuccess, size: 24),
+                            const Icon(
+                              LucideIcons.checkCircle2,
+                              color: SignupTheme.figmaSuccess,
+                              size: 24,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 12),
                         const Row(
                           children: [
-                            Icon(LucideIcons.check, color: SignupTheme.figmaSuccess, size: 16),
+                            Icon(
+                              LucideIcons.check,
+                              color: SignupTheme.figmaSuccess,
+                              size: 16,
+                            ),
                             SizedBox(width: 6),
                             Text(
                               'Đã kết nối',
@@ -139,15 +152,15 @@ class StepSuccessView extends StatelessWidget {
                   const SizedBox(height: 10),
                   const Text(
                     'Đèn xanh lá = kết nối thành công.',
-                    style: TextStyle(fontSize: 13, color: SignupTheme.figmaMuted),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: SignupTheme.figmaMuted,
+                    ),
                   ),
 
                   const Spacer(),
 
-                  SignupPrimaryButton(
-                    label: 'Vào ứng dụng',
-                    onTap: onFinish,
-                  ),
+                  SignupPrimaryButton(label: 'Vào ứng dụng', onTap: onFinish),
                   const SizedBox(height: 8),
                   SignupSecondaryButton(
                     label: 'Thêm thiết bị khác',

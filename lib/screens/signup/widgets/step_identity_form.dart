@@ -1,6 +1,6 @@
+import '../../../widgets/auth_guide.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../utils/utils.dart';
 import 'signup_theme.dart';
 import 'signup_ui_components.dart';
@@ -10,12 +10,14 @@ class StepIdentityForm extends StatefulWidget {
   final String initialName;
   final String initialPhone;
   final void Function(String name, String phone) onContinue;
+  final bool isLoading;
 
   const StepIdentityForm({
     super.key,
     this.initialName = 'Minh',
     this.initialPhone = '0912345123',
     required this.onContinue,
+    this.isLoading = false,
   });
 
   @override
@@ -75,10 +77,13 @@ class _StepIdentityFormState extends State<StepIdentityForm> {
   }
 
   void _handleSubmit() {
-    if (!_isFormValid) return;
+    if (!_isFormValid || widget.isLoading) return;
     HapticFeedback.mediumImpact();
     FocusScope.of(context).unfocus();
-    widget.onContinue(_fullNameController.text.trim(), _phoneController.text.trim());
+    widget.onContinue(
+      _fullNameController.text.trim(),
+      _phoneController.text.trim(),
+    );
   }
 
   @override
@@ -90,13 +95,9 @@ class _StepIdentityFormState extends State<StepIdentityForm> {
         children: [
           const SizedBox(height: 8),
           // Mascot
-          Center(
-            child: Image.asset(
-              'assets/illustrations/step1_identity.png',
-              height: 180,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SignupFallbackIllustration(icon: LucideIcons.user),
-            ),
+          AuthGuide(
+            message: 'Cho mình biết tên và số điện thoại của bạn nhé!',
+            mood: widget.isLoading ? GuideMood.waiting : GuideMood.guiding,
           ),
           const SizedBox(height: 24),
 
@@ -143,30 +144,51 @@ class _StepIdentityFormState extends State<StepIdentityForm> {
             ),
             decoration: InputDecoration(
               hintText: 'Nhập họ và tên',
-              hintStyle: const TextStyle(color: SignupTheme.figmaMuted, fontSize: 16, fontWeight: FontWeight.normal),
+              hintStyle: const TextStyle(
+                color: SignupTheme.figmaMuted,
+                fontSize: 16,
+                fontWeight: FontWeight.normal,
+              ),
               filled: true,
               fillColor: SignupTheme.figmaInputBg,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 16,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: SignupTheme.figmaBorder, width: 1.5),
+                borderSide: const BorderSide(
+                  color: SignupTheme.figmaBorder,
+                  width: 1.5,
+                ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide(
-                  color: _nameError != null ? SignupTheme.figmaDanger : SignupTheme.figmaBorder,
+                  color: _nameError != null
+                      ? SignupTheme.figmaDanger
+                      : SignupTheme.figmaBorder,
                   width: 1.5,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: SignupTheme.figmaBlue, width: 2),
+                borderSide: const BorderSide(
+                  color: SignupTheme.figmaBlue,
+                  width: 2,
+                ),
               ),
             ),
           ),
           if (_nameError != null) ...[
             const SizedBox(height: 6),
-            Text(_nameError!, style: const TextStyle(color: SignupTheme.figmaDanger, fontSize: 12)),
+            Text(
+              _nameError!,
+              style: const TextStyle(
+                color: SignupTheme.figmaDanger,
+                fontSize: 12,
+              ),
+            ),
           ],
 
           const SizedBox(height: 18),
@@ -199,38 +221,60 @@ class _StepIdentityFormState extends State<StepIdentityForm> {
             ),
             decoration: InputDecoration(
               hintText: '0912 345 123',
-              hintStyle: const TextStyle(color: SignupTheme.figmaMuted, fontSize: 16, fontWeight: FontWeight.normal),
+              hintStyle: const TextStyle(
+                color: SignupTheme.figmaMuted,
+                fontSize: 16,
+                fontWeight: FontWeight.normal,
+              ),
               filled: true,
               fillColor: SignupTheme.figmaInputBg,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 16,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: SignupTheme.figmaBorder, width: 1.5),
+                borderSide: const BorderSide(
+                  color: SignupTheme.figmaBorder,
+                  width: 1.5,
+                ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide(
-                  color: _phoneError != null ? SignupTheme.figmaDanger : SignupTheme.figmaBorder,
+                  color: _phoneError != null
+                      ? SignupTheme.figmaDanger
+                      : SignupTheme.figmaBorder,
                   width: 1.5,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: SignupTheme.figmaBlue, width: 2),
+                borderSide: const BorderSide(
+                  color: SignupTheme.figmaBlue,
+                  width: 2,
+                ),
               ),
             ),
           ),
           if (_phoneError != null) ...[
             const SizedBox(height: 6),
-            Text(_phoneError!, style: const TextStyle(color: SignupTheme.figmaDanger, fontSize: 12)),
+            Text(
+              _phoneError!,
+              style: const TextStyle(
+                color: SignupTheme.figmaDanger,
+                fontSize: 12,
+              ),
+            ),
           ],
 
           const SizedBox(height: 40),
 
           // Primary Button
           SignupPrimaryButton(
-            label: 'Gửi mã xác nhận',
-            isEnabled: _isFormValid,
+            label: widget.isLoading ? 'Đang gửi mã...' : 'Gửi mã xác nhận',
+            isEnabled: _isFormValid && !widget.isLoading,
+            isLoading: widget.isLoading,
             onTap: _handleSubmit,
           ),
           const SizedBox(height: 12),

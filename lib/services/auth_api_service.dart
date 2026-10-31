@@ -76,6 +76,56 @@ class AuthApiService {
     return response is Map<String, dynamic> ? response : {'success': true, 'data': response};
   }
 
+  /// Đăng ký tài khoản cư dân bằng Firebase Phone Auth ID Token
+  Future<Map<String, dynamic>> registerByPhone({
+    required String firebaseIdToken,
+    required String fullName,
+    String? email,
+  }) async {
+    final body = <String, dynamic>{
+      'firebaseIdToken': firebaseIdToken.trim(),
+      'fullName': fullName.trim(),
+    };
+    if (email != null && email.trim().isNotEmpty) {
+      body['email'] = email.trim().toLowerCase();
+    }
+
+    final response = await _client.post(
+      ApiConfig.authRegisterByPhone,
+      body: body,
+    );
+
+    final data = response['data'] ?? response;
+    final accessToken = response['accessToken'] ?? data['token'] ?? data['accessToken'];
+    final refreshToken = response['refreshToken'] ?? data['refreshToken'];
+
+    if (accessToken != null) {
+      await _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
+    }
+
+    return response is Map<String, dynamic> ? response : {'success': true, 'data': response};
+  }
+
+  /// Đăng nhập bằng Firebase Phone Auth ID Token
+  Future<Map<String, dynamic>> loginByPhone({
+    required String firebaseIdToken,
+  }) async {
+    final response = await _client.post(
+      ApiConfig.authLoginByPhone,
+      body: {'firebaseIdToken': firebaseIdToken.trim()},
+    );
+
+    final data = response['data'] ?? response;
+    final accessToken = response['accessToken'] ?? data['token'] ?? data['accessToken'];
+    final refreshToken = response['refreshToken'] ?? data['refreshToken'];
+
+    if (accessToken != null) {
+      await _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
+    }
+
+    return response is Map<String, dynamic> ? response : {'success': true, 'data': response};
+  }
+
   /// Đăng nhập bằng Google qua Supabase Access Token
   Future<Map<String, dynamic>> googleLogin(String token) async {
     final response = await _client.post(

@@ -48,10 +48,7 @@ void main() {
         ),
       ];
 
-      final provider = DeviceProvider(
-        apiService: mockApi,
-        initialDevices: [],
-      );
+      final provider = DeviceProvider(apiService: mockApi, initialDevices: []);
 
       expect(provider.devices.isEmpty, isTrue);
       expect(provider.isLoading, isFalse);
@@ -122,33 +119,38 @@ void main() {
   });
 
   group('Story 3.2 - DevicesScreen UI Integration Tests', () {
-    testWidgets('DevicesScreen displays empty state when no devices are registered', (tester) async {
-      final mockApi = MockDevicesApiService();
-      mockApi.mockDevices = [];
+    testWidgets(
+      'DevicesScreen displays empty state when no devices are registered',
+      (tester) async {
+        final mockApi = MockDevicesApiService();
+        mockApi.mockDevices = [];
 
-      final provider = DeviceProvider(
-        apiService: mockApi,
-        initialDevices: [],
-      );
+        final provider = DeviceProvider(
+          apiService: mockApi,
+          initialDevices: [],
+        );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ChangeNotifierProvider<DeviceProvider>.value(
-            value: provider,
-            child: const DevicesScreen(),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ChangeNotifierProvider<DeviceProvider>.value(
+              value: provider,
+              child: const DevicesScreen(),
+            ),
           ),
-        ),
-      );
+        );
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Chưa có nút bấm nào'), findsOneWidget);
-      expect(find.text('Thêm nút nhấn mới'), findsOneWidget);
-      expect(find.text('0 nút bấm đang kết nối'), findsOneWidget);
-    });
+        expect(find.text('Chào người bạn mới!'), findsOneWidget);
+        expect(find.text('Kết nối thiết bị đầu tiên'), findsOneWidget);
+        expect(find.text('0 nút bấm đang kết nối'), findsNothing);
+      },
+    );
 
-    testWidgets('DevicesScreen displays real devices loaded from provider', (tester) async {
+    testWidgets('DevicesScreen displays real devices loaded from provider', (
+      tester,
+    ) async {
       final mockApi = MockDevicesApiService();
       final sample = [
         const DeviceModel(
@@ -182,7 +184,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Nút Bếp Căn Hộ 1204'), findsOneWidget);
-      expect(find.text('1 nút bấm đang kết nối'), findsOneWidget);
+      expect(find.text('1 người bạn của nhà'), findsOneWidget);
       expect(find.text('Chưa có nút bấm nào'), findsNothing);
     });
 
@@ -190,10 +192,7 @@ void main() {
       final mockApi = MockDevicesApiService();
       mockApi.mockDevices = [];
 
-      final provider = DeviceProvider(
-        apiService: mockApi,
-        initialDevices: [],
-      );
+      final provider = DeviceProvider(apiService: mockApi, initialDevices: []);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -215,29 +214,32 @@ void main() {
   });
 
   group('Story 3.2 - HomeScreen UI Integration Tests', () {
-    testWidgets('HomeScreen displays empty state in smart buttons section when devices is empty', (tester) async {
-      final mockApi = MockDevicesApiService();
-      mockApi.mockDevices = [];
+    testWidgets(
+      'HomeScreen displays empty state in smart buttons section when devices is empty',
+      (tester) async {
+        final mockApi = MockDevicesApiService();
+        mockApi.mockDevices = [];
 
-      final provider = DeviceProvider(
-        apiService: mockApi,
-        initialDevices: [],
-      );
+        final provider = DeviceProvider(
+          apiService: mockApi,
+          initialDevices: [],
+        );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ChangeNotifierProvider<DeviceProvider>.value(
-            value: provider,
-            child: const HomeScreen(),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ChangeNotifierProvider<DeviceProvider>.value(
+              value: provider,
+              child: const HomeScreen(),
+            ),
           ),
-        ),
-      );
+        );
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Chưa có nút bấm nào'), findsOneWidget);
-      expect(find.text('Thêm nút nhấn mới'), findsOneWidget);
-    });
+        expect(find.text('Chưa có nút bấm nào'), findsOneWidget);
+        expect(find.text('Thêm nút nhấn mới'), findsOneWidget);
+      },
+    );
   });
 }

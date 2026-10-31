@@ -13,7 +13,10 @@ class OrderToast {
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 1,
+          ),
         ),
         duration: const Duration(seconds: 3),
         content: Row(
@@ -26,14 +29,23 @@ class OrderToast {
                 shape: BoxShape.circle,
               ),
               child: const Center(
-                child: Icon(LucideIcons.checkCircle2, size: 16, color: Color(0xFF10B981)),
+                child: Icon(
+                  LucideIcons.checkCircle2,
+                  size: 16,
+                  color: Color(0xFF10B981),
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontFamily: 'SampleA Vietnam',
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],

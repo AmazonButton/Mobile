@@ -1,61 +1,65 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/sample_a.dart';
 
-/// Tab Selector dạng Segmented Pill chuyển đổi giữa đơn Đang diễn ra và Lịch sử
 class OrderTabSelector extends StatelessWidget {
   final TabController controller;
-  final int activeCount;
-  final int historyCount;
-
+  final int activeCount, historyCount;
   const OrderTabSelector({
     super.key,
     required this.controller,
     required this.activeCount,
     required this.historyCount,
   });
-
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      child: Container(
-        height: 46,
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: TabBar(
-          controller: controller,
-          indicatorSize: TabBarIndicatorSize.tab,
-          dividerColor: Colors.transparent,
-          indicator: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          labelColor: const Color(0xFF1E293B),
-          unselectedLabelColor: const Color(0xFF64748B),
-          labelStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.2,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-          tabs: [
-            Tab(text: 'Đang diễn ra ($activeCount)'),
-            Tab(text: 'Lịch sử ($historyCount)'),
-          ],
-        ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+    child: Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        border: Border.all(color: SampleA.border, width: 2),
+        borderRadius: BorderRadius.circular(18),
       ),
-    );
-  }
+      child: TabBar(
+        controller: controller,
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          color: SampleA.pale,
+          borderRadius: BorderRadius.circular(13),
+        ),
+        labelColor: SampleA.primary,
+        unselectedLabelColor: SampleA.muted,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+        labelStyle: const TextStyle(
+          fontFamily: 'SampleA Vietnam',
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontFamily: 'SampleA Vietnam',
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
+        tabs: [
+          Tab(
+            height: MediaQuery.textScalerOf(context).scale(15) > 22 ? 72 : 48,
+            child: Text(
+              'Đang xử lý',
+              textAlign: TextAlign.center,
+              semanticsLabel: 'Đang xử lý, $activeCount đơn',
+            ),
+          ),
+          Tab(
+            height: MediaQuery.textScalerOf(context).scale(15) > 22 ? 72 : 48,
+            child: Text(
+              'Lịch sử',
+              textAlign: TextAlign.center,
+              semanticsLabel: 'Lịch sử, $historyCount đơn',
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

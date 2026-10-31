@@ -1,3 +1,4 @@
+import '../../../widgets/auth_guide.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -22,9 +23,12 @@ class StepWifiSetupView extends StatefulWidget {
 class StepWifiSetupViewState extends State<StepWifiSetupView> {
   int _step4SubPhase = 0; // 0: Select WiFi, 1: Password, 2: 3-stage Connecting
   String _selectedWifiSsid = 'Nhà Minh';
-  final TextEditingController _wifiPasswordController = TextEditingController(text: '12345678');
+  final TextEditingController _wifiPasswordController = TextEditingController(
+    text: '12345678',
+  );
   bool _isWifiPasswordObscured = true;
-  int _wifiConnectProgressStage = 0; // 0: Sent WiFi, 1: Connecting Router, 2: Registering Cloud, 3: Done
+  int _wifiConnectProgressStage =
+      0; // 0: Sent WiFi, 1: Connecting Router, 2: Registering Cloud, 3: Done
 
   @override
   void initState() {
@@ -88,9 +92,7 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: IntrinsicHeight(
-              child: _buildSubPhaseContent(),
-            ),
+            child: IntrinsicHeight(child: _buildSubPhaseContent()),
           ),
         );
       },
@@ -104,13 +106,9 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          Center(
-            child: Image.asset(
-              'assets/illustrations/step4_select_wifi.png',
-              height: 180,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SignupFallbackIllustration(icon: LucideIcons.wifi),
-            ),
+          AuthGuide(
+            message: 'Cùng kết nối nút bấm với Wi-Fi nhà bạn nhé!',
+            mood: _step4SubPhase == 2 ? GuideMood.waiting : GuideMood.guiding,
           ),
           const SizedBox(height: 24),
           const Text(
@@ -167,15 +165,9 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
 
           const Spacer(),
 
-          SignupPrimaryButton(
-            label: 'Tiếp tục',
-            onTap: _submitWifiNetwork,
-          ),
+          SignupPrimaryButton(label: 'Tiếp tục', onTap: _submitWifiNetwork),
           const SizedBox(height: 8),
-          SignupSecondaryButton(
-            label: 'Nhập tên mạng thủ công',
-            onTap: () {},
-          ),
+          SignupSecondaryButton(label: 'Nhập tên mạng thủ công', onTap: () {}),
           const SizedBox(height: 16),
         ],
       );
@@ -185,13 +177,9 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          Center(
-            child: Image.asset(
-              'assets/illustrations/step4_wifi_pwd.png',
-              height: 180,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SignupFallbackIllustration(icon: LucideIcons.lock),
-            ),
+          AuthGuide(
+            message: 'Cùng kết nối nút bấm với Wi-Fi nhà bạn nhé!',
+            mood: _step4SubPhase == 2 ? GuideMood.waiting : GuideMood.guiding,
           ),
           const SizedBox(height: 24),
           const Text(
@@ -224,7 +212,11 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
             ),
             child: Row(
               children: [
-                const Icon(LucideIcons.wifi, color: SignupTheme.figmaBlue, size: 20),
+                const Icon(
+                  LucideIcons.wifi,
+                  color: SignupTheme.figmaBlue,
+                  size: 20,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -242,7 +234,10 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
                       const SizedBox(height: 2),
                       const Text(
                         '2.4GHz',
-                        style: TextStyle(fontSize: 12, color: SignupTheme.figmaMuted),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: SignupTheme.figmaMuted,
+                        ),
                       ),
                     ],
                   ),
@@ -286,29 +281,48 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
             ),
             decoration: InputDecoration(
               hintText: 'Nhập mật khẩu WiFi',
-              hintStyle: const TextStyle(color: SignupTheme.figmaMuted, fontSize: 15),
+              hintStyle: const TextStyle(
+                color: SignupTheme.figmaMuted,
+                fontSize: 15,
+              ),
               filled: true,
               fillColor: SignupTheme.figmaInputBg,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 16,
+              ),
               suffixIcon: IconButton(
                 icon: Icon(
-                  _isWifiPasswordObscured ? LucideIcons.eyeOff : LucideIcons.eye,
+                  _isWifiPasswordObscured
+                      ? LucideIcons.eyeOff
+                      : LucideIcons.eye,
                   color: SignupTheme.figmaMuted,
                   size: 20,
                 ),
-                onPressed: () => setState(() => _isWifiPasswordObscured = !_isWifiPasswordObscured),
+                onPressed: () => setState(
+                  () => _isWifiPasswordObscured = !_isWifiPasswordObscured,
+                ),
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: SignupTheme.figmaBorder, width: 1.5),
+                borderSide: const BorderSide(
+                  color: SignupTheme.figmaBorder,
+                  width: 1.5,
+                ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: SignupTheme.figmaBorder, width: 1.5),
+                borderSide: const BorderSide(
+                  color: SignupTheme.figmaBorder,
+                  width: 1.5,
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: SignupTheme.figmaBlue, width: 2),
+                borderSide: const BorderSide(
+                  color: SignupTheme.figmaBlue,
+                  width: 2,
+                ),
               ),
             ),
           ),
@@ -326,7 +340,11 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(LucideIcons.keyRound, color: SignupTheme.figmaMuted, size: 18),
+                const Icon(
+                  LucideIcons.keyRound,
+                  color: SignupTheme.figmaMuted,
+                  size: 18,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -364,13 +382,9 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          Center(
-            child: Image.asset(
-              'assets/illustrations/step4_wifi_connecting.png',
-              height: 180,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SignupFallbackIllustration(icon: LucideIcons.wifi),
-            ),
+          AuthGuide(
+            message: 'Cùng kết nối nút bấm với Wi-Fi nhà bạn nhé!',
+            mood: _step4SubPhase == 2 ? GuideMood.waiting : GuideMood.guiding,
           ),
           const SizedBox(height: 24),
           const Text(
@@ -405,7 +419,9 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
             title: 'Thiết bị đang vào mạng',
             subtitle: _wifiConnectProgressStage >= 2
                 ? 'Đã vào mạng'
-                : (_wifiConnectProgressStage == 1 ? 'Đang xử lý' : 'Chờ gửi WiFi'),
+                : (_wifiConnectProgressStage == 1
+                      ? 'Đang xử lý'
+                      : 'Chờ gửi WiFi'),
             isCompleted: _wifiConnectProgressStage >= 2,
             isInProgress: _wifiConnectProgressStage == 1,
           ),
@@ -414,7 +430,9 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
             title: 'Đang đăng ký với hệ thống',
             subtitle: _wifiConnectProgressStage >= 3
                 ? 'Thành công'
-                : (_wifiConnectProgressStage == 2 ? 'Đang xử lý' : 'Chờ thiết bị vào mạng'),
+                : (_wifiConnectProgressStage == 2
+                      ? 'Đang xử lý'
+                      : 'Chờ thiết bị vào mạng'),
             isCompleted: _wifiConnectProgressStage >= 3,
             isInProgress: _wifiConnectProgressStage == 2,
           ),
@@ -435,7 +453,10 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
                 SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.2,
+                  ),
                 ),
                 SizedBox(width: 12),
                 Text(
@@ -480,7 +501,11 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? SignupTheme.figmaBlueLight : (isSupported ? SignupTheme.figmaInputBg : const Color(0xFFF1F5F9)),
+          color: isSelected
+              ? SignupTheme.figmaBlueLight
+              : (isSupported
+                    ? SignupTheme.figmaInputBg
+                    : const Color(0xFFF1F5F9)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? SignupTheme.figmaBlue : SignupTheme.figmaBorder,
@@ -491,7 +516,9 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
           children: [
             Icon(
               LucideIcons.wifi,
-              color: isSupported ? (isSelected ? SignupTheme.figmaBlue : SignupTheme.figmaDark) : SignupTheme.figmaMuted,
+              color: isSupported
+                  ? (isSelected ? SignupTheme.figmaBlue : SignupTheme.figmaDark)
+                  : SignupTheme.figmaMuted,
               size: 20,
             ),
             const SizedBox(width: 14),
@@ -504,7 +531,9 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: isSupported ? SignupTheme.figmaDark : SignupTheme.figmaMuted,
+                      color: isSupported
+                          ? SignupTheme.figmaDark
+                          : SignupTheme.figmaMuted,
                       fontFamily: SignupTheme.fontFamily,
                     ),
                   ),
@@ -513,17 +542,27 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
                     desc,
                     style: TextStyle(
                       fontSize: 13,
-                      color: isSupported ? SignupTheme.figmaMuted : SignupTheme.figmaDanger,
+                      color: isSupported
+                          ? SignupTheme.figmaMuted
+                          : SignupTheme.figmaDanger,
                       fontFamily: SignupTheme.fontFamily,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(LucideIcons.lock, color: SignupTheme.figmaMuted, size: 16),
+            const Icon(
+              LucideIcons.lock,
+              color: SignupTheme.figmaMuted,
+              size: 16,
+            ),
             if (isSelected) ...[
               const SizedBox(width: 10),
-              const Icon(LucideIcons.checkCircle2, color: SignupTheme.figmaBlue, size: 20),
+              const Icon(
+                LucideIcons.checkCircle2,
+                color: SignupTheme.figmaBlue,
+                size: 20,
+              ),
             ],
           ],
         ),
@@ -540,25 +579,40 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isInProgress ? SignupTheme.figmaBlueLight : SignupTheme.figmaInputBg,
+        color: isInProgress
+            ? SignupTheme.figmaBlueLight
+            : SignupTheme.figmaInputBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isInProgress ? SignupTheme.figmaBlueBorder : SignupTheme.figmaBorder,
+          color: isInProgress
+              ? SignupTheme.figmaBlueBorder
+              : SignupTheme.figmaBorder,
           width: 1.2,
         ),
       ),
       child: Row(
         children: [
           if (isCompleted)
-            const Icon(LucideIcons.checkCircle2, color: SignupTheme.figmaSuccess, size: 24)
+            const Icon(
+              LucideIcons.checkCircle2,
+              color: SignupTheme.figmaSuccess,
+              size: 24,
+            )
           else if (isInProgress)
             const SizedBox(
               width: 20,
               height: 20,
-              child: CircularProgressIndicator(color: SignupTheme.figmaBlue, strokeWidth: 2.2),
+              child: CircularProgressIndicator(
+                color: SignupTheme.figmaBlue,
+                strokeWidth: 2.2,
+              ),
             )
           else
-            const Icon(LucideIcons.circleDashed, color: SignupTheme.figmaMuted, size: 22),
+            const Icon(
+              LucideIcons.circleDashed,
+              color: SignupTheme.figmaMuted,
+              size: 22,
+            ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -578,8 +632,14 @@ class StepWifiSetupViewState extends State<StepWifiSetupView> {
                   subtitle,
                   style: TextStyle(
                     fontSize: 13,
-                    color: isCompleted ? SignupTheme.figmaSuccess : (isInProgress ? SignupTheme.figmaBlue : SignupTheme.figmaMuted),
-                    fontWeight: isCompleted || isInProgress ? FontWeight.w600 : FontWeight.normal,
+                    color: isCompleted
+                        ? SignupTheme.figmaSuccess
+                        : (isInProgress
+                              ? SignupTheme.figmaBlue
+                              : SignupTheme.figmaMuted),
+                    fontWeight: isCompleted || isInProgress
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                     fontFamily: SignupTheme.fontFamily,
                   ),
                 ),

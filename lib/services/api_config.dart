@@ -1,25 +1,11 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 class ApiConfig {
   ApiConfig._();
 
-  /// Default host URL according to runtime platform:
-  /// - Android emulator uses 10.0.2.2 to reach host machine's localhost
-  /// - iOS Simulator, Desktop (Windows/macOS), and Web use localhost:3000
-  static String get defaultBaseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:3000/api/v1';
-    }
-    try {
-      if (Platform.isAndroid) {
-        return 'http://10.0.2.2:3000/api/v1';
-      }
-    } catch (_) {
-      // Fallback for non-standard platforms
-    }
-    return 'http://localhost:3000/api/v1';
-  }
+  /// Override with --dart-define=API_BASE_URL=... for a local backend.
+  static const String defaultBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://backend-fae8.onrender.com/api/v1',
+  );
 
   /// Active Base URL in runtime (can be customized for physical devices on local Wi-Fi)
   static String baseUrl = defaultBaseUrl;
@@ -46,6 +32,8 @@ class ApiConfig {
   static const String authResetPassword = '/auth/reset-password';
   static const String authVerifyEmail = '/auth/verify-email';
   static const String authResendVerification = '/auth/resend-verification';
+  static const String authRegisterByPhone = '/auth/register-by-phone';
+  static const String authLoginByPhone = '/auth/login-by-phone';
 
   // Devices endpoints
   static const String devices = '/devices';

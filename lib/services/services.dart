@@ -12,3 +12,4 @@ export 'notifications_api_service.dart';
 export 'notification_service.dart';
 export 'address_api_service.dart';
 export 'address_service.dart';
+export 'phone_auth_service.dart';

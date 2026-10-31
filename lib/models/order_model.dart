@@ -123,6 +123,39 @@ class OrderModel {
 
   static String formatCurrency(num amount) => CurrencyFormatter.format(amount);
 
+  static String? _productImage(Map item) {
+    String? url(dynamic value) {
+      if (value is! String) return null;
+      final text = value.trim();
+      final uri = Uri.tryParse(text);
+      return uri != null &&
+              (uri.scheme == 'https' || uri.scheme == 'http') &&
+              uri.host.isNotEmpty
+          ? text
+          : null;
+    }
+
+    String? fromMap(Map source) {
+      final direct = url(source['imageUrl']) ?? url(source['thumbnailUrl']);
+      if (direct != null) return direct;
+      final images = source['images'];
+      if (images is List) {
+        final ordered = [...images];
+        ordered.sort((a, b) =>
+            (b is Map && (b['isPrimary'] == true || b['isThumbnail'] == true) ? 1 : 0) -
+            (a is Map && (a['isPrimary'] == true || a['isThumbnail'] == true) ? 1 : 0));
+        for (final image in ordered) {
+          final result = url(image is Map ? image['imageUrl'] : image);
+          if (result != null) return result;
+        }
+      }
+      return null;
+    }
+
+    return fromMap(item) ??
+        (item['product'] is Map ? fromMap(item['product'] as Map) : null);
+  }
+
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     final rawStatus = (json['orderStatus'] ?? json['status'] ?? 'PENDING').toString().toUpperCase();
     OrderStatus status = OrderStatus.warning;
@@ -164,8 +197,7 @@ class OrderModel {
               item['name'] ??
               'Sản phẩm';
           final pStr = item['unitPrice']?.toString() ?? item['finalUnitPrice']?.toString() ?? '';
-          final img = item['imageUrl']?.toString() ??
-              item['product']?['images']?[0]?['imageUrl']?.toString();
+          final img = _productImage(item);
 
           parsedItems.add(OrderItemInfo(
             name: name.toString(),

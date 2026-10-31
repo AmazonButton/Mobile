@@ -15,8 +15,8 @@ class AddressProvider extends ChangeNotifier {
   AddressProvider({
     AddressApiService? apiService,
     UserProfileService? userProfileService,
-  })  : _apiService = apiService ?? AddressApiService(),
-        _userProfileService = userProfileService ?? UserProfileService();
+  }) : _apiService = apiService ?? AddressApiService(),
+       _userProfileService = userProfileService ?? UserProfileService();
 
   List<AddressModel> get addresses => List.unmodifiable(_addresses);
   AddressModel? get selectedAddress => _selectedAddress ?? defaultAddress;
@@ -51,12 +51,15 @@ class AddressProvider extends ChangeNotifier {
         _selectedAddress = defaultAddress;
       }
 
-      if (_selectedAddress != null &&
-          _selectedAddress!.fullAddress.trim().isNotEmpty) {
-        _userProfileService.updateAddress(_selectedAddress!.fullAddress);
-      }
+      _selectedAddress =
+          _addresses.where((a) => a.id == _selectedAddress?.id).firstOrNull ??
+          defaultAddress;
+      _userProfileService.updateAddress(_selectedAddress?.fullAddress ?? '');
       _errorMessage = null;
     } catch (e) {
+      _addresses = [];
+      _selectedAddress = null;
+      _userProfileService.updateAddress('');
       _errorMessage = e.toString();
     } finally {
       _isLoading = false;
@@ -74,7 +77,9 @@ class AddressProvider extends ChangeNotifier {
       final created = await _apiService.createAddress(newAddress);
 
       if (created.isDefault || _addresses.isEmpty) {
-        _addresses = _addresses.map((a) => a.copyWith(isDefault: false)).toList();
+        _addresses = _addresses
+            .map((a) => a.copyWith(isDefault: false))
+            .toList();
         _selectedAddress = created;
         _userProfileService.updateAddress(created.fullAddress);
       }
@@ -105,8 +110,9 @@ class AddressProvider extends ChangeNotifier {
 
       if (index != -1) {
         if (updated.isDefault) {
-          _addresses =
-              _addresses.map((a) => a.copyWith(isDefault: false)).toList();
+          _addresses = _addresses
+              .map((a) => a.copyWith(isDefault: false))
+              .toList();
           _selectedAddress = updated;
           _userProfileService.updateAddress(updated.fullAddress);
         } else if (_selectedAddress?.id == updated.id) {
@@ -141,16 +147,12 @@ class AddressProvider extends ChangeNotifier {
         final wasSelected = _selectedAddress?.id == addressId;
         _addresses.removeWhere((a) => a.id == addressId);
 
-        // Đảm bảo vẫn có 1 địa chỉ mặc định nếu danh sách không rỗng
-        if (_addresses.isNotEmpty && !_addresses.any((a) => a.isDefault)) {
-          _addresses[0] = _addresses[0].copyWith(isDefault: true);
-        }
-
-        if (wasSelected) {
+        await loadAddresses();
+        if (wasSelected || _addresses.isEmpty) {
           _selectedAddress = defaultAddress;
-          if (_selectedAddress != null) {
-            _userProfileService.updateAddress(_selectedAddress!.fullAddress);
-          }
+          _userProfileService.updateAddress(
+            _selectedAddress?.fullAddress ?? '',
+          );
         }
       }
       _errorMessage = null;

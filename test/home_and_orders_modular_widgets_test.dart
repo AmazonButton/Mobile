@@ -1,3 +1,5 @@
+import 'package:provider/provider.dart';
+import 'package:smart_order_button/providers/address_provider.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -223,10 +225,10 @@ void main() {
         ),
       );
 
-      expect(find.text('Đang diễn ra (3)'), findsOneWidget);
-      expect(find.text('Lịch sử (12)'), findsOneWidget);
+      expect(find.text('Đang xử lý'), findsOneWidget);
+      expect(find.text('Lịch sử'), findsOneWidget);
 
-      await tester.tap(find.text('Lịch sử (12)'));
+      await tester.tap(find.text('Lịch sử'));
       await tester.pumpAndSettle();
       expect(tabController.index, equals(1));
     });
@@ -264,12 +266,11 @@ void main() {
           ),
         );
 
-        expect(find.text('CỬA SỔ AN TOÀN 60 GIÂY'), findsOneWidget);
-        expect(find.text('⏱ 42s'), findsOneWidget);
+        expect(find.text('Chờ xác nhận'), findsOneWidget);
         expect(find.text('1× Gas Petro 12kg'), findsOneWidget);
-        expect(find.text('Hủy đơn ngay'), findsOneWidget);
+        expect(find.text('Hủy đơn · 00:42'), findsOneWidget);
 
-        await tester.tap(find.text('Hủy đơn ngay'));
+        await tester.tap(find.text('Hủy đơn · 00:42'));
         await tester.pump();
         expect(cancelTapped, isTrue);
       },
@@ -310,18 +311,16 @@ void main() {
         ),
       );
 
-      expect(find.text('Đang giao hàng'), findsOneWidget);
+      expect(find.text('Đang giao'), findsOneWidget);
       expect(find.text('#SO-9921'), findsOneWidget);
-      expect(find.text('Theo dõi tiến trình'), findsOneWidget);
-      expect(find.text('Hủy đơn'), findsOneWidget);
+      expect(find.text('Theo dõi đơn'), findsOneWidget);
+      expect(find.textContaining('Hủy đơn'), findsNothing);
 
-      await tester.tap(find.text('Theo dõi tiến trình'));
+      await tester.tap(find.text('Theo dõi đơn'));
       await tester.pump();
       expect(trackTapped, isTrue);
 
-      await tester.tap(find.text('Hủy đơn'));
-      await tester.pump();
-      expect(cancelTapped, isTrue);
+      expect(cancelTapped, isFalse);
     });
 
     testWidgets(
@@ -419,6 +418,7 @@ void main() {
         expect(find.text('Tổng thanh toán'), findsOneWidget);
         expect(find.text('Đặt lại đơn này'), findsOneWidget);
 
+        await tester.ensureVisible(find.text('Đặt lại đơn này'));
         await tester.tap(find.text('Đặt lại đơn này'));
         await tester.pumpAndSettle();
         expect(reorderCalled, isTrue);
@@ -428,7 +428,10 @@ void main() {
 
   group('Story 4.3 - Orchestrators Smoke Tests', () {
     testWidgets('HomeScreen renders without throwing', (tester) async {
-      await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+      await tester.pumpWidget(ChangeNotifierProvider(
+        create: (_) => AddressProvider(),
+        child: const MaterialApp(home: HomeScreen()),
+      ));
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(HomeScreen), findsOneWidget);

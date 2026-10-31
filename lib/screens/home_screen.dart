@@ -16,7 +16,6 @@ import '../providers/address_provider.dart';
 import '../providers/notification_provider.dart';
 import '../services/user_profile_service.dart';
 import '../services/api_client.dart';
-import '../widgets/modals/product_selection_sheet.dart';
 import '../widgets/modals/notification_sheet.dart';
 import '../widgets/address_picker_sheet.dart';
 import 'home/widgets/widgets.dart';
@@ -48,7 +47,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String get _userName => _userProvider?.name ?? _userService.name;
   String get _userShortName => _userProvider?.shortName ?? _userService.shortName;
   String get _userEmail => _userProvider?.email ?? _userService.email;
-  String get _userAddress => _userProvider?.address ?? _userService.address;
+  String get _userAddress {
+    final address = context.read<AddressProvider>().currentAddressDisplay;
+    return address.isEmpty ? 'Thêm địa chỉ giao hàng' : address;
+  }
   String get _userInitials => _userProvider?.initials ?? _userService.initials;
   File? get _userAvatar => _userProvider?.avatarFile ?? _userService.avatarFile;
 
@@ -155,8 +157,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _showToast(String message) => _showFloatingToast(message: message);
 
   Future<void> _handleButtonPress(String id, String name, String product) async {
-    HapticFeedback.lightImpact();
     if (_buttonStateMap[id] == 'ordering') return;
+    HapticFeedback.lightImpact();
     setState(() => _buttonStateMap[id] = 'ordering');
 
     DeviceModel? targetDevice;
@@ -339,23 +341,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     AddressPickerSheet.show(context, onAddressSelected: (addr) => _showToast('Đã chuyển sang: $addr'));
   }
 
-  void _showSettingsDialog(DeviceModel device) {
+  void _openDeviceSettings(DeviceModel device) {
     HapticFeedback.lightImpact();
-    ProductSelectionSheet.show(
-      context: context,
-      buttonName: device.name,
-      currentProductName: device.product,
-      deviceId: device.id,
-      onSave: (selectedProduct, quantity) async {
-        await context.read<DeviceProvider>().updateDeviceProduct(device.id, selectedProduct, quantity: quantity);
-        if (!mounted) return;
-        _showToast('Đã gắn "${selectedProduct.name}" vào ${device.name}');
-      },
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DeviceDetailScreen(
+          deviceId: device.id,
+          deviceName: device.name,
+          room: device.room,
+          productName: device.product,
+          productPrice: device.price,
+          battery: device.battery,
+          wifiSsid: device.wifiSsid,
+          productImageUrl: device.imageUrl,
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    context.watch<AddressProvider>();
     List<DeviceModel> displayDevices = _fallbackDevices;
     bool isDevLoading = false;
     try {
@@ -441,33 +447,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       buttonStateMap: _buttonStateMap,
                       onManage: () => MainLayout.switchToTab(context, 1),
                       onAddDevice: () => _showToast('Đang quét Bluetooth tìm Smart Button mới...'),
-                      onDeviceTap: (device) {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => DeviceDetailScreen(
-                              deviceId: device.id,
-                              deviceName: device.name,
-                              room: device.room,
-                              productName: device.product,
-                              productPrice: device.price,
-                              battery: device.battery,
-                            ),
-                          ),
-                        ).then((_) {
-                          if (mounted) setState(() {});
-                        });
-                      },
+                      onDeviceTap: _openDeviceSettings,
                       onDeviceOrder: (device) => _handleButtonPress(device.id, device.name, device.product),
-                      onDeviceSettings: _showSettingsDialog,
+                      onDeviceSettings: _openDeviceSettings,
                     ),
                     const SizedBox(height: 16),
 
-                    HomeQuickShopShelf(
-                      onAddProduct: (prod) => _showAssignProductSheet(prod, displayDevices),
-                      onSeeAll: () => _showToast('Xem danh mục sản phẩm gợi ý'),
-                    ).animate().fade(duration: 400.ms),
+                    const HomeQuickShopShelf().animate().fade(duration: 400.ms),
                     const SizedBox(height: 24),
 
                     const Row(
