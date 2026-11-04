@@ -1,3 +1,4 @@
+import '../../store_catalog_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../services/stores_api_service.dart';
 import '../../../services/goong_service.dart';
@@ -63,29 +64,10 @@ class _HomeQuickShopShelfState extends State<HomeQuickShopShelf> {
   });
 
   void _openStore(Map store) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                store['name']?.toString() ?? 'Cửa hàng',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              Text(store['address']?.toString() ?? 'Chưa có địa chỉ'),
-              if (store['phone'] != null) ...[
-                const SizedBox(height: 12),
-                SelectableText('Điện thoại: ${store['phone']}'),
-              ],
-            ],
-          ),
-        ),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            StoreCatalogScreen(store: Map<String, dynamic>.from(store)),
       ),
     );
   }

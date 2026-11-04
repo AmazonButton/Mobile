@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../services/stock_service.dart';
 import 'package:flutter/material.dart';
 import '../models/button_product_model.dart';
@@ -84,8 +85,8 @@ class DeviceProvider extends ChangeNotifier {
     final currentIndex = _devices.indexWhere((d) => d.id == deviceId);
     if (currentIndex == -1) return;
     _devices[currentIndex] = DeviceModel.fromJson(response);
-    await StockService.instance.refreshDevice(deviceId);
     notifyListeners();
+    unawaited(StockService.instance.refreshDevice(deviceId));
   }
 
   /// Cập nhật sản phẩm tùy chỉnh (tên & giá) cho nút bấm (dùng cho gợi ý kệ hàng, chọn nhanh)
@@ -141,7 +142,8 @@ class DeviceProvider extends ChangeNotifier {
       deviceId,
       buttonName: trimmed,
     );
-    final savedName = response['buttonName'] ?? response['name'] ?? response['customName'];
+    final savedName =
+        response['buttonName'] ?? response['name'] ?? response['customName'];
     if (savedName is! String || savedName.trim().isEmpty) {
       throw const FormatException('Phản hồi không có tên nút đã lưu');
     }

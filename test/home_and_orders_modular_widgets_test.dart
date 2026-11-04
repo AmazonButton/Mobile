@@ -194,11 +194,11 @@ void main() {
         );
 
         expect(find.text('Nút Bếp'), findsOneWidget);
-        expect(find.text('Gas Petro 12kg'), findsOneWidget);
+        expect(find.textContaining('Gas Petro 12kg ·'), findsOneWidget);
 
         await tester.pumpAndSettle();
         // Tap order button
-        final orderAction = find.text('Đặt ngay');
+        final orderAction = find.byTooltip('Đặt hàng');
         expect(orderAction, findsOneWidget);
         await tester.tap(orderAction);
         await tester.pump();
