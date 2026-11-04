@@ -33,7 +33,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
-  bool _hasActiveOrder = true;
   final UserProfileService _userService = UserProfileService();
 
   UserProvider? get _userProvider {
@@ -91,10 +90,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       try { Provider.of<NotificationProvider>(context, listen: false).loadNotifications(); } catch (_) {}
     });
 
-    _bannerTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-
     _toastController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -109,11 +104,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Timer? _bannerTicker;
 
   @override
   void dispose() {
-    _bannerTicker?.cancel();
     _userService.removeListener(_onProfileChanged);
     _toastController.dispose();
     _toastTimer?.cancel();
@@ -198,7 +191,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     HapticFeedback.mediumImpact();
     setState(() {
       _buttonStateMap[id] = 'ordered';
-      _hasActiveOrder = true;
     });
 
     _showFloatingToast(
@@ -370,30 +362,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       isDevLoading = provider.isLoading;
     } catch (_) {}
 
-    OrderProvider? orderProvider;
-    OrderModel? currentActiveOrder;
-    try {
-      orderProvider = Provider.of<OrderProvider>(context);
-      if (orderProvider.activeOrders.isNotEmpty) {
-        currentActiveOrder = orderProvider.activeOrders.first;
-      }
-    } catch (_) {}
-
     NotificationProvider? notifProvider;
     try {
       notifProvider = Provider.of<NotificationProvider>(context);
     } catch (_) {}
-
-    final bool showActiveBanner = _hasActiveOrder && (currentActiveOrder != null || _hasActiveOrder);
-    final String bannerTitle = currentActiveOrder?.displayTitle ?? '1× Nước Lavie 20L';
-    final String bannerStatus = (currentActiveOrder != null && currentActiveOrder.isWithinSafetyWindow)
-        ? 'CỬA SỔ AN TOÀN (${currentActiveOrder.remainingSafetySeconds}S)'
-        : (currentActiveOrder != null && currentActiveOrder.isShipping ? 'ĐANG GIAO HÀNG' : 'ĐANG CHUẨN BỊ');
-    final double bannerProgress = (currentActiveOrder != null && currentActiveOrder.isShipping)
-        ? 0.75
-        : (currentActiveOrder != null && !currentActiveOrder.isWithinSafetyWindow)
-            ? 0.50
-            : 0.25;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -421,26 +393,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                     const SizedBox(height: 20),
 
-                    if (showActiveBanner) ...[
-                      HomeActiveOrderBanner(
-                        statusText: bannerStatus,
-                        productName: bannerTitle,
-                        progress: bannerProgress,
-                        onCancel: () {
-                          if (currentActiveOrder != null && orderProvider != null) {
-                            orderProvider.cancelOrder(currentActiveOrder.id, reason: 'Hủy đơn từ trang chủ');
-                          }
-                          setState(() => _hasActiveOrder = false);
-                          _showToast('Đã hủy đơn hàng $bannerTitle');
-                        },
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          MainLayout.switchToTab(context, 2);
-                        },
-                      ),
-                      const SizedBox(height: 22),
-                    ],
-
                     HomeSmartButtonsGrid(
                       devices: displayDevices,
                       isLoading: isDevLoading,
@@ -456,30 +408,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     const HomeQuickShopShelf().animate().fade(duration: 400.ms),
                     const SizedBox(height: 24),
 
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Hoạt động gần đây',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: const HomeRecentActivities(),
-                    ),
                     const SizedBox(height: 32),
                   ],
                 ),

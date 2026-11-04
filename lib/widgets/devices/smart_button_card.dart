@@ -33,190 +33,134 @@ class SmartButtonCard extends StatelessWidget {
     this.onSettings,
   });
 
-  bool get _isGas {
-    final lower = '$name $product'.toLowerCase();
-    return lower.contains('gas') ||
-        lower.contains('petrolimex') ||
-        lower.contains('bếp ga');
-  }
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: StockService.instance,
-    builder: (context, _) => _buildCard(context),
-  );
-
-  Widget _buildCard(BuildContext context) {
-    final isOrdering = state == 'ordering';
-    final blocked = StockService.instance.problem(id) != null;
-    final isOrdered = state == 'ordered';
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // ── Category Icon Box ──
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: _isGas ? const Color(0xFFFFF7ED) : const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(
-              child: Icon(
-                _isGas ? LucideIcons.flame : LucideIcons.droplets,
-                size: 20,
-                color: _isGas
-                    ? const Color(0xFFEA580C)
-                    : const Color(0xFF2563EB),
+    builder: (context, _) {
+      final ordering = state == 'ordering';
+      final ordered = state == 'ordered';
+      final blocked = StockService.instance.problem(id) != null;
+      final url = imageUrl?.trim();
+      const blue = Color(0xFF2563EB);
+      final fallback = Icon(LucideIcons.package, size: 25, color: blue);
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE0E8F5)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                border: Border.all(color: const Color(0xFFDCE7FF)),
+              ),
+              child: ClipOval(
+                child: ColoredBox(
+                  color: const Color(0xFFF0F5FF),
+                  child: url == null || url.isEmpty
+                      ? Center(child: fallback)
+                      : Image.network(
+                          url,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) => Center(child: fallback),
+                          loadingBuilder: (_, child, progress) =>
+                              progress == null
+                              ? child
+                              : const Center(
+                                  child: SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                        ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 14),
-
-          // ── Title & Price/Subtext ──
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                DeviceStockStatus(deviceId: id),
-                const SizedBox(height: 3),
-                if (_isGas) ...[
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    product,
-                    maxLines: 1,
+                    name,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    price,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                       color: Color(0xFF0F172A),
                     ),
                   ),
-                ] else ...[
-                  Row(
-                    children: [
-                      Text(
-                        price,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF475569),
-                        ),
-                      ),
-                      if (battery <= 20) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1.5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'Pin $battery%',
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFD97706),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // ── "Đặt ngay" Button ──
-          GestureDetector(
-            onTap: blocked || isOrdering
-                ? null
-                : () {
-                    HapticFeedback.lightImpact();
-                    if (!isOrdering) {
-                      if (StockService.instance.problem(id) == null) {
-                        onOrder?.call();
-                      }
-                    }
-                  },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-              decoration: BoxDecoration(
-                color: isOrdered
-                    ? const Color(0xFF16A34A)
-                    : isOrdering || blocked
-                    ? const Color(0xFF94A3B8)
-                    : const Color(0xFF2563EB),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  if (!isOrdering && !blocked)
-                    BoxShadow(
-                      color:
-                          (isOrdered
-                                  ? const Color(0xFF16A34A)
-                                  : const Color(0xFF2563EB))
-                              .withValues(alpha: 0.25),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                  const SizedBox(height: 5),
+                  Text(
+                    '$product · $price',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: Color(0xFF64748B),
                     ),
+                  ),
+                  if (blocked) ...[
+                    const SizedBox(height: 4),
+                    DeviceStockStatus(deviceId: id),
+                  ],
                 ],
               ),
-              child: Text(
-                isOrdered
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 44,
+              height: 44,
+              child: IconButton(
+                tooltip: ordering
+                    ? 'Đang đặt hàng'
+                    : ordered
                     ? 'Đã đặt'
-                    : isOrdering || blocked
-                    ? (isOrdering ? 'Đang gửi...' : 'Chưa thể đặt')
-                    : 'Đặt ngay',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
+                    : blocked
+                    ? 'Chưa thể đặt hàng'
+                    : 'Đặt hàng',
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFEDF3FF),
+                  foregroundColor: blue,
+                  disabledForegroundColor: const Color(0xFF94A3B8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
+                onPressed: ordering || ordered || blocked
+                    ? null
+                    : () {
+                        HapticFeedback.lightImpact();
+                        onOrder?.call();
+                      },
+                icon: ordering
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        ordered ? Icons.check_rounded : Icons.add_rounded,
+                        size: 23,
+                      ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+      );
+    },
+  );
 }

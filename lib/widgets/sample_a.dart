@@ -4,20 +4,20 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../constants/app_colors.dart';
 
-/// Visual tokens scoped to the replacement screens, so Home keeps its styling.
+/// Colors shared by device and order components, matching the homepage palette.
 abstract final class SampleA {
-  static const primary = AppColors.primary;
-  static const primaryDark = AppColors.primaryDark;
-  static const pale = AppColors.primaryUltraLight;
-  static const ink = AppColors.textPrimary;
+  static const primary = Color(0xFF2563EB);
+  static const primaryDark = Color(0xFF1D4ED8);
+  static const pale = Color(0xFFEFF6FF);
+  static const ink = Color(0xFF0F172A);
   static const muted = AppColors.textSecondary;
   static const border = AppColors.border;
-  static const background = Colors.white;
-  static const success = Color(0xFF216B45);
-  static const warning = Color(0xFF925B09);
-  static const danger = Color(0xFFB33B2E);
-  static const dangerLight = Color(0xFFFFF0EC);
-  static const warningLight = Color(0xFFFFF5DF);
+  static const background = AppColors.bgPage;
+  static const success = Color(0xFF16A34A);
+  static const warning = Color(0xFFD97706);
+  static const danger = Color(0xFFEF4444);
+  static const dangerLight = Color(0xFFFEF2F2);
+  static const warningLight = Color(0xFFFFFBEB);
 
   static const title = TextStyle(
     fontFamily: 'SampleA Vietnam',
@@ -115,7 +115,7 @@ class _AButtonState extends State<AButton> {
     final edge = primary
         ? SampleA.primaryDark
         : danger
-        ? const Color(0xFFE7C7C0)
+        ? const Color(0xFFFECACA)
         : SampleA.border;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),

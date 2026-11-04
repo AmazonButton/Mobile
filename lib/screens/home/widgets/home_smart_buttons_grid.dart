@@ -91,7 +91,11 @@ class HomeSmartButtonsGrid extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: const Center(
-                    child: Icon(LucideIcons.radio, color: Color(0xFF2563EB), size: 24),
+                    child: Icon(
+                      LucideIcons.radio,
+                      color: Color(0xFF2563EB),
+                      size: 24,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -107,10 +111,7 @@ class HomeSmartButtonsGrid extends StatelessWidget {
                 const Text(
                   'Kết nối nút bấm để đặt hàng tức thì chỉ với một chạm',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF64748B),
-                  ),
+                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                 ),
                 const SizedBox(height: 16),
                 GestureDetector(
@@ -119,7 +120,10 @@ class HomeSmartButtonsGrid extends StatelessWidget {
                     onAddDevice();
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 9,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF2563EB),
                       borderRadius: BorderRadius.circular(14),
@@ -146,26 +150,30 @@ class HomeSmartButtonsGrid extends StatelessWidget {
           )
         else
           Column(
-            children: devices.take(3).map(
-              (device) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: GestureDetector(
-                  onTap: () => onDeviceTap(device),
-                  child: SmartButtonCard(
-                    id: device.id,
-                    name: device.name,
-                    room: device.room,
-                    product: device.product,
-                    price: device.price,
-                    battery: device.battery,
-                    badgeText: device.badgeText,
-                    state: buttonStateMap[device.id] ?? 'idle',
-                    onOrder: () => onDeviceOrder(device),
-                    onSettings: () => onDeviceSettings(device),
+            children: devices
+                .take(3)
+                .map(
+                  (device) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: GestureDetector(
+                      onTap: () => onDeviceTap(device),
+                      child: SmartButtonCard(
+                        id: device.id,
+                        name: device.name,
+                        room: device.room,
+                        product: device.product,
+                        price: device.price,
+                        battery: device.battery,
+                        imageUrl: device.imageUrl,
+                        badgeText: device.badgeText,
+                        state: buttonStateMap[device.id] ?? 'idle',
+                        onOrder: () => onDeviceOrder(device),
+                        onSettings: () => onDeviceSettings(device),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ).toList(),
+                )
+                .toList(),
           ),
       ],
     );
