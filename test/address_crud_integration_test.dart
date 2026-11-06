@@ -311,7 +311,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Thêm địa chỉ nhận hàng'), findsOneWidget);
-      expect(find.text('LOẠI ĐỊA CHỈ'), findsOneWidget);
+      expect(find.text('LOẠI ĐỊA CHỈ'), findsNothing);
+      expect(find.text('KHU VỰC HÀNH CHÍNH'), findsNothing);
 
       // Enter details
       final textFields = find.byType(TextFormField);

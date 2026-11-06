@@ -9,13 +9,23 @@ import '../../models/address_model.dart';
 import '../../providers/address_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/address_api_service.dart';
+import '../../services/api_client.dart';
 import '../../services/goong_service.dart';
 
 class AddressFormSheet extends StatefulWidget {
   final AddressModel? initialAddress;
   final Function(AddressModel savedAddress)? onSaved;
 
-  const AddressFormSheet({super.key, this.initialAddress, this.onSaved});
+  final Future<List<AddressPrediction>> Function(String) autocomplete;
+  final Future<AddressModel> Function(AddressPrediction) resolveAddress;
+
+  const AddressFormSheet({
+    super.key,
+    this.initialAddress,
+    this.onSaved,
+    this.autocomplete = AddressService.autocomplete,
+    this.resolveAddress = AddressService.resolvePrediction,
+  });
 
   /// Phương thức tĩnh mở bottom sheet thêm/sửa địa chỉ tiện lợi
   static Future<AddressModel?> show(
@@ -48,10 +58,8 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
   late TextEditingController _provinceController;
 
   late bool _isDefault;
-  late String _selectedLabel;
   bool _isSubmitting = false;
-
-  final List<String> _labelOptions = ['Nhà riêng', 'Cơ quan', 'Khác'];
+  String? _submitError;
 
   Timer? _searchTimer;
   int _searchVersion = 0;
@@ -70,14 +78,15 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
     if (!_searching) return;
     _searchTimer = Timer(const Duration(milliseconds: 400), () async {
       try {
-        final results = await AddressService.autocomplete(query);
+        final results = await widget.autocomplete(query);
         if (!mounted || version != _searchVersion) return;
         setState(() {
           _predictions = results.take(5).toList();
           _searching = false;
-          if (results.isEmpty)
+          if (results.isEmpty) {
             _searchError =
                 'Không tìm thấy gợi ý. Bạn có thể nhập địa chỉ thủ công.';
+          }
         });
       } catch (_) {
         if (!mounted || version != _searchVersion) return;
@@ -91,19 +100,37 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
     });
   }
 
-  void _selectPrediction(AddressPrediction prediction) {
+  Future<void> _selectPrediction(AddressPrediction prediction) async {
     _searchTimer?.cancel();
-    ++_searchVersion;
+    final version = ++_searchVersion;
+    FocusScope.of(context).unfocus();
     setState(() {
-      _detailController.text = prediction.fullAddress;
-      _wardController.clear();
-      _districtController.clear();
-      _provinceController.clear();
       _predictions = [];
-      _searching = false;
+      _searching = true;
       _searchError = null;
     });
-    FocusScope.of(context).unfocus();
+    try {
+      final address = await widget.resolveAddress(prediction);
+      if (!mounted || version != _searchVersion) return;
+      setState(() {
+        _detailController.text = address.addressDetail;
+        _wardController.text = address.ward ?? '';
+        _districtController.text = address.district ?? '';
+        _provinceController.text = address.province ?? '';
+        _searching = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _searchVersion) return;
+      setState(() {
+        _detailController.text = prediction.fullAddress;
+        _wardController.clear();
+        _districtController.clear();
+        _provinceController.clear();
+        _searching = false;
+        _searchError =
+            'Chưa tải được chi tiết địa chỉ. Bạn có thể điền các ô bên dưới.';
+      });
+    }
   }
 
   @override
@@ -132,7 +159,6 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
     _provinceController = TextEditingController(text: a?.province ?? '');
 
     _isDefault = a?.isDefault ?? false;
-    _selectedLabel = a?.label ?? 'Nhà riêng';
   }
 
   @override
@@ -151,38 +177,55 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
   bool get _isEditing => widget.initialAddress != null;
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) {
+    if (_isSubmitting) return;
+    FocusScope.of(context).unfocus();
+    final invalidFields = _formKey.currentState!.validateGranularly();
+    if (invalidFields.isNotEmpty) {
       HapticFeedback.vibrate();
+      setState(
+        () => _submitError = 'Vui lòng kiểm tra các ô thông tin được đánh dấu.',
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Scrollable.ensureVisible(
+          invalidFields.first.context,
+          duration: const Duration(milliseconds: 250),
+          alignment: 0.15,
+        );
+      });
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      _submitError = null;
+    });
     HapticFeedback.mediumImpact();
 
-    final point = await GoongService().geocode(
-      [
-        _detailController.text,
-        _wardController.text,
-        _districtController.text,
-        _provinceController.text,
-      ].where((s) => s.trim().isNotEmpty).join(', '),
-    );
-    if (!mounted) return;
-    final address = AddressModel(
-      latitude: point?.$1,
-      longitude: point?.$2,
-      id: widget.initialAddress?.id ?? '',
-      recipientName: _nameController.text.trim(),
-      phone: _phoneController.text.trim(),
-      addressDetail: _detailController.text.trim(),
-      ward: _wardController.text.trim(),
-      district: _districtController.text.trim(),
-      province: _provinceController.text.trim(),
-      isDefault: _isDefault,
-      label: _selectedLabel,
-    );
-
     try {
+      final point = await GoongService().geocode(
+        [
+          _detailController.text,
+          _wardController.text,
+          _districtController.text,
+          _provinceController.text,
+        ].where((s) => s.trim().isNotEmpty).join(', '),
+      );
+      if (!mounted) return;
+      final address = AddressModel(
+        latitude: point?.$1,
+        longitude: point?.$2,
+        id: widget.initialAddress?.id ?? '',
+        recipientName: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        addressDetail: _detailController.text.trim(),
+        ward: _wardController.text.trim(),
+        district: _districtController.text.trim(),
+        province: _provinceController.text.trim(),
+        isDefault: _isDefault,
+        label: widget.initialAddress?.label ?? 'Nhà riêng',
+      );
+
       AddressProvider? provider;
       try {
         provider = Provider.of<AddressProvider>(context, listen: false);
@@ -203,20 +246,17 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
             : await AddressApiService().createAddress(address);
       }
 
-      if (saved == null)
+      if (saved == null) {
         throw Exception(provider?.errorMessage ?? "Không thể lưu địa chỉ");
+      }
       if (mounted) {
         widget.onSaved?.call(saved);
         Navigator.pop(context, saved);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi lưu địa chỉ: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
+        final message = e is ApiException ? e.message : e.toString();
+        setState(() => _submitError = 'Không thể lưu địa chỉ. $message');
       }
     } finally {
       if (mounted) {
@@ -312,66 +352,6 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 1. Nhãn địa chỉ (Home, Work, Other)
-                      const Text(
-                        'LOẠI ĐỊA CHỈ',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: _labelOptions.map((label) {
-                          final isSelected = _selectedLabel == label;
-                          IconData iconData = LucideIcons.home;
-                          if (label == 'Cơ quan')
-                            iconData = LucideIcons.briefcase;
-                          if (label == 'Khác') iconData = LucideIcons.mapPin;
-
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              avatar: Icon(
-                                iconData,
-                                size: 14,
-                                color: isSelected
-                                    ? const Color(0xFF2563EB)
-                                    : const Color(0xFF64748B),
-                              ),
-                              label: Text(label),
-                              selected: isSelected,
-                              selectedColor: const Color(0xFFEFF6FF),
-                              backgroundColor: const Color(0xFFF8FAFC),
-                              labelStyle: TextStyle(
-                                fontSize: 13,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.w500,
-                                color: isSelected
-                                    ? const Color(0xFF2563EB)
-                                    : const Color(0xFF475569),
-                              ),
-                              side: BorderSide(
-                                color: isSelected
-                                    ? const Color(0xFF2563EB)
-                                    : const Color(0xFFE2E8F0),
-                                width: isSelected ? 1.5 : 1,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              onSelected: (val) {
-                                if (val) setState(() => _selectedLabel = label);
-                              },
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 18),
-
                       // 2. Họ và tên người nhận
                       const Text(
                         'NGƯỜI NHẬN',
@@ -483,38 +463,39 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                             border: Border.all(color: const Color(0xFFE2E8F0)),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: Column(
-                            children: _predictions
-                                .map(
-                                  (prediction) => ListTile(
-                                    dense: true,
-                                    leading: const Icon(
-                                      Icons.location_on_outlined,
-                                      color: Color(0xFF2563EB),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(14),
+                            clipBehavior: Clip.antiAlias,
+                            child: Column(
+                              children: _predictions
+                                  .map(
+                                    (prediction) => ListTile(
+                                      dense: true,
+                                      leading: const Icon(
+                                        Icons.location_on_outlined,
+                                        color: Color(0xFF2563EB),
+                                      ),
+                                      title: Text(prediction.primaryText),
+                                      subtitle: Text(prediction.secondaryText),
+                                      onTap: () =>
+                                          _selectPrediction(prediction),
                                     ),
-                                    title: Text(prediction.primaryText),
-                                    subtitle: Text(prediction.secondaryText),
-                                    onTap: () => _selectPrediction(prediction),
-                                  ),
-                                )
-                                .toList(),
+                                  )
+                                  .toList(),
+                            ),
                           ),
                         ),
                       const SizedBox(height: 20),
 
                       // 5. Phường / Xã, Quận / Huyện, Tỉnh / Thành
-                      const Text(
-                        'KHU VỰC HÀNH CHÍNH',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       _buildTextField(
                         controller: _wardController,
+                        onChanged: (_) {
+                          _searchTimer?.cancel();
+                          ++_searchVersion;
+                          setState(() => _searching = false);
+                        },
                         hint: 'Phường / Xã',
                         prefixIcon: LucideIcons.map,
                       ),
@@ -524,6 +505,11 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                           Expanded(
                             child: _buildTextField(
                               controller: _districtController,
+                              onChanged: (_) {
+                                _searchTimer?.cancel();
+                                ++_searchVersion;
+                                setState(() => _searching = false);
+                              },
                               hint: 'Quận / Huyện',
                               prefixIcon: LucideIcons.navigation,
                             ),
@@ -532,6 +518,11 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                           Expanded(
                             child: _buildTextField(
                               controller: _provinceController,
+                              onChanged: (_) {
+                                _searchTimer?.cancel();
+                                ++_searchVersion;
+                                setState(() => _searching = false);
+                              },
                               hint: 'Tỉnh / TP',
                               prefixIcon: LucideIcons.globe,
                             ),
@@ -597,12 +588,28 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                       ),
                       const SizedBox(height: 24),
 
+                      if (_submitError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            _submitError!,
+                            key: const ValueKey('address-save-error'),
+                            semanticsLabel: _submitError,
+                            style: const TextStyle(
+                              color: Color(0xFFDC2626),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+
                       // Save button
                       SizedBox(
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: _isSubmitting ? null : _submit,
+                          onPressed: _isSubmitting || _searching
+                              ? null
+                              : _submit,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF2563EB),
                             disabledBackgroundColor: const Color(0xFF94A3B8),

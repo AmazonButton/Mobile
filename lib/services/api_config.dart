@@ -85,9 +85,8 @@ class ApiConfig {
   static const String storeWalletBankAccount = '/store/wallet/bank-account';
 
   // Addresses endpoints
-  static const String addresses = '/addresses';
-  static String addressDetail(String id) => '/addresses/$id';
-  static String addressSetDefault(String id) => '/addresses/$id/default';
+  static const String addresses = '/customer-addresses';
+  static String addressDetail(String id) => '$addresses/$id';
   static const String addressesAutocomplete = '/addresses/autocomplete';
 
   // Notifications endpoints
