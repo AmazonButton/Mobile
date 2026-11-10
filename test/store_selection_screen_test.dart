@@ -9,7 +9,7 @@ import 'package:smart_order_button/models/device_model.dart';
 import 'package:smart_order_button/providers/device_provider.dart';
 import 'package:smart_order_button/services/api_client.dart';
 import 'package:smart_order_button/services/stores_api_service.dart';
-import 'package:smart_order_button/widgets/modals/store_selection_sheet.dart';
+import 'package:smart_order_button/screens/store_selection_screen.dart';
 import 'package:smart_order_button/widgets/modals/product_selection_sheet.dart';
 import 'package:smart_order_button/screens/login_screen.dart';
 
@@ -129,7 +129,7 @@ void main() {
             builder: (context) => Column(
               children: [
                 TextButton(
-                  onPressed: () => StoreSelectionSheet.show(
+                  onPressed: () => StoreSelectionScreen.show(
                     context: context,
                     deviceId: '12',
                     onSave: (id) => provider.updateDeviceStore('12', id),
@@ -197,13 +197,13 @@ void main() {
     expect(provider.devices.single.product, 'Candy cũ');
   });
 
-  testWidgets('Sheet fits a small phone without horizontal overflow', (
+  testWidgets('Store screen fits a small phone without horizontal overflow', (
     tester,
   ) async {
     await open(tester, size: const Size(320, 700));
     expect(tester.takeException(), isNull);
-    final close = tester.getRect(find.byIcon(Icons.close));
-    expect(close.right, lessThanOrEqualTo(320));
+    final back = tester.getRect(find.byType(BackButton));
+    expect(back.right, lessThanOrEqualTo(320));
     expect(
       tester.getRect(find.byType(TextField)).right,
       lessThanOrEqualTo(320),
@@ -245,7 +245,7 @@ void main() {
       expect(provider.devices.single.storeName, 'Cửa hàng mới');
       expect(provider.devices.single.product, 'Chưa gán sản phẩm');
       expect(provider.devices.single.price, '');
-      expect(find.byType(StoreSelectionSheet), findsNothing);
+      expect(find.byType(StoreSelectionScreen), findsNothing);
       await tester.tap(find.text('Open products'));
       await tester.pumpAndSettle();
       expect(requests.last.url.queryParameters['storeId'], '8');
@@ -283,7 +283,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cửa hàng mới'));
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.close));
+    await tester.pageBack();
     await tester.pumpAndSettle();
     expect(provider.devices.single.storeId, '7');
     expect(requests.where((r) => r.method == 'PUT'), isEmpty);

@@ -12,12 +12,27 @@ class UserProfileService extends ChangeNotifier {
   String _email = 'minh.nguyen@gmail.com';
   String _address = '';
   File? _avatarFile;
+  String? _avatarUrl;
 
   String get name => _name;
   String get phone => _phone;
   String get email => _email;
   String get address => _address;
   File? get avatarFile => _avatarFile;
+  String? get avatarUrl => _avatarUrl;
+
+  void updateAvatarUrl(String? url) {
+    final value = url?.trim();
+    final uri = Uri.tryParse(value ?? '');
+    _avatarUrl =
+        uri != null &&
+            {'http', 'https'}.contains(uri.scheme) &&
+            uri.host.isNotEmpty
+        ? value
+        : null;
+    _avatarFile = null;
+    notifyListeners();
+  }
 
   /// Returns the short display name for greetings (e.g., "Minh" from "Nguyễn Văn Minh")
   String get shortName {
@@ -80,6 +95,7 @@ class UserProfileService extends ChangeNotifier {
     _email = '';
     _address = '';
     _avatarFile = null;
+    _avatarUrl = null;
     notifyListeners();
   }
 }

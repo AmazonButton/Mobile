@@ -1,9 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:smart_order_button/services/auth_api_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_order_button/models/button_product_model.dart';
 import 'package:smart_order_button/providers/providers.dart';
 import 'package:smart_order_button/screens/devices_screen.dart';
+
+class _ProfileApi implements AuthApiService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  @override
+  Future<Map<String, dynamic>> updateProfile({
+    String? fullName,
+    String? phone,
+    String? email,
+    String? address,
+    String? avatarUrl,
+  }) async => {
+    'success': true,
+    'data': {'fullName': fullName, 'phone': phone},
+  };
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -45,95 +62,97 @@ void main() {
       expect(deviceProvider.devices.first.badgeText, '12kg');
     });
 
-    test('OrderProvider manages active and history orders and notifies listeners', () async {
-      final orderProvider = OrderProvider();
-      expect(orderProvider.orders.isNotEmpty, isTrue);
-      expect(orderProvider.activeOrders.isNotEmpty, isTrue);
-      expect(orderProvider.historyOrders.isNotEmpty, isTrue);
+    test(
+      'OrderProvider manages active and history orders and notifies listeners',
+      () async {
+        final orderProvider = OrderProvider();
+        expect(orderProvider.orders.isNotEmpty, isTrue);
+        expect(orderProvider.activeOrders.isNotEmpty, isTrue);
+        expect(orderProvider.historyOrders.isNotEmpty, isTrue);
 
-      bool notified = false;
-      orderProvider.addListener(() {
-        notified = true;
-      });
+        bool notified = false;
+        orderProvider.addListener(() {
+          notified = true;
+        });
 
-      await orderProvider.cancelOrder('SOB-20260919-003');
-      expect(notified, isTrue);
-    });
+        await orderProvider.cancelOrder('SOB-20260919-003');
+        expect(notified, isTrue);
+      },
+    );
 
-    test('UserProvider manages user details and notifies listeners', () {
-      final userProvider = UserProvider();
+    test('UserProvider manages user details and notifies listeners', () async {
+      final userProvider = UserProvider(authService: _ProfileApi());
       bool notified = false;
       userProvider.addListener(() {
         notified = true;
       });
 
-      userProvider.updateName('Lê Hoàng Long');
+      await userProvider.updateName('Lê Hoàng Long');
       expect(notified, isTrue);
       expect(userProvider.name, 'Lê Hoàng Long');
       expect(userProvider.shortName, 'Long');
 
-      userProvider.updatePhone('0988776655');
+      await userProvider.updatePhone('0988776655');
       expect(userProvider.phone, '0988776655');
     });
 
-    testWidgets('Device update dispatched via DeviceProvider reactively syncs to UI', (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'Device update dispatched via DeviceProvider reactively syncs to UI',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 1600);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      final deviceProvider = DeviceProvider();
-      final orderProvider = OrderProvider();
-      final userProvider = UserProvider();
+        final deviceProvider = DeviceProvider();
+        final orderProvider = OrderProvider();
+        final userProvider = UserProvider();
 
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider.value(value: deviceProvider),
-            ChangeNotifierProvider.value(value: orderProvider),
-            ChangeNotifierProvider.value(value: userProvider),
-          ],
-          child: const MaterialApp(
-            home: Scaffold(
-              body: DevicesScreen(),
-            ),
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: deviceProvider),
+              ChangeNotifierProvider.value(value: orderProvider),
+              ChangeNotifierProvider.value(value: userProvider),
+            ],
+            child: const MaterialApp(home: Scaffold(body: DevicesScreen())),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      // Initial state contains 'Nước Lavie 20L'
-      expect(find.text('Nước Lavie 20L'), findsWidgets);
+        // Initial state contains 'Nước Lavie 20L'
+        expect(find.text('Nước Lavie 20L'), findsWidgets);
 
-      // Programmatically update the product in DeviceProvider
-      const updatedProduct = ButtonProductModel(
-        id: 'prod-saigonpetro-12kg',
-        name: 'Bình Gas Saigon Petro 12kg',
-        shortName: 'Bình Gas Saigon Petro 12kg',
-        brand: 'Saigon Petro',
-        specs: '12kg',
-        price: 365000,
-        priceFormatted: '365.000đ',
-        unitPriceFormatted: '30.416đ/kg',
-        discountTag: 'Ưu đãi',
-        deliveryTag: 'Giao nhanh 45 phút',
-        rating: 4.8,
-        reviewCount: 50,
-        description: 'Gas Saigon Petro chính hãng',
-        category: 'Năng lượng / Bếp',
-        icon: Icons.local_fire_department,
-        themeColor: Colors.orange,
-      );
+        // Programmatically update the product in DeviceProvider
+        const updatedProduct = ButtonProductModel(
+          id: 'prod-saigonpetro-12kg',
+          name: 'Bình Gas Saigon Petro 12kg',
+          shortName: 'Bình Gas Saigon Petro 12kg',
+          brand: 'Saigon Petro',
+          specs: '12kg',
+          price: 365000,
+          priceFormatted: '365.000đ',
+          unitPriceFormatted: '30.416đ/kg',
+          discountTag: 'Ưu đãi',
+          deliveryTag: 'Giao nhanh 45 phút',
+          rating: 4.8,
+          reviewCount: 50,
+          description: 'Gas Saigon Petro chính hãng',
+          category: 'Năng lượng / Bếp',
+          icon: Icons.local_fire_department,
+          themeColor: Colors.orange,
+        );
 
-      deviceProvider.updateDeviceProduct('btn-1', updatedProduct);
-      await tester.pumpAndSettle();
+        deviceProvider.updateDeviceProduct('btn-1', updatedProduct);
+        await tester.pumpAndSettle();
 
-      // UI is reactively updated without manual page reload
-      expect(find.text('Bình Gas Saigon Petro 12kg'), findsWidgets);
-      expect(find.text('365.000đ'), findsWidgets);
-    });
+        // UI is reactively updated without manual page reload
+        expect(find.text('Bình Gas Saigon Petro 12kg'), findsWidgets);
+        expect(find.text('365.000đ'), findsWidgets);
+      },
+    );
   });
 }

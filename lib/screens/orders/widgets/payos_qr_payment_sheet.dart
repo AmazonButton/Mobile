@@ -49,6 +49,7 @@ class PayosQrPaymentSheet extends StatefulWidget {
 
 class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
   final PaymentsApiService _paymentsService = PaymentsApiService();
+  final String _paymentKey = PaymentsApiService.newPaymentKey();
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -122,6 +123,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
     try {
       final data = await _paymentsService.createPayosPaymentLink(
         orderId: widget.order.id,
+        idempotencyKey: _paymentKey,
         description: 'DH${widget.order.orderCode.replaceAll('#', '')}',
       );
       if (mounted) {

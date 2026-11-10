@@ -1,3 +1,4 @@
+import '../../../widgets/user_avatar.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 /// Top header card for HomeScreen showing user avatar, dynamic greeting, notification bell, and location pill.
 class HomeHeaderCard extends StatelessWidget {
   final File? userAvatar;
+  final String? userAvatarUrl;
   final String userInitials;
   final String userShortName;
   final String userAddress;
@@ -17,6 +19,7 @@ class HomeHeaderCard extends StatelessWidget {
   const HomeHeaderCard({
     super.key,
     this.userAvatar,
+    this.userAvatarUrl,
     required this.userInitials,
     required this.userShortName,
     required this.userAddress,
@@ -38,32 +41,10 @@ class HomeHeaderCard extends StatelessWidget {
               children: [
                 GestureDetector(
                   onTap: onAccountTap,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFDBEAFE)),
-                      image: userAvatar != null
-                          ? DecorationImage(
-                              image: FileImage(userAvatar!),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
-                    child: userAvatar == null
-                        ? Center(
-                            child: Text(
-                              userInitials,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF2563EB),
-                              ),
-                            ),
-                          )
-                        : null,
+                  child: UserAvatar(
+                    initials: userInitials,
+                    file: userAvatar,
+                    url: userAvatarUrl,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -156,13 +137,19 @@ class HomeHeaderCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    userAddress.trim().isNotEmpty ? userAddress : 'Chọn địa chỉ giao hàng',
+                    userAddress.trim().isNotEmpty
+                        ? userAddress
+                        : 'Chọn địa chỉ giao hàng',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight: userAddress.trim().isNotEmpty ? FontWeight.w500 : FontWeight.normal,
-                      color: userAddress.trim().isNotEmpty ? const Color(0xFF334155) : const Color(0xFF94A3B8),
+                      fontWeight: userAddress.trim().isNotEmpty
+                          ? FontWeight.w500
+                          : FontWeight.normal,
+                      color: userAddress.trim().isNotEmpty
+                          ? const Color(0xFF334155)
+                          : const Color(0xFF94A3B8),
                     ),
                   ),
                 ),

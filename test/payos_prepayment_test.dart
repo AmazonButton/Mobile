@@ -38,89 +38,114 @@ void main() {
       expect(orderPaid.isPayos, isTrue);
     });
 
-    test('PayosPaymentData parses API response and constructs VietQR image URL', () {
-      final dataJson = {
-        'paymentTransactionId': 'tx-999',
-        'orderCode': 12345678,
-        'amount': 65000,
-        'description': 'DH12345678',
-        'checkoutUrl': 'https://pay.payos.vn/web/link-abc',
-        'qrCode': '00020101021238540010A00000072701240006970422011009876543210208QRIBFTTA5204601153037045405650005802VN62140810DH123456786304ABCD',
-        'status': 'PENDING',
-        'accountName': 'SMART ORDER CORP',
-        'accountNumber': '0987654321',
-        'bin': '970422',
-        'bankName': 'MBBank',
-      };
+    test(
+      'PayosPaymentData parses API response and constructs VietQR image URL',
+      () {
+        final dataJson = {
+          'paymentTransactionId': 'tx-999',
+          'orderCode': 12345678,
+          'amount': 65000,
+          'description': 'DH12345678',
+          'checkoutUrl': 'https://pay.payos.vn/web/link-abc',
+          'qrCode':
+              '00020101021238540010A00000072701240006970422011009876543210208QRIBFTTA5204601153037045405650005802VN62140810DH123456786304ABCD',
+          'status': 'PENDING',
+          'accountName': 'SMART ORDER CORP',
+          'accountNumber': '0987654321',
+          'bin': '970422',
+          'bankName': 'MBBank',
+        };
 
-      final paymentData = PayosPaymentData.fromJson(dataJson);
-      expect(paymentData.orderCode, equals(12345678));
-      expect(paymentData.amount, equals(65000));
-      expect(paymentData.accountName, equals('SMART ORDER CORP'));
-      expect(paymentData.accountNumber, equals('0987654321'));
-      expect(paymentData.bin, equals('970422'));
+        final paymentData = PayosPaymentData.fromJson(dataJson);
+        expect(paymentData.orderCode, equals(12345678));
+        expect(paymentData.amount, equals(65000));
+        expect(paymentData.accountName, equals('SMART ORDER CORP'));
+        expect(paymentData.accountNumber, equals('0987654321'));
+        expect(paymentData.bin, equals('970422'));
 
-      // Kiểm tra URL ảnh VietQR được sinh tự động
-      final vietQrUrl = paymentData.vietQrImageUrl;
-      expect(vietQrUrl.contains('img.vietqr.io/image/970422-0987654321-compact2.png'), isTrue);
-      expect(vietQrUrl.contains('amount=65000'), isTrue);
-      expect(vietQrUrl.contains('addInfo=DH12345678'), isTrue);
-      expect(vietQrUrl.contains('accountName=SMART+ORDER+CORP') || vietQrUrl.contains('accountName=SMART%20ORDER%20CORP'), isTrue);
-    });
+        // Kiểm tra URL ảnh VietQR được sinh tự động
+        final vietQrUrl = paymentData.vietQrImageUrl;
+        expect(
+          vietQrUrl.contains(
+            'img.vietqr.io/image/970422-0987654321-compact2.png',
+          ),
+          isTrue,
+        );
+        expect(vietQrUrl.contains('amount=65000'), isTrue);
+        expect(vietQrUrl.contains('addInfo=DH12345678'), isTrue);
+        expect(
+          vietQrUrl.contains('accountName=SMART+ORDER+CORP') ||
+              vietQrUrl.contains('accountName=SMART%20ORDER%20CORP'),
+          isTrue,
+        );
+      },
+    );
 
-    test('OrderProvider.markOrderAsPaid reactively updates order paymentStatus to PAID', () {
-      final initialOrder = OrderModel(
-        id: 'ord-test-1',
-        orderCode: '#ORD-TEST-1',
-        customerName: 'Nguyễn Văn A',
-        apartment: 'Căn hộ 12.04',
-        product: 'Nước Lavie 20L',
-        title: 'Nước Lavie 20L',
-        buttonName: 'Bếp',
-        time: 'Vừa xong',
-        price: '65.000đ',
-        rawAmount: 65000,
-        status: OrderStatus.warning,
-        rawStatus: 'PENDING',
-        statusText: 'Chờ xác nhận',
-        paymentStatus: 'UNPAID',
-        paymentMethod: 'COD',
-      );
+    test(
+      'OrderProvider.markOrderAsPaid reactively updates order paymentStatus to PAID',
+      () {
+        final initialOrder = OrderModel(
+          id: 'ord-test-1',
+          orderCode: '#ORD-TEST-1',
+          customerName: 'Nguyễn Văn A',
+          apartment: 'Căn hộ 12.04',
+          product: 'Nước Lavie 20L',
+          title: 'Nước Lavie 20L',
+          buttonName: 'Bếp',
+          time: 'Vừa xong',
+          price: '65.000đ',
+          rawAmount: 65000,
+          status: OrderStatus.warning,
+          rawStatus: 'PENDING',
+          statusText: 'Chờ xác nhận',
+          paymentStatus: 'UNPAID',
+          paymentMethod: 'COD',
+        );
 
-      final provider = OrderProvider(initialOrders: [initialOrder]);
-      expect(provider.orders.first.isUnpaid, isTrue);
+        final provider = OrderProvider(initialOrders: [initialOrder]);
+        expect(provider.orders.first.isUnpaid, isTrue);
 
-      String? notifiedOrderId;
-      OrderModel? notifiedOrder;
-      OrderProvider.onOrderPaid = (id, order) {
-        notifiedOrderId = id;
-        notifiedOrder = order;
-      };
+        String? notifiedOrderId;
+        OrderModel? notifiedOrder;
+        OrderProvider.onOrderPaid = (id, order) {
+          notifiedOrderId = id;
+          notifiedOrder = order;
+        };
 
-      provider.markOrderAsPaid('ord-test-1');
+        provider.markOrderAsPaid('ord-test-1');
 
-      expect(provider.orders.first.isPaid, isTrue);
-      expect(provider.orders.first.isUnpaid, isFalse);
-      expect(provider.orders.first.paymentStatus, equals('PAID'));
-      expect(provider.orders.first.paymentMethod, equals('PAYOS'));
-      expect(provider.orders.first.rawStatus, equals('CONFIRMED'));
-      expect(notifiedOrderId, equals('ord-test-1'));
-      expect(notifiedOrder?.isPaid, isTrue);
-    });
+        expect(provider.orders.first.isPaid, isTrue);
+        expect(provider.orders.first.isUnpaid, isFalse);
+        expect(provider.orders.first.paymentStatus, equals('PAID'));
+        expect(provider.orders.first.paymentMethod, equals('PAYOS'));
+        expect(
+          provider.orders.first.rawStatus,
+          equals('PENDING'),
+        ); // Payment does not confirm fulfillment.
+        expect(notifiedOrderId, equals('ord-test-1'));
+        expect(notifiedOrder?.isPaid, isTrue);
+      },
+    );
 
-    test('NotificationService.onPaymentConfirmed hook is triggered on payment confirmation', () {
-      String? confirmedOrderId;
-      String? confirmedOrderCode;
+    test(
+      'NotificationService.onPaymentConfirmed hook is triggered on payment confirmation',
+      () {
+        String? confirmedOrderId;
+        String? confirmedOrderCode;
 
-      NotificationService.onPaymentConfirmed = (orderId, orderCode) {
-        confirmedOrderId = orderId;
-        confirmedOrderCode = orderCode;
-      };
+        NotificationService.onPaymentConfirmed = (orderId, orderCode) {
+          confirmedOrderId = orderId;
+          confirmedOrderCode = orderCode;
+        };
 
-      NotificationService.onPaymentConfirmed?.call('ord-test-999', '#ORD-999');
+        NotificationService.onPaymentConfirmed?.call(
+          'ord-test-999',
+          '#ORD-999',
+        );
 
-      expect(confirmedOrderId, equals('ord-test-999'));
-      expect(confirmedOrderCode, equals('#ORD-999'));
-    });
+        expect(confirmedOrderId, equals('ord-test-999'));
+        expect(confirmedOrderCode, equals('#ORD-999'));
+      },
+    );
   });
 }

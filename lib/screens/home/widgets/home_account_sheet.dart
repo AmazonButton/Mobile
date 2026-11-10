@@ -1,3 +1,4 @@
+import '../../../widgets/user_avatar.dart';
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ class HomeAccountSheet extends StatelessWidget {
   final String userAddress;
   final String userInitials;
   final File? userAvatar;
+  final String? userAvatarUrl;
   final VoidCallback? onLogout;
 
   const HomeAccountSheet({
@@ -25,6 +27,7 @@ class HomeAccountSheet extends StatelessWidget {
     required this.userAddress,
     required this.userInitials,
     this.userAvatar,
+    this.userAvatarUrl,
     this.onLogout,
   });
 
@@ -35,6 +38,7 @@ class HomeAccountSheet extends StatelessWidget {
     required String userAddress,
     required String userInitials,
     File? userAvatar,
+    String? userAvatarUrl,
     VoidCallback? onLogout,
   }) {
     showModalBottomSheet(
@@ -49,6 +53,7 @@ class HomeAccountSheet extends StatelessWidget {
         userAddress: userAddress,
         userInitials: userInitials,
         userAvatar: userAvatar,
+        userAvatarUrl: userAvatarUrl,
         onLogout: onLogout,
       ),
     );
@@ -98,10 +103,15 @@ class HomeAccountSheet extends StatelessWidget {
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
                   PageRouteBuilder(
-                    pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
-                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                      return FadeTransition(opacity: animation, child: child);
-                    },
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        const LoginScreen(),
+                    transitionsBuilder:
+                        (context, animation, secondaryAnimation, child) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          );
+                        },
                     transitionDuration: const Duration(milliseconds: 300),
                   ),
                   (route) => false,
@@ -158,32 +168,11 @@ class HomeAccountSheet extends StatelessWidget {
             const SizedBox(height: 16),
             Row(
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                    image: userAvatar != null
-                        ? DecorationImage(
-                            image: FileImage(userAvatar!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: userAvatar == null
-                      ? Center(
-                          child: Text(
-                            userInitials,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF334155),
-                            ),
-                          ),
-                        )
-                      : null,
+                UserAvatar(
+                  size: 52,
+                  initials: userInitials,
+                  file: userAvatar,
+                  url: userAvatarUrl,
                 ),
                 const SizedBox(width: 14),
                 Column(

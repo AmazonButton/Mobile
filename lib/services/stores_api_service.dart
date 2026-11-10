@@ -1,3 +1,4 @@
+import 'paged_list_service.dart';
 import 'api_client.dart';
 import 'api_config.dart';
 
@@ -9,27 +10,7 @@ class StoresApiService {
   final ApiClient _client = ApiClient();
 
   /// Lấy danh sách đối tác cửa hàng
-  Future<List<dynamic>> getStores() async {
-    final stores = <dynamic>[];
-    var page = 1;
-    while (true) {
-      final response = await _client.get(
-        ApiConfig.stores,
-        queryParams: {'page': page, 'limit': 100},
-      );
-      final data = response['data'] ?? response;
-      if (data is List) return data;
-      if (data is! Map || data['items'] is! List) {
-        throw FormatException('Không thể đọc danh sách cửa hàng');
-      }
-      final items = data['items'] as List;
-      stores.addAll(items);
-      final totalPages =
-          int.tryParse(data['totalPages']?.toString() ?? '') ?? page;
-      if (items.isEmpty || page >= totalPages) return stores;
-      page++;
-    }
-  }
+  Future<List<dynamic>> getStores() => getAllApiPages(ApiConfig.stores);
 
   /// Chi tiết thông tin cửa hàng
   Future<Map<String, dynamic>> getStoreById(String id) async {
