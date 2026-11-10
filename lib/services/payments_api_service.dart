@@ -1,3 +1,4 @@
+import 'dart:math';
 import '../models/payos_payment_data.dart';
 import 'api_client.dart';
 import 'api_config.dart';
@@ -9,12 +10,22 @@ class PaymentsApiService {
 
   final ApiClient _client = ApiClient();
 
+  /// One key per payment attempt; callers keep it for retries of that attempt.
+  static String newPaymentKey() {
+    final random = Random.secure();
+    return List.generate(
+      16,
+      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
+  }
+
   /// Tạo liên kết thanh toán PayOS và dữ liệu VietQR cho một đơn hàng
   Future<PayosPaymentData> createPayosPaymentLink({
     required String orderId,
     String? description,
     String? returnUrl,
     String? cancelUrl,
+    String? idempotencyKey,
   }) async {
     if (!RegExp(r'^[1-9]\d*$').hasMatch(orderId.trim())) {
       throw ApiException(
@@ -35,6 +46,7 @@ class PaymentsApiService {
     final response = await _client.post(
       ApiConfig.paymentsPayosCreateLink,
       body: body,
+      headers: {'X-Idempotency-Key': idempotencyKey ?? newPaymentKey()},
     );
 
     final data = response['data'] ?? response;

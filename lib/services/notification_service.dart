@@ -1,3 +1,4 @@
+import 'order_updates.dart';
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -70,9 +71,10 @@ class NotificationService {
       );
 
       // 3. Tạo Notification Channel ưu tiên cao cho Android
-      final androidPlatform =
-          _localNotifications.resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+      final androidPlatform = _localNotifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
 
       if (androidPlatform != null) {
         await androidPlatform.createNotificationChannel(
@@ -104,8 +106,8 @@ class NotificationService {
       });
 
       // 6. Kiểm tra nếu app được mở từ trạng thái bị tắt hoàn toàn (Terminated)
-      final initialMessage =
-          await FirebaseMessaging.instance.getInitialMessage();
+      final initialMessage = await FirebaseMessaging.instance
+          .getInitialMessage();
       if (initialMessage != null) {
         debugPrint(
           '[NotificationService] App launched from terminated state via notification: ${initialMessage.data}',
@@ -134,7 +136,9 @@ class NotificationService {
 
       _isInitialized = true;
     } catch (e) {
-      debugPrint('[NotificationService] Initialization error / Mock fallback: $e');
+      debugPrint(
+        '[NotificationService] Initialization error / Mock fallback: $e',
+      );
     }
   }
 
@@ -168,11 +172,15 @@ class NotificationService {
 
       if (success) {
         await _saveCachedToken(token);
-        debugPrint('[NotificationService] FCM token synced with Backend successfully.');
+        debugPrint(
+          '[NotificationService] FCM token synced with Backend successfully.',
+        );
       }
       return success;
     } catch (e) {
-      debugPrint('[NotificationService] Exception syncing FCM token with Backend: $e');
+      debugPrint(
+        '[NotificationService] Exception syncing FCM token with Backend: $e',
+      );
       return false;
     }
   }
@@ -193,13 +201,25 @@ class NotificationService {
       debugPrint('[NotificationService] FCM token unregistered on logout.');
       return success;
     } catch (e) {
-      debugPrint('[NotificationService] Exception unregistering FCM token on logout: $e');
+      debugPrint(
+        '[NotificationService] Exception unregistering FCM token on logout: $e',
+      );
       return false;
     }
   }
 
   /// Hiển thị thông báo cục bộ dạng Heads-Up Banner khi app đang mở
+  void _invalidateOrder(Map<String, dynamic> data) {
+    final type = data['type']?.toString() ?? '';
+    final id = data['orderId']?.toString();
+    if (type.startsWith('ORDER_') ||
+        (id != null && id.isNotEmpty && id != 'null')) {
+      OrderUpdates.notify(id);
+    }
+  }
+
   Future<void> showLocalNotification(RemoteMessage message) async {
+    _invalidateOrder(message.data);
     try {
       final notification = message.notification;
       final data = message.data;
@@ -209,15 +229,19 @@ class NotificationService {
       final type = data['type']?.toString();
       final status = data['status']?.toString();
 
-      final title = notification?.title ??
+      final title =
+          notification?.title ??
           (type == 'ORDER_PAYMENT_CONFIRMED' || status == 'PAID'
               ? 'Thanh toán thành công'
-              : (type == 'ORDER_CREATED' ? 'Đơn hàng mới' : 'Cập nhật đơn hàng'));
-      final body = notification?.body ??
+              : (type == 'ORDER_CREATED'
+                    ? 'Đơn hàng mới'
+                    : 'Cập nhật đơn hàng'));
+      final body =
+          notification?.body ??
           (orderCode != null
               ? (type == 'ORDER_PAYMENT_CONFIRMED' || status == 'PAID'
-                  ? 'Đơn hàng #$orderCode đã được thanh toán thành công qua PayOS.'
-                  : 'Đơn hàng #$orderCode của bạn đã được cập nhật')
+                    ? 'Đơn hàng #$orderCode đã được thanh toán thành công qua PayOS.'
+                    : 'Đơn hàng #$orderCode của bạn đã được cập nhật')
               : 'Bạn có thông báo mới từ hệ thống');
 
       // Kích hoạt callback xác nhận thanh toán real-time
@@ -293,9 +317,13 @@ class NotificationService {
           ? NotificationItem.decodeList(raw)
           : [];
 
-      final isDup = list.any((n) =>
-          (item.orderCode != null && n.orderCode == item.orderCode && n.type == item.type) ||
-          n.id == item.id);
+      final isDup = list.any(
+        (n) =>
+            (item.orderCode != null &&
+                n.orderCode == item.orderCode &&
+                n.type == item.type) ||
+            n.id == item.id,
+      );
       if (!isDup) {
         list.insert(0, item);
         if (list.length > 50) list = list.sublist(0, 50);
@@ -305,17 +333,22 @@ class NotificationService {
         );
       }
     } catch (e) {
-      debugPrint('[NotificationService] Error recording in-app notification: $e');
+      debugPrint(
+        '[NotificationService] Error recording in-app notification: $e',
+      );
     }
   }
 
   /// Điều hướng người dùng đến màn hình danh sách đơn hàng khi bấm vào thông báo
   void handleNotificationNavigation(Map<String, dynamic> data) {
+    _invalidateOrder(data);
     try {
       final now = DateTime.now();
       if (_lastNavTime != null &&
           now.difference(_lastNavTime!) < const Duration(milliseconds: 700)) {
-        debugPrint('[NotificationService] Duplicate navigation ignored by debounce.');
+        debugPrint(
+          '[NotificationService] Duplicate navigation ignored by debounce.',
+        );
         return;
       }
       _lastNavTime = now;
@@ -327,19 +360,22 @@ class NotificationService {
         '[NotificationService] Routing notification: type=$type, orderId=$orderId',
       );
 
-      final isOrderEvent = type == 'ORDER_CREATED' ||
+      final isOrderEvent =
+          type == 'ORDER_CREATED' ||
           type == 'ORDER_STATUS_CHANGED' ||
           (orderId != null && orderId.trim().isNotEmpty && orderId != 'null');
 
       if (isOrderEvent) {
         navigatorKey.currentState?.push(
           MaterialPageRoute(
-            builder: (_) => const OrdersScreen(),
+            builder: (_) => OrdersScreen(initialOrderId: orderId),
           ),
         );
       }
     } catch (e) {
-      debugPrint('[NotificationService] Error navigating from notification: $e');
+      debugPrint(
+        '[NotificationService] Error navigating from notification: $e',
+      );
     }
   }
 

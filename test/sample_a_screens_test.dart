@@ -30,7 +30,10 @@ class FixtureDevices extends DeviceProvider {
 class FixtureOrders extends OrderProvider {
   FixtureOrders(List<OrderModel> orders) : super(initialOrders: orders);
   @override
-  Future<void> loadOrders() async {}
+  Future<void> loadOrders({
+    bool silent = false,
+    bool preservePages = false,
+  }) async {}
 }
 
 const devices = [

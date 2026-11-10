@@ -19,6 +19,25 @@ class DeviceModel {
   final String? imageUrl;
   final String? storeId;
   final String? storeName;
+  final bool? canOrder;
+  final String? inventoryState;
+  final String? rentalId;
+  final String? rentalStatus;
+
+  String? get orderRestriction {
+    if (inventoryState == 'RETURN_IN_TRANSIT') {
+      return 'Nút đang chờ cửa hàng nhận lại';
+    }
+    if (inventoryState == 'RETURNED_RESTOCKED' || rentalStatus == 'RETURNED') {
+      return 'Nút đã được trả lại';
+    }
+    if (rentalStatus == 'PENDING_HANDOVER') return 'Nút chưa được bàn giao';
+    if (rentalStatus == 'PENDING_PAYMENT') return 'Chưa hoàn tất tiền cọc';
+    if (canOrder == false) {
+      return 'Nút đang tạm ngừng sử dụng. Vui lòng liên hệ cửa hàng';
+    }
+    return null;
+  }
 
   const DeviceModel({
     this.productId,
@@ -32,10 +51,14 @@ class DeviceModel {
     this.badgeText = '20L',
     this.signal = 'Rất tốt',
     required this.status,
-    this.wifiSsid = 'Home_Network_5G',
+    this.wifiSsid = '',
     this.imageUrl,
     this.storeId,
     this.storeName,
+    this.canOrder,
+    this.inventoryState,
+    this.rentalId,
+    this.rentalStatus,
   });
 
   /// Backward-compatible alias for room
@@ -82,6 +105,10 @@ class DeviceModel {
     String? imageUrl,
     String? storeId,
     String? storeName,
+    bool? canOrder,
+    String? inventoryState,
+    String? rentalId,
+    String? rentalStatus,
   }) {
     return DeviceModel(
       productId: productId ?? this.productId,
@@ -99,6 +126,10 @@ class DeviceModel {
       imageUrl: imageUrl ?? this.imageUrl,
       storeId: storeId ?? this.storeId,
       storeName: storeName ?? this.storeName,
+      canOrder: canOrder ?? this.canOrder,
+      inventoryState: inventoryState ?? this.inventoryState,
+      rentalId: rentalId ?? this.rentalId,
+      rentalStatus: rentalStatus ?? this.rentalStatus,
     );
   }
 
@@ -107,9 +138,13 @@ class DeviceModel {
     String? valid(dynamic value) {
       if (value is! String) return null;
       final uri = Uri.tryParse(value.trim());
-      return uri != null && (uri.scheme == 'https' || uri.scheme == 'http') &&
-          uri.host.isNotEmpty ? value.trim() : null;
+      return uri != null &&
+              (uri.scheme == 'https' || uri.scheme == 'http') &&
+              uri.host.isNotEmpty
+          ? value.trim()
+          : null;
     }
+
     final direct = valid(product['imageUrl']) ?? valid(product['thumbnailUrl']);
     if (direct != null) return direct;
     final images = product['images'];
@@ -213,17 +248,29 @@ class DeviceModel {
     final wifi =
         json['wifiSsid']?.toString() ??
         json['wifi']?.toString() ??
-        'Home_Network_5G';
-    final assigned = rawProds is List && rawProds.isNotEmpty && rawProds.first is Map
+        '';
+    final assigned =
+        rawProds is List && rawProds.isNotEmpty && rawProds.first is Map
         ? rawProds.first as Map
         : null;
     final assignedProduct = assigned?['product'] is Map
         ? assigned!['product'] as Map
-        : json['product'] is Map ? json['product'] as Map : null;
-    final img = _imageOf(assignedProduct) ?? _imageOf(assigned) ??
-        _imageOf(json) ?? json['productImageUrl']?.toString();
+        : json['product'] is Map
+        ? json['product'] as Map
+        : null;
+    final img =
+        _imageOf(assignedProduct) ??
+        _imageOf(assigned) ??
+        _imageOf(json) ??
+        json['productImageUrl']?.toString();
 
     return DeviceModel(
+      canOrder: json['canOrder'] is bool ? json['canOrder'] as bool : null,
+      inventoryState: json['inventoryState']?.toString(),
+      rentalId: json['rentalId']?.toString(),
+      rentalStatus:
+          json['rentalStatus']?.toString() ??
+          (json['rental'] is Map ? json['rental']['status']?.toString() : null),
       productId: rawProds is List && rawProds.isNotEmpty
           ? rawProds.first['productId']?.toString()
           : null,

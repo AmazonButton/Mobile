@@ -54,14 +54,14 @@ class WifiProvisioningSheet extends StatefulWidget {
 
   const WifiProvisioningSheet({
     super.key,
-    this.initialSsid = 'Home_Network_2.4G',
+    this.initialSsid = '',
     this.onConnected,
   });
 
   /// Opens the Wi-Fi Provisioning bottom sheet with iOS styling.
   static Future<bool?> show({
     required BuildContext context,
-    String initialSsid = 'Home_Network_2.4G',
+    String initialSsid = '',
     Function(String newSsid)? onConnected,
   }) {
     return showModalBottomSheet<bool>(
@@ -81,30 +81,16 @@ class WifiProvisioningSheet extends StatefulWidget {
 }
 
 class _WifiProvisioningSheetState extends State<WifiProvisioningSheet> {
-  late String _currentSsid;
+  late final TextEditingController _ssidController;
   final TextEditingController _passwordController = TextEditingController();
+  bool _ssidEdited = false;
   bool _obscurePassword = true;
   bool _isConnecting = false;
-
-  final List<String> _availableNetworks = const [
-    'Home_Network_2.4G',
-    'LivingRoom_Mesh_2.4G',
-    'Kitchen_IoT_Extender',
-    'Office_Guest_2.4G',
-  ];
 
   @override
   void initState() {
     super.initState();
-    // Normalize SSID to 2.4G for IoT consistency if currently 5G
-    final base = widget.initialSsid;
-    if (base.contains('_5G')) {
-      _currentSsid = base.replaceAll('_5G', '_2.4G');
-    } else if (!base.contains('2.4G') && !base.contains('2.4')) {
-      _currentSsid = '${base}_2.4G';
-    } else {
-      _currentSsid = base;
-    }
+    _ssidController = TextEditingController(text: widget.initialSsid);
     _detectCurrentWifiSsid();
   }
 
@@ -114,17 +100,16 @@ class _WifiProvisioningSheetState extends State<WifiProvisioningSheet> {
       if (!status.isGranted) {
         await Permission.locationWhenInUse.request();
       }
-      final info = NetworkInfo();
-      final wifiName = await info.getWifiName();
-      if (wifiName != null && wifiName.isNotEmpty) {
-        final cleaned = wifiName.replaceAll('"', '').trim();
-        if (cleaned.isNotEmpty && cleaned != '<unknown ssid>') {
-          if (mounted) {
-            setState(() {
-              _currentSsid = cleaned;
-            });
-          }
-        }
+      final wifiName = await NetworkInfo().getWifiName();
+      if (!mounted || _ssidEdited || _isConnecting || wifiName == null) return;
+      final ssid =
+          wifiName.startsWith('"') &&
+              wifiName.endsWith('"') &&
+              wifiName.length >= 2
+          ? wifiName.substring(1, wifiName.length - 1)
+          : wifiName;
+      if (ssid.trim().isNotEmpty && ssid.toLowerCase() != '<unknown ssid>') {
+        _ssidController.text = ssid;
       }
     } catch (_) {
       // Graceful fallback to initialSsid on simulators or when unsupported
@@ -133,126 +118,15 @@ class _WifiProvisioningSheetState extends State<WifiProvisioningSheet> {
 
   @override
   void dispose() {
+    _ssidController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _showChangeNetworkPicker() {
-    HapticFeedback.lightImpact();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Chọn mạng Wi-Fi (2.4GHz)',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                  _TactileBounce(
-                    onTap: () => Navigator.pop(ctx),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF1F5F9),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          LucideIcons.x,
-                          size: 16,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              ..._availableNetworks.map((ssid) {
-                final isSelected = ssid == _currentSsid;
-                return InkWell(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() => _currentSsid = ssid);
-                    Navigator.pop(ctx);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFFEFF6FF)
-                          : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFF1D4ED8)
-                            : const Color(0xFFE2E8F0),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          LucideIcons.wifi,
-                          size: 18,
-                          color: isSelected
-                              ? const Color(0xFF1D4ED8)
-                              : const Color(0xFF64748B),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            ssid,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.w500,
-                              color: const Color(0xFF1E293B),
-                            ),
-                          ),
-                        ),
-                        if (isSelected)
-                          const Icon(
-                            LucideIcons.checkCircle2,
-                            size: 18,
-                            color: Color(0xFF1D4ED8),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   void _handleConnect() async {
+    final ssid = _ssidController.text;
     final password = _passwordController.text.trim();
-    if (password.isEmpty) {
+    if (ssid.trim().isEmpty || password.isEmpty) {
       HapticFeedback.heavyImpact();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -263,9 +137,11 @@ class _WifiProvisioningSheetState extends State<WifiProvisioningSheet> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          content: const Text(
-            'Vui lòng nhập mật khẩu Wi-Fi để tiếp tục.',
-            style: TextStyle(color: Colors.white, fontSize: 13),
+          content: Text(
+            ssid.trim().isEmpty
+                ? 'Vui lòng nhập tên mạng Wi-Fi.'
+                : 'Vui lòng nhập mật khẩu Wi-Fi để tiếp tục.',
+            style: const TextStyle(color: Colors.white, fontSize: 13),
           ),
         ),
       );
@@ -281,7 +157,7 @@ class _WifiProvisioningSheetState extends State<WifiProvisioningSheet> {
     if (!mounted) return;
     setState(() => _isConnecting = false);
 
-    widget.onConnected?.call(_currentSsid);
+    widget.onConnected?.call(ssid);
     Navigator.of(context).pop(true);
   }
 
@@ -304,301 +180,281 @@ class _WifiProvisioningSheetState extends State<WifiProvisioningSheet> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── 1. Header (Drag Handle + Title + Close Button) ──
-                Center(
-                  child: Container(
-                    width: 38,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE2E8F0),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const SizedBox(width: 34), // Center balance
-                    const Text(
-                      'Cài đặt Wi-Fi',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B), // Slate 800
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    _TactileBounce(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF1F5F9),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            LucideIcons.x,
-                            size: 18,
-                            color: Color(0xFF64748B),
+              children:
+                  [
+                        // ── 1. Header (Drag Handle + Title + Close Button) ──
+                        Center(
+                          child: Container(
+                            width: 38,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
+                        const SizedBox(height: 14),
 
-                // ── 2. 2.4GHz Warning Banner (IoT Standard) ──
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7ED), // Soft orange
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFFFED7AA), // Thin orange border
-                      width: 1,
-                    ),
-                  ),
-                  child: const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        LucideIcons.alertTriangle,
-                        size: 20,
-                        color: Color(0xFFEA580C), // Orange icon
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Thiết bị chỉ hỗ trợ mạng Wi-Fi 2.4GHz. Vui lòng đảm bảo điện thoại của bạn không kết nối với mạng 5G.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFFC2410C), // Orange text
-                            height: 1.4,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // ── 3. Network Form (Grouped List Style) ──
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: const Color(0xFFE2E8F0), // Thin slate border
-                      width: 1,
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(15),
-                    child: Column(
-                      children: [
-                        // SSID Field (Auto-filled)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                LucideIcons.wifi,
-                                size: 20,
-                                color: Color(0xFF64748B),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const SizedBox(width: 34), // Center balance
+                            const Text(
+                              'Cài đặt Wi-Fi',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B), // Slate 800
+                                letterSpacing: -0.3,
                               ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _currentSsid,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF1E293B),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    const Text(
-                                      'Mạng tự động nhận diện',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF94A3B8),
-                                      ),
-                                    ),
-                                  ],
+                            ),
+                            _TactileBounce(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                width: 34,
+                                height: 34,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF1F5F9),
+                                  shape: BoxShape.circle,
                                 ),
-                              ),
-                              _TactileBounce(
-                                onTap: _showChangeNetworkPicker,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEFF6FF),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Text(
-                                    'Đổi mạng',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1D4ED8), // Blue
-                                    ),
+                                child: const Center(
+                                  child: Icon(
+                                    LucideIcons.x,
+                                    size: 18,
+                                    color: Color(0xFF64748B),
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 18),
 
-                        const Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: Color(0xFFF1F5F9),
-                        ),
-
-                        // Password Field
-                        Padding(
+                        // ── 2. 2.4GHz Warning Banner (IoT Standard) ──
+                        Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
+                            horizontal: 14,
+                            vertical: 12,
                           ),
-                          child: Row(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF7ED), // Soft orange
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(
+                                0xFFFED7AA,
+                              ), // Thin orange border
+                              width: 1,
+                            ),
+                          ),
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(
-                                LucideIcons.lock,
+                              Icon(
+                                LucideIcons.alertTriangle,
                                 size: 20,
-                                color: Color(0xFF64748B),
+                                color: Color(0xFFEA580C), // Orange icon
                               ),
-                              const SizedBox(width: 14),
+                              SizedBox(width: 10),
                               Expanded(
-                                child: TextFormField(
-                                  controller: _passwordController,
-                                  obscureText: _obscurePassword,
-                                  autofocus: true,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF1E293B),
+                                child: Text(
+                                  'Thiết bị chỉ hỗ trợ mạng Wi-Fi 2.4GHz. Vui lòng đảm bảo điện thoại của bạn không kết nối với mạng 5G.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFFC2410C), // Orange text
+                                    height: 1.4,
                                     fontWeight: FontWeight.w500,
                                   ),
-                                  decoration: const InputDecoration(
-                                    hintText: 'Mật khẩu Wi-Fi',
-                                    hintStyle: TextStyle(
-                                      fontSize: 14,
-                                      color: Color(0xFF94A3B8),
-                                    ),
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              _TactileBounce(
-                                onTap: () {
-                                  HapticFeedback.selectionClick();
-                                  setState(
-                                    () => _obscurePassword = !_obscurePassword,
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Icon(
-                                    _obscurePassword
-                                        ? LucideIcons.eye
-                                        : LucideIcons.eyeOff,
-                                    size: 18,
-                                    color: const Color(0xFF64748B),
-                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
+                        const SizedBox(height: 20),
 
-                // ── 4. Action Button ("Kết nối thiết bị") ──
-                _TactileBounce(
-                  onTap: _isConnecting ? null : _handleConnect,
-                  child: Container(
-                    width: double.infinity,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: _isConnecting
-                          ? const Color(0xFF3B82F6)
-                          : const Color(0xFF1D4ED8), // Primary Blue
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Center(
-                      child: _isConnecting
-                          ? const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                        // ── 3. Network Form (Grouped List Style) ──
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: const Color(
+                                0xFFE2E8F0,
+                              ), // Thin slate border
+                              width: 1,
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: Column(
                               children: [
-                                CupertinoActivityIndicator(
-                                  color: Colors.white,
-                                  radius: 9,
-                                ),
-                                SizedBox(width: 10),
-                                Text(
-                                  'Đang kết nối thiết bị...',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 6,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        LucideIcons.wifi,
+                                        size: 20,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _ssidController,
+                                          enabled: !_isConnecting,
+                                          autocorrect: false,
+                                          enableSuggestions: false,
+                                          onChanged: (_) => _ssidEdited = true,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Tên mạng Wi-Fi (SSID)',
+                                            hintText:
+                                                'Nhập đúng tên mạng 2,4 GHz',
+                                            border: InputBorder.none,
+                                            isDense: true,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            )
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  LucideIcons.wifi,
-                                  size: 18,
-                                  color: Colors.white,
+
+                                const Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: Color(0xFFF1F5F9),
                                 ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Kết nối thiết bị',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.2,
+
+                                // Password Field
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 6,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        LucideIcons.lock,
+                                        size: 20,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _passwordController,
+                                          obscureText: _obscurePassword,
+                                          autofocus: true,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Color(0xFF1E293B),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          decoration: const InputDecoration(
+                                            hintText: 'Mật khẩu Wi-Fi',
+                                            hintStyle: TextStyle(
+                                              fontSize: 14,
+                                              color: Color(0xFF94A3B8),
+                                            ),
+                                            border: InputBorder.none,
+                                            isDense: true,
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                  vertical: 12,
+                                                ),
+                                          ),
+                                        ),
+                                      ),
+                                      _TactileBounce(
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          setState(
+                                            () => _obscurePassword =
+                                                !_obscurePassword,
+                                          );
+                                        },
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: Icon(
+                                            _obscurePassword
+                                                ? LucideIcons.eye
+                                                : LucideIcons.eyeOff,
+                                            size: 18,
+                                            color: const Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: bottomSafeArea > 0 ? 0 : 8),
-              ]
-                  .animate()
-                  .fade(duration: 250.ms)
-                  .slideY(begin: 0.1, curve: Curves.easeOutQuad),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // ── 4. Action Button ("Kết nối thiết bị") ──
+                        _TactileBounce(
+                          onTap: _isConnecting ? null : _handleConnect,
+                          child: Container(
+                            width: double.infinity,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: _isConnecting
+                                  ? const Color(0xFF3B82F6)
+                                  : const Color(0xFF1D4ED8), // Primary Blue
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Center(
+                              child: _isConnecting
+                                  ? const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        CupertinoActivityIndicator(
+                                          color: Colors.white,
+                                          radius: 9,
+                                        ),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Đang kết nối thiết bị...',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          LucideIcons.wifi,
+                                          size: 18,
+                                          color: Colors.white,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Kết nối thiết bị',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: bottomSafeArea > 0 ? 0 : 8),
+                      ]
+                      .animate()
+                      .fade(duration: 250.ms)
+                      .slideY(begin: 0.1, curve: Curves.easeOutQuad),
             ),
           ),
         ),

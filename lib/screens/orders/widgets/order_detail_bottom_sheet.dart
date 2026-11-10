@@ -1,3 +1,8 @@
+import 'dart:async';
+import '../../../services/orders_api_service.dart';
+import '../../../services/order_updates.dart';
+import '../../../models/order_timeline_entry.dart';
+import 'order_server_timeline.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../models/order_model.dart';
@@ -5,36 +10,152 @@ import '../../../widgets/sample_a.dart';
 import 'order_card_item.dart';
 import 'payos_qr_payment_sheet.dart';
 
-class OrderDetailBottomSheet extends StatelessWidget {
+class OrderDetailBottomSheet extends StatefulWidget {
   final OrderModel order;
   final VoidCallback? onReorder, onCancel;
+  final OrdersApiService? service;
   const OrderDetailBottomSheet({
     super.key,
     required this.order,
     this.onReorder,
     this.onCancel,
+    this.service,
   });
-  static void show(
+  static Future<void> show(
     BuildContext context, {
     required OrderModel order,
     VoidCallback? onReorder,
     VoidCallback? onCancel,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (_) => OrderDetailBottomSheet(
-        order: order,
-        onReorder: onReorder,
-        onCancel: onCancel,
-      ),
-    );
+  }) => showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (_) => OrderDetailBottomSheet(
+      order: order,
+      onReorder: onReorder,
+      onCancel: onCancel,
+    ),
+  );
+  @override
+  State<OrderDetailBottomSheet> createState() => _OrderDetailBottomSheetState();
+}
+
+class _OrderDetailBottomSheetState extends State<OrderDetailBottomSheet>
+    with WidgetsBindingObserver {
+  late OrderModel _order = widget.order;
+  late final _api = widget.service ?? OrdersApiService();
+  List<OrderTimelineEntry> _timeline = [];
+  bool _loading = true, _reloadAgain = false;
+  String? _detailError, _timelineError;
+  StreamSubscription<String?>? _updates;
+  Timer? _debounce;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _updates = OrderUpdates.events.listen((id) {
+      if (id == null || id == _order.id || id == _order.orderCode) {
+        _debounce?.cancel();
+        _debounce = Timer(const Duration(milliseconds: 250), _reload);
+      }
+    });
+    _loading = false;
+    _reload();
   }
 
+  @override
+  void dispose() {
+    _updates?.cancel();
+    _debounce?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _reload();
+  }
+
+  Future<void> _reload() async {
+    if (!mounted) return;
+    if (_loading) {
+      _reloadAgain = true;
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _detailError = null;
+      _timelineError = null;
+    });
+    await Future.wait([
+      () async {
+        try {
+          final data = await _api.getOrderById(widget.order.id);
+          final order = OrderModel.fromJson(data);
+          if (order.id != widget.order.id) {
+            throw const FormatException('Sai mã đơn hàng');
+          }
+          if (mounted) setState(() => _order = order);
+        } catch (_) {
+          if (mounted) {
+            setState(
+              () => _detailError = 'Chưa thể cập nhật chi tiết đơn hàng.',
+            );
+          }
+        }
+      }(),
+      () async {
+        try {
+          final entries = await _api.getTimeline(widget.order.id);
+          if (mounted) setState(() => _timeline = entries);
+        } catch (_) {
+          if (mounted) {
+            setState(() => _timelineError = 'Chưa tải được lịch sử đơn hàng.');
+          }
+        }
+      }(),
+    ]);
+    if (!mounted) return;
+    setState(() => _loading = false);
+    if (_reloadAgain) {
+      _reloadAgain = false;
+      _reload();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _OrderDetailContent(
+    order: _order,
+    onReorder: widget.onReorder,
+    onCancel: widget.onCancel,
+    entries: _timeline,
+    loading: _loading,
+    detailError: _detailError,
+    timelineError: _timelineError,
+    reload: _reload,
+  );
+}
+
+class _OrderDetailContent extends StatelessWidget {
+  final OrderModel order;
+  final VoidCallback? onReorder, onCancel;
+  final List<OrderTimelineEntry> entries;
+  final bool loading;
+  final String? detailError, timelineError;
+  final VoidCallback reload;
+  const _OrderDetailContent({
+    required this.order,
+    this.onReorder,
+    this.onCancel,
+    required this.entries,
+    required this.loading,
+    this.detailError,
+    this.timelineError,
+    required this.reload,
+  });
   @override
   Widget build(BuildContext context) => DraggableScrollableSheet(
     expand: false,
@@ -82,10 +203,18 @@ class OrderDetailBottomSheet extends StatelessWidget {
                 ],
               ),
             ),
-            if (!order.isCancelled) ...[
-              const SizedBox(height: 16),
-              OrderTimeline(rawStatus: order.rawStatus),
-            ],
+            const SizedBox(height: 16),
+            if (loading) const LinearProgressIndicator(),
+            if (detailError != null) Text(detailError!, style: SampleA.caption),
+            if (timelineError != null)
+              Text(timelineError!, style: SampleA.caption),
+            TextButton.icon(
+              onPressed: loading ? null : reload,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Làm mới chi tiết'),
+            ),
+            if (entries.isNotEmpty || (!loading && timelineError == null))
+              OrderServerTimeline(entries: entries),
             if (order.apartment.isNotEmpty) ...[
               const SizedBox(height: 16),
               ACard(
@@ -151,7 +280,7 @@ class OrderDetailBottomSheet extends StatelessWidget {
               style: SampleA.caption,
             ),
             const SizedBox(height: 24),
-            if (order.isUnpaid && !order.isCancelled && !order.isCompleted) ...[
+            if (order.canPay) ...[
               AButton(
                 label: order.isPayos
                     ? 'Thanh toán'

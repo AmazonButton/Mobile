@@ -29,8 +29,8 @@ class OrderCardItem extends StatelessWidget {
       : cancelCountdown.clamp(0, 60);
   @override
   Widget build(BuildContext context) {
-    final past = order.isCompleted || order.isCancelled;
-    final canPay = order.isUnpaid && !past;
+    final past = order.isTerminal;
+    final canPay = order.canPay;
     final emergency = order.isPending && _seconds > 0;
     return ACard(
       child: Column(
@@ -86,10 +86,10 @@ class OrderCardItem extends StatelessWidget {
           const SizedBox(height: 8),
           if (past) ...[
             AButton(
-              label: order.isCancelled || onReorder == null
+              label: !order.isCompleted || onReorder == null
                   ? 'Xem chi tiết'
                   : 'Đặt lại',
-              onPressed: order.isCancelled || onReorder == null
+              onPressed: !order.isCompleted || onReorder == null
                   ? onDetailTap
                   : onReorder,
               kind: AButtonKind.secondary,
@@ -145,32 +145,19 @@ class OrderStatusBadge extends StatelessWidget {
   const OrderStatusBadge({super.key, required this.order});
   @override
   Widget build(BuildContext context) {
-    final (label, icon, color, background) = order.isCancelled
-        ? ('Đã hủy', LucideIcons.x, SampleA.danger, SampleA.dangerLight)
-        : order.isCompleted
-        ? (
-            'Đã giao',
-            LucideIcons.check,
-            SampleA.success,
-            const Color(0xFFECFDF5),
-          )
-        : order.isUnpaid && order.isPayos && order.isPending
-        ? (
-            'Chờ thanh toán',
-            LucideIcons.clock,
-            SampleA.warning,
-            SampleA.warningLight,
-          )
-        : order.isShipping
-        ? ('Đang giao', LucideIcons.truck, SampleA.primary, SampleA.pale)
-        : order.isPending
-        ? (
-            'Chờ xác nhận',
-            LucideIcons.clock,
-            SampleA.warning,
-            SampleA.warningLight,
-          )
-        : ('Đang xử lý', LucideIcons.package, SampleA.primary, SampleA.pale);
+    final awaitingPayment = order.isUnpaid && order.isPayos && order.isPending;
+    final label = awaitingPayment
+        ? 'Chờ thanh toán'
+        : OrderModel.lifecycleLabel(order.rawStatus);
+    final icon = switch (order.status) {
+      OrderStatus.danger => LucideIcons.x,
+      OrderStatus.success => LucideIcons.check,
+      OrderStatus.warning => LucideIcons.clock,
+      OrderStatus.info =>
+        order.isShipping ? LucideIcons.truck : LucideIcons.package,
+    };
+    final color = order.statusColor;
+    final background = order.statusBgColor;
     return AStatus(
       label: label,
       icon: icon,
@@ -221,18 +208,12 @@ class OrderTimeline extends StatelessWidget {
   const OrderTimeline({super.key, this.isShipping = false, this.rawStatus});
   @override
   Widget build(BuildContext context) {
-    final stage = switch (rawStatus) {
-      'DELIVERED' || 'COMPLETED' => 3,
-      'SHIPPING' => 2,
-      'CONFIRMED' || 'PROCESSING' => 1,
-      _ => isShipping ? 2 : 0,
-    };
-    final labels = [
-      'Đã đặt',
-      'Đã xác nhận',
-      'Đang giao hàng',
-      'Giao thành công',
-    ];
+    final status = rawStatus ?? (isShipping ? 'SHIPPING' : 'PENDING');
+    final stage = OrderModel.timelineStage(status);
+    final labels = OrderModel.timelineLabels;
+    if (stage < 0 || status == 'DELIVERY_FAILED') {
+      return Text(OrderModel.lifecycleLabel(status), style: SampleA.body);
+    }
     return Column(
       children: [
         for (var i = 0; i < labels.length; i++)

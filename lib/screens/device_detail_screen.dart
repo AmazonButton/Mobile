@@ -9,7 +9,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../providers/device_provider.dart';
 import '../widgets/modals/product_selection_sheet.dart';
-import '../widgets/modals/store_selection_sheet.dart';
+import 'store_selection_screen.dart';
 import '../widgets/modals/wifi_provisioning_sheet.dart';
 import '../widgets/modals/rename_device_dialog.dart';
 
@@ -32,18 +32,17 @@ class DeviceDetailScreen extends StatefulWidget {
     this.productPrice = '65.000đ',
     this.productImageUrl,
     this.battery = 85,
-    this.wifiSsid = 'Home_Network_5G',
+    this.wifiSsid = '',
   });
 
   @override
   State<DeviceDetailScreen> createState() => _DeviceDetailScreenState();
 }
 
-enum _DevicePage { overview, order, connection }
+enum _DevicePage { overview, connection }
 
 class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   late String _deviceName;
-  late String _room;
   late String _productName;
   late String _productPrice;
   late String _productImageUrl;
@@ -56,7 +55,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   void initState() {
     super.initState();
     _deviceName = widget.deviceName;
-    _room = widget.room;
     _productName = widget.productName;
     _productPrice = widget.productPrice;
     _productImageUrl = widget.productImageUrl ?? '';
@@ -128,7 +126,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       return;
     }
     final provider = context.read<DeviceProvider>();
-    final saved = await StoreSelectionSheet.show(
+    final saved = await StoreSelectionScreen.show(
       context: context,
       deviceId: deviceId,
       onSave: (storeId) => provider.updateDeviceStore(deviceId, storeId),
@@ -158,67 +156,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         });
         _showToast('Đã kết nối Wi-Fi thành công: $newSsid');
       },
-    );
-  }
-
-  void _handleDeleteDevice() {
-    HapticFeedback.mediumImpact();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
-        title: const Text(
-          'Xóa thiết bị',
-          style: TextStyle(
-            fontFamily: 'SampleA Vietnam',
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E293B),
-          ),
-        ),
-        content: Text(
-          'Bạn có chắc chắn muốn xóa "$_deviceName"? Thao tác này sẽ gỡ thiết bị khỏi tài khoản.',
-          style: const TextStyle(
-            fontFamily: 'SampleA Vietnam',
-            fontSize: 14,
-            color: Color(0xFF64748B),
-            height: 1.4,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Hủy',
-              style: TextStyle(
-                fontFamily: 'SampleA Vietnam',
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showToast(
-                'Chức năng xóa thiết bị hiện chưa khả dụng. Vui lòng liên hệ cửa hàng.',
-              );
-            },
-            child: Text(
-              'Xóa',
-              style: TextStyle(
-                fontFamily: 'SampleA Vietnam',
-                color: Colors.red.shade600,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -262,17 +199,17 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       widget.deviceId ?? '',
     );
     final name = device?.name ?? _deviceName;
-    final room = device?.room ?? _room;
     final product = device?.product ?? _productName;
     final price = device?.price ?? _productPrice;
     final battery = device?.battery ?? _battery;
     final store = device?.storeName ?? 'Chưa chọn cửa hàng';
-    final wifi = _wifiChanged ? _wifiSsid : device?.wifiSsid ?? _wifiSsid;
+    final wifi = (_wifiChanged ? _wifiSsid : device?.wifiSsid ?? _wifiSsid)
+        .trim();
+    final wifiLabel = wifi.isEmpty ? 'Chưa có thông tin Wi-Fi' : wifi;
     final offline = device?.isOffline ?? false;
     final title = switch (_page) {
       _DevicePage.overview => name,
-      _DevicePage.order => 'Thiết lập đặt hàng',
-      _DevicePage.connection => 'Kết nối & thiết bị',
+      _DevicePage.connection => 'Wi-Fi thiết bị',
     };
     return PopScope(
       canPop: _page == _DevicePage.overview,
@@ -333,50 +270,15 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: switch (_page) {
                     _DevicePage.overview => [
-                      ACard(
-                        color: SampleA.pale,
-                        border: false,
-                        child: Row(
-                          children: [
-                            AProductImage(
-                              product: product,
-                              imageUrl: device?.imageUrl ?? _productImageUrl,
-                              size: 64,
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    room,
-                                    style: SampleA.body.copyWith(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  AStatus(
-                                    label: offline
-                                        ? 'Mất kết nối'
-                                        : 'Đang kết nối',
-                                    icon: offline
-                                        ? LucideIcons.wifiOff
-                                        : LucideIcons.check,
-                                    color: offline
-                                        ? SampleA.danger
-                                        : SampleA.primary,
-                                    background: offline
-                                        ? SampleA.dangerLight
-                                        : Colors.white,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                      if (device?.orderRestriction != null) ...[
+                        ACard(
+                          child: Text(
+                            device!.orderRestriction!,
+                            style: SampleA.body,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
+                      ],
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final stats = [
@@ -386,9 +288,13 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                               'Pin thiết bị',
                             ),
                             _stat(
-                              LucideIcons.wifi,
-                              offline ? 'Ngoại tuyến' : 'Đã kết nối',
-                              wifi,
+                              offline ? LucideIcons.wifiOff : LucideIcons.wifi,
+                              wifiLabel,
+                              offline
+                                  ? 'Ngoại tuyến'
+                                  : wifi.isEmpty
+                                  ? 'Wi-Fi thiết bị'
+                                  : 'Đã kết nối',
                             ),
                           ];
                           return constraints.maxWidth < 300 ||
@@ -484,56 +390,17 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                       ),
                       const SizedBox(height: 16),
                       _SettingsRow(
-                        icon: LucideIcons.package,
-                        title: 'Thiết lập đặt hàng',
-                        onTap: () => _showPage(_DevicePage.order),
+                        icon: LucideIcons.store,
+                        title: 'Đổi cửa hàng',
+                        onTap: _handleChangeStore,
                       ),
                       _SettingsRow(
-                        icon: LucideIcons.settings,
-                        title: 'Kết nối & thiết bị',
+                        icon: offline ? LucideIcons.wifiOff : LucideIcons.wifi,
+                        title: 'Wi-Fi thiết bị',
+                        subtitle: offline
+                            ? 'Ngoại tuyến · $wifiLabel'
+                            : wifiLabel,
                         onTap: () => _showPage(_DevicePage.connection),
-                      ),
-                      const SizedBox(height: 14),
-                      AButton(
-                        key: const ValueKey('deleteDevice'),
-                        label: 'Xóa thiết bị',
-                        onPressed: _handleDeleteDevice,
-                        kind: AButtonKind.danger,
-                      ),
-                    ],
-                    _DevicePage.order => [
-                      const Text(
-                        'Đơn hàng của nút bấm',
-                        style: SampleA.section,
-                      ),
-                      const SizedBox(height: 16),
-                      ACard(
-                        padding: EdgeInsets.zero,
-                        child: Column(
-                          children: [
-                            _SettingsRow(
-                              icon: LucideIcons.store,
-                              title: 'Cửa hàng',
-                              subtitle: store,
-                              onTap: _handleChangeStore,
-                            ),
-                            const Divider(height: 1, color: SampleA.border),
-                            _SettingsRow(
-                              icon: LucideIcons.package,
-                              title: 'Sản phẩm',
-                              subtitle: [
-                                product,
-                                if (price.isNotEmpty) price,
-                              ].join(' · '),
-                              onTap: _handleChangeProduct,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      AButton(
-                        label: 'Xong',
-                        onPressed: () => _showPage(_DevicePage.overview),
                       ),
                     ],
                     _DevicePage.connection => [
@@ -545,9 +412,11 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                           children: [
                             _SettingsRow(
                               icon: LucideIcons.wifi,
-                              title: wifi.isEmpty ? 'Chưa kết nối Wi-Fi' : wifi,
-                              subtitle: offline || wifi.isEmpty
-                                  ? 'Chưa kết nối'
+                              title: wifiLabel,
+                              subtitle: offline
+                                  ? 'Ngoại tuyến'
+                                  : wifi.isEmpty
+                                  ? null
                                   : 'Đã kết nối',
                             ),
                             const Divider(height: 1, color: SampleA.border),

@@ -53,8 +53,9 @@ class MockAddressApiService implements AddressApiService {
           : 'addr-${mockAddresses.length + 1}',
     );
     if (created.isDefault) {
-      mockAddresses =
-          mockAddresses.map((a) => a.copyWith(isDefault: false)).toList();
+      mockAddresses = mockAddresses
+          .map((a) => a.copyWith(isDefault: false))
+          .toList();
     }
     mockAddresses.insert(0, created);
     return created;
@@ -65,8 +66,9 @@ class MockAddressApiService implements AddressApiService {
     final idx = mockAddresses.indexWhere((a) => a.id == address.id);
     if (idx != -1) {
       if (address.isDefault) {
-        mockAddresses =
-            mockAddresses.map((a) => a.copyWith(isDefault: false)).toList();
+        mockAddresses = mockAddresses
+            .map((a) => a.copyWith(isDefault: false))
+            .toList();
       }
       mockAddresses[idx] = address;
     }
@@ -97,12 +99,12 @@ class MockAuthApiServiceStub implements AuthApiService {
 
   @override
   Future<Map<String, dynamic>> getMe() async => {
-        'id': 'usr-1',
-        'fullName': 'Nguyễn Văn An',
-        'phone': '0988776655',
-        'email': 'customer@smartorder.local',
-        'address': 'P.1204 - Tòa S2.05, Vinhomes Grand Park',
-      };
+    'id': 'usr-1',
+    'fullName': 'Nguyễn Văn An',
+    'phone': '0988776655',
+    'email': 'customer@smartorder.local',
+    'address': 'P.1204 - Tòa S2.05, Vinhomes Grand Park',
+  };
 
   @override
   Future<Map<String, dynamic>> updateProfile({
@@ -110,8 +112,8 @@ class MockAuthApiServiceStub implements AuthApiService {
     String? phone,
     String? email,
     String? address,
-  }) async =>
-      {'success': true};
+    String? avatarUrl,
+  }) async => {'success': true};
 }
 
 void main() {
@@ -160,38 +162,44 @@ void main() {
       );
     });
 
-    test('loadAddresses() fetches addresses and sets default address in userProfile', () async {
-      expect(provider.addresses, isEmpty);
+    test(
+      'loadAddresses() fetches addresses and sets default address in userProfile',
+      () async {
+        expect(provider.addresses, isEmpty);
 
-      await provider.loadAddresses();
+        await provider.loadAddresses();
 
-      expect(provider.addresses.length, 2);
-      expect(provider.defaultAddress?.id, 'addr-1');
-      expect(provider.selectedAddress?.id, 'addr-1');
-      expect(userProfile.address, contains('P.1204 - Tòa S2.05'));
-    });
+        expect(provider.addresses.length, 2);
+        expect(provider.defaultAddress?.id, 'addr-1');
+        expect(provider.selectedAddress?.id, 'addr-1');
+        expect(userProfile.address, contains('P.1204 - Tòa S2.05'));
+      },
+    );
 
-    test('addAddress() creates address, prepends to list, and updates default if flagged', () async {
-      await provider.loadAddresses();
+    test(
+      'addAddress() creates address, prepends to list, and updates default if flagged',
+      () async {
+        await provider.loadAddresses();
 
-      const newAddr = AddressModel(
-        id: 'addr-3',
-        recipientName: 'Lê Văn Cường',
-        phone: '0911223344',
-        addressDetail: 'P.0405 - Tòa Masteri M1',
-        ward: 'Long Thạnh Mỹ',
-        district: 'Thủ Đức',
-        province: 'TP.HCM',
-        isDefault: true,
-        label: 'Căn hộ mới',
-      );
+        const newAddr = AddressModel(
+          id: 'addr-3',
+          recipientName: 'Lê Văn Cường',
+          phone: '0911223344',
+          addressDetail: 'P.0405 - Tòa Masteri M1',
+          ward: 'Long Thạnh Mỹ',
+          district: 'Thủ Đức',
+          province: 'TP.HCM',
+          isDefault: true,
+          label: 'Căn hộ mới',
+        );
 
-      final created = await provider.addAddress(newAddr);
-      expect(created, isNotNull);
-      expect(provider.addresses.length, 3);
-      expect(provider.defaultAddress?.id, 'addr-3');
-      expect(userProfile.address, contains('Masteri M1'));
-    });
+        final created = await provider.addAddress(newAddr);
+        expect(created, isNotNull);
+        expect(provider.addresses.length, 3);
+        expect(provider.defaultAddress?.id, 'addr-3');
+        expect(userProfile.address, contains('Masteri M1'));
+      },
+    );
 
     test('updateAddress() modifies target address in provider list', () async {
       await provider.loadAddresses();
@@ -209,23 +217,29 @@ void main() {
       expect(found.addressDetail, 'P.1504 - Tòa S2.05');
     });
 
-    test('setDefaultAddress() updates default flag and syncs with UserProfileService', () async {
-      await provider.loadAddresses();
+    test(
+      'setDefaultAddress() updates default flag and syncs with UserProfileService',
+      () async {
+        await provider.loadAddresses();
 
-      final ok = await provider.setDefaultAddress('addr-2');
-      expect(ok, isTrue);
-      expect(provider.defaultAddress?.id, 'addr-2');
-      expect(userProfile.address, contains('Landmark 81'));
-    });
+        final ok = await provider.setDefaultAddress('addr-2');
+        expect(ok, isTrue);
+        expect(provider.defaultAddress?.id, 'addr-2');
+        expect(userProfile.address, contains('Landmark 81'));
+      },
+    );
 
-    test('deleteAddress() removes item and gracefully picks remaining default', () async {
-      await provider.loadAddresses();
+    test(
+      'deleteAddress() removes item and gracefully picks remaining default',
+      () async {
+        await provider.loadAddresses();
 
-      final ok = await provider.deleteAddress('addr-1');
-      expect(ok, isTrue);
-      expect(provider.addresses.length, 1);
-      expect(provider.defaultAddress?.id, 'addr-2');
-    });
+        final ok = await provider.deleteAddress('addr-1');
+        expect(ok, isTrue);
+        expect(provider.addresses.length, 1);
+        expect(provider.defaultAddress?.id, 'addr-2');
+      },
+    );
   });
 
   group('Address UI Widget Tests', () {
@@ -248,41 +262,52 @@ void main() {
       );
     });
 
-    testWidgets('AddressListScreen renders address cards and handles selection', (tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'AddressListScreen renders address cards and handles selection',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1600);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      await addressProvider.loadAddresses();
+        await addressProvider.loadAddresses();
 
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider<AddressProvider>.value(value: addressProvider),
-            ChangeNotifierProvider<UserProvider>.value(value: userProvider),
-          ],
-          child: const MaterialApp(
-            home: AddressListScreen(),
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AddressProvider>.value(
+                value: addressProvider,
+              ),
+              ChangeNotifierProvider<UserProvider>.value(value: userProvider),
+            ],
+            child: const MaterialApp(home: AddressListScreen()),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      expect(find.text('Địa chỉ nhận hàng'), findsOneWidget);
-      expect(find.text('P.1204 - Tòa S2.05, Vinhomes Grand Park'), findsOneWidget);
-      expect(find.text('Mặc định'), findsOneWidget);
-      expect(find.text('Tòa Landmark 81, 720A Điện Biên Phủ'), findsOneWidget);
+        expect(find.text('Địa chỉ nhận hàng'), findsOneWidget);
+        expect(
+          find.text('P.1204 - Tòa S2.05, Vinhomes Grand Park'),
+          findsOneWidget,
+        );
+        expect(find.text('Mặc định'), findsOneWidget);
+        expect(
+          find.text('Tòa Landmark 81, 720A Điện Biên Phủ'),
+          findsOneWidget,
+        );
 
-      // Tap on edit button
-      expect(find.text('Sửa'), findsWidgets);
-      expect(find.text('Xóa'), findsWidgets);
-    });
+        // Tap on edit button
+        expect(find.text('Sửa'), findsWidgets);
+        expect(find.text('Xóa'), findsWidgets);
+      },
+    );
 
-    testWidgets('AddressFormSheet allows entering new address fields', (tester) async {
+    testWidgets('AddressFormSheet allows entering new address fields', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -295,14 +320,14 @@ void main() {
       await tester.pumpWidget(
         MultiProvider(
           providers: [
-            ChangeNotifierProvider<AddressProvider>.value(value: addressProvider),
+            ChangeNotifierProvider<AddressProvider>.value(
+              value: addressProvider,
+            ),
             ChangeNotifierProvider<UserProvider>.value(value: userProvider),
           ],
           child: MaterialApp(
             home: Scaffold(
-              body: AddressFormSheet(
-                onSaved: (addr) => savedResult = addr,
-              ),
+              body: AddressFormSheet(onSaved: (addr) => savedResult = addr),
             ),
           ),
         ),
@@ -330,41 +355,49 @@ void main() {
       expect(savedResult!.addressDetail, 'P.1002 - Tòa S3.01');
     });
 
-    testWidgets('ProfileScreen tapping Địa chỉ giao hàng opens AddressListScreen', (tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+    testWidgets(
+      'ProfileScreen tapping Địa chỉ giao hàng opens AddressListScreen',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1600);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      await userProvider.loadProfile();
-      await addressProvider.loadAddresses();
+        await userProvider.loadProfile();
+        await addressProvider.loadAddresses();
 
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider<AddressProvider>.value(value: addressProvider),
-            ChangeNotifierProvider<UserProvider>.value(value: userProvider),
-          ],
-          child: const MaterialApp(
-            home: ProfileScreen(showBackButton: false),
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AddressProvider>.value(
+                value: addressProvider,
+              ),
+              ChangeNotifierProvider<UserProvider>.value(value: userProvider),
+            ],
+            child: const MaterialApp(
+              home: ProfileScreen(showBackButton: false),
+            ),
           ),
-        ),
-      );
+        );
 
-      await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
 
-      // Find "Địa chỉ giao hàng" tile
-      expect(find.text('Địa chỉ giao hàng'), findsOneWidget);
+        // Find "Địa chỉ giao hàng" tile
+        expect(find.text('Địa chỉ giao hàng'), findsOneWidget);
 
-      // Tap on it
-      await tester.tap(find.text('Địa chỉ giao hàng'));
-      await tester.pumpAndSettle();
+        // Tap on it
+        await tester.tap(find.text('Địa chỉ giao hàng'));
+        await tester.pumpAndSettle();
 
-      // Should now be on AddressListScreen!
-      expect(find.text('Địa chỉ nhận hàng'), findsOneWidget);
-      expect(find.text('P.1204 - Tòa S2.05, Vinhomes Grand Park'), findsOneWidget);
-    });
+        // Should now be on AddressListScreen!
+        expect(find.text('Địa chỉ nhận hàng'), findsOneWidget);
+        expect(
+          find.text('P.1204 - Tòa S2.05, Vinhomes Grand Park'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }
