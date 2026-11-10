@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_order_button/models/device_model.dart';
+import 'package:smart_order_button/providers/address_provider.dart';
 import 'package:smart_order_button/providers/device_provider.dart';
 import 'package:smart_order_button/screens/device_detail_screen.dart';
 import 'package:smart_order_button/screens/devices_screen.dart';
@@ -57,8 +58,11 @@ void main() {
         initialDevices: [DeviceModel.fromJson(device)],
       );
       await tester.pumpWidget(
-        ChangeNotifierProvider.value(
-          value: provider,
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: provider),
+            ChangeNotifierProvider(create: (_) => AddressProvider()),
+          ],
           child: MaterialApp(home: entry.value),
         ),
       );
@@ -74,7 +78,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(DeviceDetailScreen), findsOneWidget);
       expect(find.text('Sản phẩm đã gán'), findsOneWidget);
-      expect(find.text('Kitchen_Wifi'), findsOneWidget);
+      expect(find.text('Kitchen_Wifi'), findsNWidgets(2));
       expect(find.byType(ProductSelectionSheet), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       provider.dispose();
