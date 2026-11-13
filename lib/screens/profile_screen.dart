@@ -3,6 +3,7 @@ import 'customer_bank_accounts_screen.dart';
 import 'customer_buttons_screen.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../widgets/smart_order_tour.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -18,7 +19,8 @@ import 'identity_verification_screen.dart';
 class ProfileScreen extends StatefulWidget {
   final bool showBackButton;
 
-  const ProfileScreen({super.key, this.showBackButton = true});
+  const ProfileScreen({super.key, this.showBackButton = true, this.tour});
+  final SmartOrderTour? tour;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -418,12 +420,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return _buildGroupCard([
       ActionTile(
         icon: LucideIcons.package,
+        key: widget.tour?.key(TourStep.deposit),
         title: 'Nút và tiền cọc',
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const CustomerButtonsScreen(),
-          ),
-        ),
+        onTap: () async {
+          final tour = widget.tour;
+          tour?.openDeposit();
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => CustomerButtonsScreen(tour: tour),
+            ),
+          );
+          tour?.depositClosed();
+        },
       ),
       const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
       ActionTile(
@@ -446,14 +454,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
       const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
       ActionTile(
         icon: LucideIcons.shieldCheck,
+        key: widget.tour?.key(TourStep.identity),
         title: 'Xác minh danh tính',
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const IdentityVerificationScreen(),
-          ),
-        ),
+        onTap: () async {
+          final tour = widget.tour;
+          tour?.openIdentity();
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => IdentityVerificationScreen(tour: tour),
+            ),
+          );
+          tour?.identityClosed();
+        },
       ),
       const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+      if (widget.tour != null)
+        ActionTile(
+          icon: LucideIcons.circleHelp,
+          title: 'Xem lại hướng dẫn',
+          onTap: widget.tour!.replay,
+        ),
       ActionTile(
         icon: LucideIcons.headphones,
         title: 'Trung tâm hỗ trợ',

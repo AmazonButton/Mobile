@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../widgets/smart_order_tour.dart';
 import '../widgets/resident_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/identity_verification.dart';
@@ -9,7 +10,13 @@ import '../services/api_client.dart';
 class IdentityVerificationScreen extends StatefulWidget {
   final IdentityVerificationService? service;
   final Future<bool> Function(Uri)? openUrl;
-  const IdentityVerificationScreen({super.key, this.service, this.openUrl});
+  const IdentityVerificationScreen({
+    super.key,
+    this.service,
+    this.openUrl,
+    this.tour,
+  });
+  final SmartOrderTour? tour;
   @override
   State<IdentityVerificationScreen> createState() =>
       _IdentityVerificationScreenState();
@@ -220,10 +227,24 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
     }
   }
 
+  Future<void> _guidedAction(Future<void> Function() action) async {
+    widget.tour?.setBusy(true);
+    try {
+      await action();
+    } finally {
+      widget.tour?.setBusy(false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    widget.tour?.trackRoute(context, TourStep.identityAction);
     final current = _current;
     final approved = _sessions.any((s) => s.approved);
+    final canContinue = !approved && current?.canContinue == true;
+    final canStart =
+        !approved && (current == null || current.terminal || current.expired);
+    final guideKey = widget.tour?.key(TourStep.identityAction);
     return ResidentScaffold(
       appBar: AppBar(title: const Text('Xác minh danh tính')),
       actions: [
@@ -233,26 +254,30 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
             child: const Text('Thử lại'),
           ),
         if (!_loading && _listReady) ...[
-          if (!approved && current?.canContinue == true)
+          if (canContinue)
             FilledButton(
-              onPressed: _busy ? null : _continue,
+              key: guideKey,
+              onPressed: _busy ? null : () => _guidedAction(_continue),
               child: const Text('Tiếp tục xác minh'),
             ),
-          if (!approved &&
-              (current == null || current.terminal || current.expired))
+          if (canStart)
             FilledButton(
-              onPressed: _busy ? null : _start,
+              key: canContinue ? null : guideKey,
+              onPressed: _busy ? null : () => _guidedAction(_start),
               child: Text(
                 current == null ? 'Bắt đầu xác minh' : 'Tạo phiên xác minh mới',
               ),
             ),
           OutlinedButton(
+            key: !canContinue && !canStart ? guideKey : null,
             onPressed: _busy
                 ? null
                 : () {
                     _pollUntil = DateTime.now().add(const Duration(minutes: 5));
-                    _refreshCurrent(
-                      decision: current != null && !current.terminal,
+                    _guidedAction(
+                      () => _refreshCurrent(
+                        decision: current != null && !current.terminal,
+                      ),
                     );
                   },
             child: const Text('Kiểm tra trạng thái'),

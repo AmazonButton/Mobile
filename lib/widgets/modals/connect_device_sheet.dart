@@ -1,19 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/device_provider.dart';
 import '../../services/devices_api_service.dart';
 import '../../services/api_client.dart';
 import '../sample_a.dart';
+import '../smart_order_tour.dart';
 
 class ConnectDeviceSheet extends StatefulWidget {
-  const ConnectDeviceSheet({super.key});
-  static Future<bool?> show(BuildContext context) => showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
-    builder: (_) => const ConnectDeviceSheet(),
-  );
+  const ConnectDeviceSheet({super.key, this.tour});
+  final SmartOrderTour? tour;
+
+  static Future<bool?> showAndRefresh(
+    BuildContext context, {
+    SmartOrderTour? tour,
+  }) async {
+    final provider = context.read<DeviceProvider?>();
+    final saved = await show(context, tour: tour);
+    if (saved == true && context.mounted) {
+      await provider?.refreshDevices();
+    }
+    return saved;
+  }
+
+  static Future<bool?> show(BuildContext context, {SmartOrderTour? tour}) =>
+      showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        builder: (_) => ConnectDeviceSheet(tour: tour),
+      );
   @override
   State<ConnectDeviceSheet> createState() => _ConnectDeviceSheetState();
 }
@@ -35,6 +53,7 @@ class _ConnectDeviceSheetState extends State<ConnectDeviceSheet> {
       setState(() => _error = 'Nhập mã kết nối trên thiết bị.');
       return;
     }
+    widget.tour?.setBusy(true);
     setState(() {
       _busy = true;
       _error = null;
@@ -53,6 +72,7 @@ class _ConnectDeviceSheetState extends State<ConnectDeviceSheet> {
       await DevicesApiService().getDeviceModelById(id);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
+      widget.tour?.setBusy(false);
       if (mounted) {
         setState(() {
           _busy = false;
@@ -86,7 +106,9 @@ class _ConnectDeviceSheetState extends State<ConnectDeviceSheet> {
             const Text('Kết nối thiết bị', style: SampleA.title),
             const SizedBox(height: 16),
             TextField(
+              key: widget.tour?.key(TourStep.code),
               controller: _code,
+              onChanged: (value) => widget.tour?.codeChanged(value),
               enabled: !_busy,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _connect(),
@@ -100,7 +122,12 @@ class _ConnectDeviceSheetState extends State<ConnectDeviceSheet> {
               ),
             ),
             const SizedBox(height: 24),
-            AButton(label: 'Kết nối', onPressed: _connect, busy: _busy),
+            AButton(
+              key: widget.tour?.key(TourStep.connect),
+              label: 'Kết nối',
+              onPressed: _connect,
+              busy: _busy,
+            ),
           ],
         ),
       ),

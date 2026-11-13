@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+
 import '../models/device_model.dart';
 import '../providers/device_provider.dart';
 import '../widgets/sample_a.dart';
@@ -8,15 +9,18 @@ import '../widgets/devices/device_card.dart';
 import '../widgets/devices/device_order_sheet.dart';
 import '../widgets/modals/connect_device_sheet.dart';
 import 'device_detail_screen.dart';
+import '../widgets/smart_order_tour.dart';
 
 class DevicesScreen extends StatefulWidget {
-  const DevicesScreen({super.key});
+  const DevicesScreen({super.key, this.tour});
+  final SmartOrderTour? tour;
   @override
   State<DevicesScreen> createState() => _DevicesScreenState();
 }
 
 class _DevicesScreenState extends State<DevicesScreen> {
   int _filter = 0;
+  bool _connectOpen = false;
   @override
   void initState() {
     super.initState();
@@ -41,9 +45,19 @@ class _DevicesScreenState extends State<DevicesScreen> {
     ),
   );
   Future<void> _connect() async {
-    final provider = context.read<DeviceProvider?>();
-    final saved = await ConnectDeviceSheet.show(context);
-    if (saved == true && mounted) await provider?.refreshDevices();
+    if (_connectOpen) return;
+    _connectOpen = true;
+    final tour = widget.tour;
+    tour?.openConnect();
+    try {
+      final result = await ConnectDeviceSheet.showAndRefresh(
+        context,
+        tour: tour,
+      );
+      tour?.connectClosed(result == true);
+    } finally {
+      _connectOpen = false;
+    }
   }
 
   @override
@@ -80,6 +94,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 children: [
                   const Expanded(child: Text('Thiết bị', style: SampleA.title)),
                   AIconButton(
+                    key: widget.tour?.key(TourStep.add),
                     icon: LucideIcons.plus,
                     tooltip: 'Thêm thiết bị',
                     onPressed: _connect,

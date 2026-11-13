@@ -9,6 +9,7 @@ class UserProvider extends ChangeNotifier {
   final AuthApiService _authService;
   final UserProfileService _localProfile;
   final MediaApiService _media;
+  String? accountId;
   bool _savingAvatar = false;
   int _avatarRevision = 0;
   int _sessionRevision = 0;
@@ -47,6 +48,7 @@ class UserProvider extends ChangeNotifier {
     try {
       final me = await _authService.getMe();
       if (session != _sessionRevision) return;
+      accountId = (me['id'] ?? me['userId'])?.toString();
       if (avatarRevision == _avatarRevision) {
         _localProfile.updateAvatarUrl(me['avatarUrl']?.toString());
       }
@@ -188,6 +190,7 @@ class UserProvider extends ChangeNotifier {
   /// Xóa sạch thông tin tài khoản khi logout
   void reset() {
     _sessionRevision++;
+    accountId = null;
     _avatarRevision++;
     _localProfile.reset();
     _errorMessage = null;
