@@ -1,3 +1,4 @@
+import '../widgets/smart_order_tour.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../widgets/resident_ui.dart';
@@ -13,7 +14,8 @@ String _bankError(Object error) => error is ApiException
 
 class CustomerBankAccountsScreen extends StatefulWidget {
   final CustomerBankApiService? service;
-  const CustomerBankAccountsScreen({super.key, this.service});
+  const CustomerBankAccountsScreen({super.key, this.service, this.tour});
+  final SmartOrderTour? tour;
   @override
   State<CustomerBankAccountsScreen> createState() =>
       _CustomerBankAccountsScreenState();
@@ -69,118 +71,183 @@ class _CustomerBankAccountsScreenState
   }
 
   @override
-  Widget build(BuildContext context) => ResidentScaffold(
-    appBar: AppBar(
-      title: const Text('Tài khoản hoàn cọc'),
-      actions: [
-        IconButton(
-          tooltip: 'Lịch sử xác minh',
-          icon: const Icon(Icons.history),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (_) => _BankHistoryScreen(api: _api),
+  Widget build(BuildContext context) {
+    widget.tour?.trackRoute(context, TourStep.bankInfo);
+    return ResidentScaffold(
+      appBar: AppBar(
+        title: const Text('Tài khoản hoàn cọc'),
+        actions: [
+          IconButton(
+            tooltip: 'Lịch sử xác minh',
+            icon: const Icon(Icons.history),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => _BankHistoryScreen(api: _api),
+              ),
             ),
           ),
+        ],
+      ),
+      actions: [
+        FilledButton.icon(
+          onPressed: _add,
+          icon: const Icon(Icons.add),
+          label: const Text('Thêm tài khoản'),
         ),
       ],
-    ),
-    actions: [
-      FilledButton.icon(
-        onPressed: _add,
-        icon: const Icon(Icons.add),
-        label: const Text('Thêm tài khoản'),
-      ),
-    ],
-    body: FutureBuilder<List<CustomerBankAccount>>(
-      future: _accounts,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+      body: FutureBuilder<List<CustomerBankAccount>>(
+        future: _accounts,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_bankError(snapshot.error!)),
+                  TextButton(onPressed: _reload, child: const Text('Thử lại')),
+                ],
+              ),
+            );
+          }
+          final accounts = snapshot.data ?? [];
+          return RefreshIndicator(
+            onRefresh: _reload,
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                Text(_bankError(snapshot.error!)),
-                TextButton(onPressed: _reload, child: const Text('Thử lại')),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Text(
+                    'Nhận lại tiền cọc khi hoàn tất thủ tục trả nút.',
+                    key: widget.tour?.key(TourStep.bankInfo),
+                    style: const TextStyle(fontSize: 16, color: residentMuted),
+                  ),
+                ),
+                if (accounts.isEmpty)
+                  const ResidentPanel(
+                    child: Text('Bạn chưa đăng ký tài khoản nhận hoàn cọc.'),
+                  ),
+                for (final account in accounts)
+                  ResidentPanel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const ResidentIcon(
+                            Icons.account_balance_outlined,
+                          ),
+                          title: Text(
+                            account.bankName,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(account.maskedNumber),
+                              Text(account.accountName),
+                            ],
+                          ),
+                        ),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            if (account.isDefault)
+                              const ResidentBadge('Tài khoản mặc định'),
+                            ResidentBadge(
+                              account.isVerified
+                                  ? 'Đã xác minh chính chủ'
+                                  : 'Chưa xác minh chính chủ',
+                              success: account.isVerified,
+                              waiting: !account.isVerified,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (!account.isVerified)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE6F0FF),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Text(
+                                  'Xác minh tài khoản ngân hàng',
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                const Wrap(
+                                  alignment: WrapAlignment.spaceBetween,
+                                  spacing: 12,
+                                  runSpacing: 6,
+                                  children: [
+                                    Text('Số tiền xác minh'),
+                                    Text(
+                                      '2.000đ',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Hoàn tất bước xác minh để kiểm tra tài khoản nhận hoàn cọc.',
+                                ),
+                                const SizedBox(height: 12),
+                                OutlinedButton(
+                                  onPressed: () => _verify(account),
+                                  child: const Text('Xác minh tài khoản'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (account.isVerified)
+                          TextButton(
+                            onPressed: () => _verify(account),
+                            child: Text(
+                              account.isVerified
+                                  ? 'Xem trạng thái xác minh'
+                                  : 'Xác minh tài khoản',
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ResidentPanel(
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.history),
+                    title: const Text('Lịch sử xác minh'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => _BankHistoryScreen(api: _api),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           );
-        }
-        final accounts = snapshot.data ?? [];
-        return RefreshIndicator(
-          onRefresh: _reload,
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: [
-              const ResidentHero(
-                icon: Icons.account_balance_outlined,
-                eyebrow: 'Hoàn cọc',
-                title: 'Nhận tiền về ngân hàng',
-                description:
-                    'Dùng tài khoản đã xác minh để nhận hoàn cọc khi trả nút.',
-              ),
-              if (accounts.isEmpty)
-                const ResidentPanel(
-                  child: Text('Bạn chưa đăng ký tài khoản nhận hoàn cọc.'),
-                ),
-              for (final account in accounts)
-                ResidentPanel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const ResidentIcon(
-                          Icons.account_balance_outlined,
-                        ),
-                        title: Text(
-                          account.bankName,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(account.maskedNumber),
-                            Text(account.accountName),
-                          ],
-                        ),
-                      ),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          if (account.isDefault)
-                            const ResidentBadge('Tài khoản mặc định'),
-                          ResidentBadge(
-                            account.isVerified
-                                ? 'Đã xác minh chính chủ'
-                                : 'Chưa xác minh chính chủ',
-                            success: account.isVerified,
-                            waiting: !account.isVerified,
-                          ),
-                        ],
-                      ),
-                      TextButton(
-                        onPressed: () => _verify(account),
-                        child: Text(
-                          account.isVerified
-                              ? 'Xem trạng thái xác minh'
-                              : 'Xác minh tài khoản',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    ),
-  );
+        },
+      ),
+    );
+  }
 }
 
 class _AddBankAccountSheet extends StatefulWidget {

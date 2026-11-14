@@ -1,3 +1,4 @@
+import '../../../widgets/sample_a.dart';
 import 'package:flutter/material.dart';
 
 /// Toast nổi động hiển thị dưới đáy màn hình với animation mượt mà
@@ -40,7 +41,7 @@ class HomeFloatingToast extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0F172A).withValues(alpha: 0.28),
+                    color: SampleA.ink.withValues(alpha: 0.28),
                     blurRadius: 18,
                     offset: const Offset(0, 6),
                   ),
@@ -56,7 +57,11 @@ class HomeFloatingToast extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: const Center(
-                      child: Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF10B981)),
+                      child: Icon(
+                        Icons.check_circle_rounded,
+                        size: 16,
+                        color: Color(0xFF10B981),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -77,9 +82,14 @@ class HomeFloatingToast extends StatelessWidget {
                     GestureDetector(
                       onTap: onUndo,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF60A5FA).withValues(alpha: 0.15),
+                          color: const Color(
+                            0xFF60A5FA,
+                          ).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(

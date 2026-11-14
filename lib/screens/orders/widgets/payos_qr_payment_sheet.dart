@@ -1,3 +1,4 @@
+import '../../../widgets/sample_a.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -160,7 +161,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
               child: Text(
                 'Đã sao chép $label: $value',
                 style: const TextStyle(
-                  fontFamily: 'SampleA Vietnam',
+                  fontFamily: SampleA.fontFamily,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
@@ -268,104 +269,68 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Handle Indicator
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+    return ASheetScroll(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Top Handle Indicator
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: SampleA.border,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
+          ),
 
-            // Header Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        LucideIcons.qrCode,
-                        color: Color(0xFF2563EB),
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Thanh toán PayOS',
-                          style: TextStyle(
-                            fontFamily: 'SampleA Vietnam',
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                        Text(
-                          'Đơn hàng: ${widget.order.orderCode}',
-                          style: const TextStyle(
-                            fontFamily: 'SampleA Vietnam',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(
-                    LucideIcons.x,
-                    color: Color(0xFF94A3B8),
-                    size: 20,
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Quay lại',
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back),
+              ),
+              const Expanded(
+                child: Text(
+                  'Thanh toán đơn hàng',
+                  style: TextStyle(
+                    fontFamily: SampleA.fontFamily,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
                   ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Divider(height: 1, color: Color(0xFFE2E8F0)),
-            const SizedBox(height: 16),
-
-            // Content Body
-            Flexible(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: _isSuccess
-                    ? _buildSuccessView()
-                    : _isLoading
-                    ? _buildLoadingView()
-                    : _errorMessage != null
-                    ? _buildErrorView()
-                    : _buildPaymentDetailsView(),
               ),
-            ),
-          ],
-        ),
+              const Text(
+                'PayOS',
+                style: TextStyle(
+                  color: SampleA.primary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            widget.order.orderCode,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: SampleA.border),
+          const SizedBox(height: 16),
+
+          // Content Body
+          _isSuccess
+              ? _buildSuccessView()
+              : _isLoading
+              ? _buildLoadingView()
+              : _errorMessage != null
+              ? _buildErrorView()
+              : _buildPaymentDetailsView(),
+        ],
       ),
     );
   }
@@ -381,14 +346,14 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
               height: 38,
               child: CircularProgressIndicator(
                 strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                valueColor: AlwaysStoppedAnimation<Color>(SampleA.primary),
               ),
             ),
             SizedBox(height: 18),
             Text(
               'Đang tạo mã VietQR từ PayOS...',
               style: TextStyle(
-                fontFamily: 'SampleA Vietnam',
+                fontFamily: SampleA.fontFamily,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: Color(0xFF64748B),
@@ -422,7 +387,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
             const Text(
               'Không thể tạo mã thanh toán',
               style: TextStyle(
-                fontFamily: 'SampleA Vietnam',
+                fontFamily: SampleA.fontFamily,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF1E293B),
@@ -435,7 +400,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                 _errorMessage ?? 'Đã có lỗi xảy ra khi kết nối với cổng PayOS.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontFamily: 'SampleA Vietnam',
+                  fontFamily: SampleA.fontFamily,
                   fontSize: 13,
                   color: Color(0xFF64748B),
                 ),
@@ -451,7 +416,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB),
+                  color: SampleA.primary,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Row(
@@ -462,7 +427,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                     Text(
                       'Thử lại',
                       style: TextStyle(
-                        fontFamily: 'SampleA Vietnam',
+                        fontFamily: SampleA.fontFamily,
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -500,7 +465,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
             const Text(
               'Thanh toán thành công!',
               style: TextStyle(
-                fontFamily: 'SampleA Vietnam',
+                fontFamily: SampleA.fontFamily,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF059669),
@@ -511,7 +476,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
               'Đơn hàng của bạn đã được ghi nhận thanh toán.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: 'SampleA Vietnam',
+                fontFamily: SampleA.fontFamily,
                 fontSize: 13,
                 color: Color(0xFF64748B),
               ),
@@ -529,6 +494,33 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          margin: const EdgeInsets.only(bottom: 20),
+          decoration: BoxDecoration(
+            color: SampleA.pale,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              const Text(
+                'Số tiền thanh toán',
+                style: TextStyle(color: Color(0xFF475569)),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                OrderModel.formatCurrency(data.amount),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 32,
+                  color: SampleA.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
         // VietQR Container Card
         Container(
           width: double.infinity,
@@ -536,7 +528,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+            border: Border.all(color: SampleA.border, width: 1.2),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.03),
@@ -563,7 +555,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                     child: const Text(
                       'VietQR',
                       style: TextStyle(
-                        fontFamily: 'SampleA Vietnam',
+                        fontFamily: SampleA.fontFamily,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF0054A6),
@@ -584,7 +576,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                     child: const Text(
                       'NAPAS 247',
                       style: TextStyle(
-                        fontFamily: 'SampleA Vietnam',
+                        fontFamily: SampleA.fontFamily,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFFE11922),
@@ -619,7 +611,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                           'Không thể tải ảnh QR\nVui lòng chuyển khoản theo thông tin bên dưới',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontFamily: 'SampleA Vietnam',
+                            fontFamily: SampleA.fontFamily,
                             fontSize: 11,
                             color: Color(0xFF64748B),
                           ),
@@ -634,7 +626,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                 'Quét mã bằng bất kỳ App Ngân hàng nào để thanh toán',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'SampleA Vietnam',
+                  fontFamily: SampleA.fontFamily,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF64748B),
@@ -652,10 +644,18 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            border: Border.all(color: SampleA.border),
           ),
           child: Column(
             children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Thông tin chuyển khoản',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(height: 12),
               // Số tiền
               _buildInfoRow(
                 label: 'Số tiền thanh toán',
@@ -664,7 +664,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                 onCopy: () =>
                     _copyToClipboard('số tiền', data.amount.toInt().toString()),
               ),
-              const Divider(height: 18, color: Color(0xFFE2E8F0)),
+              const Divider(height: 18, color: SampleA.border),
 
               // Tên ngân hàng nếu có
               if (data.bankName != null && data.bankName!.isNotEmpty) ...[
@@ -672,7 +672,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                   label: 'Ngân hàng thụ hưởng',
                   value: data.bankName!,
                 ),
-                const Divider(height: 18, color: Color(0xFFE2E8F0)),
+                const Divider(height: 18, color: SampleA.border),
               ],
 
               // Số tài khoản
@@ -684,7 +684,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                   onCopy: () =>
                       _copyToClipboard('số tài khoản', data.accountNumber!),
                 ),
-                const Divider(height: 18, color: Color(0xFFE2E8F0)),
+                const Divider(height: 18, color: SampleA.border),
               ],
 
               // Tên chủ tài khoản
@@ -693,7 +693,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                   label: 'Người thụ hưởng',
                   value: data.accountName!,
                 ),
-                const Divider(height: 18, color: Color(0xFFE2E8F0)),
+                const Divider(height: 18, color: SampleA.border),
               ],
 
               // Nội dung chuyển khoản (CRITICAL)
@@ -708,6 +708,23 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
         ),
         const SizedBox(height: 12),
 
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF4DE),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Text(
+            'Đang chờ thanh toán',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF92400E),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         // Important Note Box
         Container(
           width: double.infinity,
@@ -724,9 +741,9 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Vui lòng nhập chính xác nội dung chuyển khoản để hệ thống tự động xác nhận đơn hàng sau 1-3 giây.',
+                  'Vui lòng giữ nguyên số tiền và nội dung chuyển khoản. Trạng thái sẽ cập nhật khi hệ thống xác nhận.',
                   style: TextStyle(
-                    fontFamily: 'SampleA Vietnam',
+                    fontFamily: SampleA.fontFamily,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF92400E),
@@ -748,11 +765,11 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF2563EB),
+                color: SampleA.primary,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+                    color: SampleA.primary.withValues(alpha: 0.25),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -766,7 +783,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                   Text(
                     'Mở cổng thanh toán PayOS',
                     style: TextStyle(
-                      fontFamily: 'SampleA Vietnam',
+                      fontFamily: SampleA.fontFamily,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -790,7 +807,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
               decoration: BoxDecoration(
                 color: const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: SampleA.border),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -801,7 +818,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                       height: 14,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Color(0xFF2563EB),
+                        color: SampleA.primary,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -809,7 +826,7 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                     const Icon(
                       LucideIcons.refreshCw,
                       size: 15,
-                      color: Color(0xFF2563EB),
+                      color: SampleA.primary,
                     ),
                     const SizedBox(width: 8),
                   ],
@@ -818,10 +835,10 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
                         ? 'Đang kiểm tra giao dịch...'
                         : 'Tôi đã chuyển khoản xong',
                     style: const TextStyle(
-                      fontFamily: 'SampleA Vietnam',
+                      fontFamily: SampleA.fontFamily,
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF2563EB),
+                      color: SampleA.primary,
                     ),
                   ),
                 ],
@@ -843,9 +860,9 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
               ),
             ),
             child: const Text(
-              'Thanh toán sau (COD)',
+              'Quay lại đơn hàng',
               style: TextStyle(
-                fontFamily: 'SampleA Vietnam',
+                fontFamily: SampleA.fontFamily,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: Color(0xFF64748B),
@@ -864,58 +881,11 @@ class _PayosQrPaymentSheetState extends State<PayosQrPaymentSheet> {
     bool isContent = false,
     VoidCallback? onCopy,
   }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'SampleA Vietnam',
-            fontSize: 13,
-            color: Color(0xFF64748B),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontFamily: 'SampleA Vietnam',
-                fontSize: isHighlight ? 15 : 13,
-                fontWeight: isHighlight || isContent
-                    ? FontWeight.bold
-                    : FontWeight.w600,
-                color: isHighlight
-                    ? const Color(0xFF2563EB)
-                    : (isContent
-                          ? const Color(0xFFD97706)
-                          : const Color(0xFF1E293B)),
-              ),
-            ),
-            if (onCopy != null) ...[
-              const SizedBox(width: 6),
-              GestureDetector(
-                onTap: onCopy,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Icon(
-                    LucideIcons.copy,
-                    size: 13,
-                    color: Color(0xFF475569),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ],
+    return AInfoRow(
+      label: label,
+      value: value,
+      onCopy: onCopy,
+      highlight: isHighlight,
     );
   }
 }

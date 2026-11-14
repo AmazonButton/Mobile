@@ -24,11 +24,19 @@ class SignupTopStepper extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
-              icon: const Icon(LucideIcons.arrowLeft, color: SignupTheme.figmaDark, size: 22),
+              icon: const Icon(
+                LucideIcons.arrowLeft,
+                color: SignupTheme.figmaDark,
+                size: 22,
+              ),
               onPressed: onBack,
             ),
             IconButton(
-              icon: const Icon(LucideIcons.helpCircle, color: SignupTheme.figmaMuted, size: 22),
+              icon: const Icon(
+                LucideIcons.helpCircle,
+                color: SignupTheme.figmaMuted,
+                size: 22,
+              ),
               onPressed: onHelp,
             ),
           ],
@@ -43,7 +51,11 @@ class SignupTopStepper extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                icon: const Icon(LucideIcons.arrowLeft, color: SignupTheme.figmaDark, size: 22),
+                icon: const Icon(
+                  LucideIcons.arrowLeft,
+                  color: SignupTheme.figmaDark,
+                  size: 22,
+                ),
                 onPressed: onBack,
               ),
               const SizedBox(width: 4),
@@ -57,7 +69,9 @@ class SignupTopStepper extends StatelessWidget {
                         height: 5,
                         margin: const EdgeInsets.symmetric(horizontal: 2.5),
                         decoration: BoxDecoration(
-                          color: isFilled ? SignupTheme.figmaBlue : SignupTheme.figmaBorder,
+                          color: isFilled
+                              ? SignupTheme.figmaBlue
+                              : SignupTheme.figmaBorder,
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
@@ -67,7 +81,11 @@ class SignupTopStepper extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               IconButton(
-                icon: const Icon(LucideIcons.helpCircle, color: SignupTheme.figmaMuted, size: 22),
+                icon: const Icon(
+                  LucideIcons.helpCircle,
+                  color: SignupTheme.figmaMuted,
+                  size: 22,
+                ),
                 onPressed: onHelp,
               ),
             ],

@@ -149,7 +149,7 @@ void main() {
       await tester.tap(find.byTooltip('Làm mới'));
       await tester.pumpAndSettle();
       expect(find.textContaining('100.000'), findsOneWidget);
-      await tester.tap(find.text('Trả nút'));
+      await tester.tap(find.text('Yêu cầu trả nút'));
       await tester.pumpAndSettle();
       expect(returnRequests, 0);
       expect(find.textContaining('Tiền cọc chỉ được hoàn sau'), findsOneWidget);
@@ -188,7 +188,7 @@ void main() {
     );
     await tester.pumpWidget(const MaterialApp(home: CustomerButtonsScreen()));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Trả nút'));
+    await tester.tap(find.text('Yêu cầu trả nút'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Gửi yêu cầu'));
     await tester.pumpAndSettle();

@@ -178,7 +178,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         content: Text(
           message,
           style: const TextStyle(
-            fontFamily: 'SampleA Vietnam',
+            fontFamily: SampleA.fontFamily,
             color: Colors.white,
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -260,9 +260,10 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         ),
         body: SafeArea(
           top: false,
-          child: Center(
+          child: Align(
+            alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
+              constraints: const BoxConstraints(maxWidth: SampleA.detailWidth),
               child: SingleChildScrollView(
                 key: ValueKey(_page),
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),

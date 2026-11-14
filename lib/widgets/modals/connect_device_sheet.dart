@@ -89,47 +89,39 @@ class _ConnectDeviceSheetState extends State<ConnectDeviceSheet> {
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy,
-    child: SafeArea(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          24,
-          24,
-          24 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Center(child: ABuddy()),
-            const SizedBox(height: 16),
-            const Text('Kết nối thiết bị', style: SampleA.title),
-            const SizedBox(height: 16),
-            TextField(
-              key: widget.tour?.key(TourStep.code),
-              controller: _code,
-              onChanged: (value) => widget.tour?.codeChanged(value),
-              enabled: !_busy,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _connect(),
-              decoration: InputDecoration(
-                labelText: 'Mã kết nối / mã QR',
-                errorText: _error,
-                errorMaxLines: 3,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+    child: ASheetScroll(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Center(child: ABuddy()),
+          const SizedBox(height: 16),
+          const Text('Kết nối thiết bị', style: SampleA.title),
+          const SizedBox(height: 16),
+          TextField(
+            key: widget.tour?.key(TourStep.code),
+            controller: _code,
+            onChanged: (value) => widget.tour?.codeChanged(value),
+            enabled: !_busy,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _connect(),
+            decoration: InputDecoration(
+              labelText: 'Mã kết nối / mã QR',
+              errorText: _error,
+              errorMaxLines: 3,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
             ),
-            const SizedBox(height: 24),
-            AButton(
-              key: widget.tour?.key(TourStep.connect),
-              label: 'Kết nối',
-              onPressed: _connect,
-              busy: _busy,
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 24),
+          AButton(
+            key: widget.tour?.key(TourStep.connect),
+            label: 'Kết nối',
+            onPressed: _connect,
+            busy: _busy,
+          ),
+        ],
       ),
     ),
   );

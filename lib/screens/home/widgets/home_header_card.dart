@@ -1,4 +1,4 @@
-import '../../../widgets/user_avatar.dart';
+import '../../../widgets/sample_a.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,140 +30,93 @@ class HomeHeaderCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                GestureDetector(
-                  onTap: onAccountTap,
-                  child: UserAvatar(
-                    initials: userInitials,
-                    file: userAvatar,
-                    url: userAvatarUrl,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Chào buổi sáng,',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      userShortName,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            // Minimalist Notification bell icon button with red badge dot
-            GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                onNotificationTap?.call();
-              },
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: onLocationTap,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
                   children: [
                     const Icon(
-                      LucideIcons.bell,
-                      size: 18,
-                      color: Color(0xFF475569),
+                      LucideIcons.mapPin,
+                      color: SampleA.primary,
+                      size: 28,
                     ),
-                    if (unreadNotificationCount > 0)
-                      Positioned(
-                        top: 9,
-                        right: 9,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1.5),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Giao đến',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF475569),
+                            ),
                           ),
-                        ),
+                          Text(
+                            userAddress.trim().isEmpty
+                                ? 'Chọn địa chỉ giao hàng'
+                                : userAddress,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    const Icon(LucideIcons.chevronRight, size: 18),
                   ],
                 ),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 14),
-
-        // Location Selector Pill
-        GestureDetector(
-          onTap: onLocationTap,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  LucideIcons.mapPin,
-                  size: 15,
-                  color: Color(0xFF64748B),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    userAddress.trim().isNotEmpty
-                        ? userAddress
-                        : 'Chọn địa chỉ giao hàng',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: userAddress.trim().isNotEmpty
-                          ? FontWeight.w500
-                          : FontWeight.normal,
-                      color: userAddress.trim().isNotEmpty
-                          ? const Color(0xFF334155)
-                          : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  LucideIcons.chevronDown,
-                  size: 16,
-                  color: Color(0xFF64748B),
-                ),
-              ],
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Thông báo',
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              onNotificationTap?.call();
+            },
+            icon: Badge(
+              isLabelVisible: unreadNotificationCount > 0,
+              backgroundColor: SampleA.primary,
+              child: const Icon(LucideIcons.bell, size: 25),
             ),
           ),
+        ],
+      ),
+      const Divider(height: 20, color: Color(0xFFE8EDF5)),
+      InkWell(
+        onTap: onAccountTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text(
+            'Chào ${userShortName.trim().isEmpty ? 'bạn' : userShortName} 👋',
+            style: const TextStyle(fontSize: 15),
+          ),
         ),
-      ],
-    );
-  }
+      ),
+      const Text(
+        'Hôm nay nhà mình cần gì?',
+        style: TextStyle(
+          fontSize: 25,
+          height: 1.25,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -.6,
+          color: SampleA.ink,
+        ),
+      ),
+    ],
+  );
 }

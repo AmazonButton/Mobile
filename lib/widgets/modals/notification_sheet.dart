@@ -1,3 +1,4 @@
+import '../sample_a.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -58,7 +59,7 @@ class NotificationSheet extends StatelessWidget {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE2E8F0),
+                      color: SampleA.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -73,14 +74,14 @@ class NotificationSheet extends StatelessWidget {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: SampleA.pale,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: const Color(0xFFDBEAFE)),
                         ),
                         child: const Icon(
                           LucideIcons.bell,
                           size: 20,
-                          color: Color(0xFF2563EB),
+                          color: SampleA.primary,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -95,14 +96,17 @@ class NotificationSheet extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A),
+                                    color: SampleA.ink,
                                     letterSpacing: -0.3,
                                   ),
                                 ),
                                 if (unreadCount > 0) ...[
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFEF4444),
                                       borderRadius: BorderRadius.circular(10),
@@ -139,7 +143,10 @@ class NotificationSheet extends StatelessWidget {
                             notifProvider.markAllAsRead();
                           },
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -148,12 +155,16 @@ class NotificationSheet extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF2563EB),
+                              color: SampleA.primary,
                             ),
                           ),
                         ),
                       IconButton(
-                        icon: const Icon(LucideIcons.x, size: 20, color: Color(0xFF94A3B8)),
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 20,
+                          color: Color(0xFF94A3B8),
+                        ),
                         onPressed: () => Navigator.of(context).pop(),
                         splashRadius: 20,
                       ),
@@ -161,12 +172,19 @@ class NotificationSheet extends StatelessWidget {
                   ),
                 ),
 
-                const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFF1F5F9),
+                ),
 
                 // Sub-toolbar for clearing notifications
                 if (notifications.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -204,7 +222,8 @@ class NotificationSheet extends StatelessWidget {
                           shrinkWrap: true,
                           padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                           itemCount: notifications.length,
-                          separatorBuilder: (ctx, index) => const SizedBox(height: 10),
+                          separatorBuilder: (ctx, index) =>
+                              const SizedBox(height: 10),
                           itemBuilder: (ctx, index) {
                             final item = notifications[index];
                             return _buildNotificationCard(
@@ -213,7 +232,8 @@ class NotificationSheet extends StatelessWidget {
                               onTap: () {
                                 HapticFeedback.lightImpact();
                                 notifProvider.markAsRead(item.id);
-                                if (item.orderId != null || item.orderCode != null) {
+                                if (item.orderId != null ||
+                                    item.orderCode != null) {
                                   Navigator.of(context).pop();
                                   MainLayout.switchToTab(context, 2);
                                 }
@@ -286,17 +306,20 @@ class NotificationSheet extends StatelessWidget {
   }) {
     // Determine category icon and styling
     IconData iconData = LucideIcons.bell;
-    Color iconBg = const Color(0xFFEFF6FF);
-    Color iconColor = const Color(0xFF2563EB);
+    Color iconBg = SampleA.pale;
+    Color iconColor = SampleA.primary;
 
-    final isCancelled = item.body.toLowerCase().contains('hủy') ||
+    final isCancelled =
+        item.body.toLowerCase().contains('hủy') ||
         item.title.toLowerCase().contains('hủy') ||
         item.body.contains('CANCELLED');
-    final isDelivered = item.body.toLowerCase().contains('thành công') ||
+    final isDelivered =
+        item.body.toLowerCase().contains('thành công') ||
         item.body.toLowerCase().contains('hoàn tất') ||
         item.body.contains('COMPLETED') ||
         item.body.contains('DELIVERED');
-    final isShipping = item.body.toLowerCase().contains('giao') ||
+    final isShipping =
+        item.body.toLowerCase().contains('giao') ||
         item.body.contains('SHIPPING');
 
     if (item.type == 'ORDER_CREATED') {
@@ -342,12 +365,14 @@ class NotificationSheet extends StatelessWidget {
             color: item.isRead ? Colors.white : const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: item.isRead ? const Color(0xFFE2E8F0) : const Color(0xFFBFDBFE),
+              color: item.isRead ? SampleA.border : const Color(0xFFBFDBFE),
               width: item.isRead ? 1 : 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: item.isRead ? 0.02 : 0.04),
+                color: Colors.black.withValues(
+                  alpha: item.isRead ? 0.02 : 0.04,
+                ),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -378,8 +403,10 @@ class NotificationSheet extends StatelessWidget {
                             item.title,
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight: item.isRead ? FontWeight.w600 : FontWeight.bold,
-                              color: const Color(0xFF0F172A),
+                              fontWeight: item.isRead
+                                  ? FontWeight.w600
+                                  : FontWeight.bold,
+                              color: SampleA.ink,
                               letterSpacing: -0.2,
                             ),
                           ),
@@ -399,27 +426,35 @@ class NotificationSheet extends StatelessWidget {
                       item.body,
                       style: TextStyle(
                         fontSize: 13,
-                        color: item.isRead ? const Color(0xFF64748B) : const Color(0xFF334155),
+                        color: item.isRead
+                            ? const Color(0xFF64748B)
+                            : const Color(0xFF334155),
                         height: 1.35,
                       ),
                     ),
-                    if (item.orderCode != null && item.orderCode!.isNotEmpty) ...[
+                    if (item.orderCode != null &&
+                        item.orderCode!.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
+                              color: SampleA.pale,
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFDBEAFE)),
+                              border: Border.all(
+                                color: const Color(0xFFDBEAFE),
+                              ),
                             ),
                             child: Text(
                               item.orderCode!,
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF2563EB),
+                                color: SampleA.primary,
                               ),
                             ),
                           ),
@@ -431,14 +466,14 @@ class NotificationSheet extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF2563EB),
+                                  color: SampleA.primary,
                                 ),
                               ),
                               SizedBox(width: 2),
                               Icon(
                                 LucideIcons.chevronRight,
                                 size: 12,
-                                color: Color(0xFF2563EB),
+                                color: SampleA.primary,
                               ),
                             ],
                           ),
@@ -455,7 +490,7 @@ class NotificationSheet extends StatelessWidget {
                   height: 8,
                   margin: const EdgeInsets.only(top: 4),
                   decoration: const BoxDecoration(
-                    color: Color(0xFF2563EB),
+                    color: SampleA.primary,
                     shape: BoxShape.circle,
                   ),
                 ),

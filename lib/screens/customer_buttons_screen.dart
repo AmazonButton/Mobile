@@ -162,7 +162,7 @@ class _CustomerButtonsScreenState extends State<CustomerButtonsScreen>
               padding: const EdgeInsets.all(20),
               children: [
                 const ResidentNotice(
-                  'Bạn chỉ cọc tiền nút. Cửa hàng xác nhận nhận lại nút trước khi xử lý hoàn cọc.',
+                  'Theo dõi nút và tiền cọc của bạn. Cửa hàng xác nhận nhận lại nút trước khi xử lý hoàn cọc.',
                 ),
                 if (contracts.isEmpty)
                   ResidentPanel(
@@ -172,29 +172,24 @@ class _CustomerButtonsScreenState extends State<CustomerButtonsScreen>
                     ),
                   ),
                 for (final contract in contracts)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      ResidentHero(
-                        key: identical(contract, contracts.first)
-                            ? widget.tour?.key(TourStep.amount)
-                            : null,
-                        icon: Icons.smart_button_outlined,
-                        eyebrow: 'Tiền cọc theo hồ sơ',
-                        title: CurrencyFormatter.format(contract.depositAmount),
-                        description:
-                            'Hồ sơ ${contract.code} · ${contract.statusLabel}',
-                        strong: true,
-                      ),
-                      ResidentPanel(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  ResidentPanel(
+                    key: identical(contract, contracts.first)
+                        ? widget.tour?.key(TourStep.amount)
+                        : null,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [
-                            const Text(
-                              'Nút của bạn',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                            Text(
+                              'Hồ sơ ${contract.code}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                            const SizedBox(height: 8),
                             ResidentBadge(
                               contract.statusLabel,
                               success: contract.status == 'RETURNED',
@@ -202,50 +197,70 @@ class _CustomerButtonsScreenState extends State<CustomerButtonsScreen>
                                   contract.canOrder == false &&
                                   contract.status != 'RETURNED',
                             ),
-                            if (contract.canOrder == false &&
-                                contract.status == 'ACTIVE')
-                              const ResidentNotice(
-                                'Nút đang tạm ngừng sử dụng. Vui lòng liên hệ cửa hàng.',
-                              ),
-                            if (contract.status == 'RETURNED')
-                              const ResidentNotice(
-                                'Cửa hàng đã nhận lại nút. Khoản hoàn cọc sẽ được chuyển về tài khoản ngân hàng đã xác minh sau khi được duyệt.',
-                              ),
-                            for (final button in contract.buttons)
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                leading: const ResidentIcon(
-                                  Icons.smart_button_outlined,
-                                ),
-                                title: Text(button.name),
-                                subtitle:
-                                    _pendingReturns.contains(
-                                      '${contract.id}:${button.id}',
-                                    )
-                                    ? const Text(
-                                        'Đã gửi yêu cầu — chờ cửa hàng nhận lại',
-                                      )
-                                    : null,
-                                trailing: contract.canRequestReturn
-                                    ? TextButton(
-                                        onPressed:
-                                            _busy ||
-                                                _pendingReturns.contains(
-                                                  '${contract.id}:${button.id}',
-                                                )
-                                            ? null
-                                            : () => _requestReturn(
-                                                contract,
-                                                button,
-                                              ),
-                                        child: const Text('Trả nút'),
-                                      )
-                                    : null,
-                              ),
                           ],
                         ),
-                      ),
-                    ],
+                        for (final button in contract.buttons) ...[
+                          const SizedBox(height: 12),
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const ResidentIcon(
+                              Icons.smart_button_outlined,
+                            ),
+                            title: Text(
+                              button.name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            subtitle:
+                                _pendingReturns.contains(
+                                  '${contract.id}:${button.id}',
+                                )
+                                ? const Text(
+                                    'Đã gửi yêu cầu — chờ cửa hàng nhận lại',
+                                  )
+                                : null,
+                          ),
+                          if (contract.canRequestReturn)
+                            OutlinedButton(
+                              onPressed:
+                                  _busy ||
+                                      _pendingReturns.contains(
+                                        '${contract.id}:${button.id}',
+                                      )
+                                  ? null
+                                  : () => _requestReturn(contract, button),
+                              child: const Text('Yêu cầu trả nút'),
+                            ),
+                        ],
+                        const Divider(height: 24),
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: [
+                            const Text('Tiền cọc theo hồ sơ'),
+                            Text(
+                              CurrencyFormatter.format(contract.depositAmount),
+                              style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (contract.canOrder == false &&
+                            contract.status == 'ACTIVE')
+                          const ResidentNotice(
+                            'Nút đang tạm ngừng sử dụng. Vui lòng liên hệ cửa hàng.',
+                          ),
+                        if (contract.status == 'RETURNED')
+                          const ResidentNotice(
+                            'Cửa hàng đã nhận lại nút. Khoản hoàn cọc sẽ được chuyển về tài khoản ngân hàng đã xác minh sau khi được duyệt.',
+                          ),
+                      ],
+                    ),
                   ),
               ],
             ),

@@ -1,3 +1,4 @@
+import '../widgets/sample_a.dart';
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'signup_screen.dart';
@@ -40,9 +41,9 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _hasPasswordBlurred = false;
 
   // Màu sắc chủ đạo theo yêu cầu: Tone Xanh dương nhạt & Navy thanh lịch
-  static const Color primaryBlue = Color(0xFF1D5B9F);
+  static const Color primaryBlue = SampleA.primary;
   static const Color textMuted = Color(0xFF627D98);
-  static const Color borderLight = Color(0xFFE2E8F0);
+  static const Color borderLight = SampleA.border;
 
   void _applySuggestion(String suggested) {
     setState(() {
@@ -347,7 +348,7 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
+                constraints: const BoxConstraints(maxWidth: SampleA.formWidth),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

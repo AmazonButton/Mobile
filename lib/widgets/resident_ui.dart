@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'sample_a.dart';
 
-const residentBlue = Color(0xFF2563EB);
-const residentBackground = Color(0xFFF8FAFC);
-const residentInk = Color(0xFF1E293B);
-const residentMuted = Color(0xFF475569);
+const residentBlue = SampleA.primary;
+const residentBackground = SampleA.background;
+const residentInk = SampleA.ink;
+const residentMuted = SampleA.muted;
 
 ThemeData residentTheme(BuildContext context) {
   final theme = Theme.of(context);
@@ -53,7 +54,7 @@ class ResidentScaffold extends StatelessWidget {
     child: Scaffold(
       backgroundColor: residentBackground,
       appBar: appBar,
-      body: body,
+      body: AContent(child: body),
       bottomNavigationBar: actions.isEmpty
           ? null
           : Material(
@@ -64,7 +65,9 @@ class ResidentScaffold extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: actions,
+                  children: actions
+                      .map((action) => AContent(child: action))
+                      .toList(),
                 ),
               ),
             ),
@@ -84,10 +87,10 @@ class ResidentPanel extends StatelessWidget {
     elevation: 0,
     margin: const EdgeInsets.only(bottom: 12),
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(17),
+      borderRadius: BorderRadius.circular(SampleA.cardRadius),
       side: const BorderSide(color: Color(0xFFE2E8F0)),
     ),
-    child: Padding(padding: const EdgeInsets.all(16), child: child),
+    child: Padding(padding: SampleA.pagePadding, child: child),
   );
 }
 

@@ -1,3 +1,4 @@
+import 'sample_a.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 
@@ -16,14 +17,14 @@ class UserAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fallback = ColoredBox(
-      color: const Color(0xFFEFF6FF),
+      color: SampleA.pale,
       child: Center(
         child: Text(
           initials,
           style: TextStyle(
             fontSize: size * .35,
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF2563EB),
+            color: SampleA.primary,
           ),
         ),
       ),

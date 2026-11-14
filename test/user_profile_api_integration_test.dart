@@ -302,7 +302,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
 
         // After loadProfile finishes, greeting displays real shortName 'Tuấn'
-        expect(find.text('Tuấn'), findsWidgets);
+        expect(find.text('Chào Tuấn 👋'), findsWidgets);
         expect(
           find.text('P.502 - Tòa S1.01, Vinhomes Grand Park'),
           findsWidgets,
@@ -313,7 +313,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Greeting reactively shifts to 'Mai'
-        expect(find.text('Mai'), findsWidgets);
+        expect(find.text('Chào Mai 👋'), findsWidgets);
         expect(find.text('Tuấn'), findsNothing);
 
         // Reactively update the address
@@ -371,6 +371,8 @@ void main() {
         // Check displayed profile fields
         expect(find.text('Trần Anh Tuấn'), findsWidgets);
         expect(find.text('0912345678'), findsOneWidget);
+        await tester.tap(find.text('Chỉnh sửa hồ sơ'));
+        await tester.pumpAndSettle();
         expect(find.text('tuan.tran@smartorder.local'), findsOneWidget);
 
         // Tap on the phone tile to open edit phone modal
@@ -410,6 +412,8 @@ void main() {
         );
         await tester.pumpAndSettle();
         mockAuthService.shouldThrow = true;
+        await tester.tap(find.text('Chỉnh sửa hồ sơ'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Số điện thoại'));
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField), '0999888777');
@@ -451,6 +455,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
+      await tester.tap(find.text('Chỉnh sửa hồ sơ'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Email'));
       await tester.pumpAndSettle();
       expect(find.text('Đổi địa chỉ email'), findsNothing);

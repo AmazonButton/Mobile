@@ -1,3 +1,4 @@
+import '../sample_a.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -44,7 +45,7 @@ class _TactileBounceState extends State<_TactileBounce> {
 /// Premium iOS-style Wi-Fi Provisioning modal bottom sheet.
 ///
 /// Complies with:
-/// - Anti-AI standards (flat design, Colors.white, thin border Color(0xFFE2E8F0), no heavy drop shadows)
+/// - Anti-AI standards (flat design, Colors.white, thin border SampleA.border, no heavy drop shadows)
 /// - Strictly lucide_icons (no Material icons)
 /// - IoT UX Best Practice: Auto-filled SSID, only asking for password, 2.4GHz warning banner
 /// - Tactile button interactions (0.96 scale) and staggered flutter_animate transitions
@@ -188,7 +189,7 @@ class _WifiProvisioningSheetState extends State<WifiProvisioningSheet> {
                             width: 38,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE2E8F0),
+                              color: SampleA.border,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -398,11 +399,11 @@ class _WifiProvisioningSheetState extends State<WifiProvisioningSheet> {
                           onTap: _isConnecting ? null : _handleConnect,
                           child: Container(
                             width: double.infinity,
-                            height: 52,
+
                             decoration: BoxDecoration(
                               color: _isConnecting
                                   ? const Color(0xFF3B82F6)
-                                  : const Color(0xFF1D4ED8), // Primary Blue
+                                  : SampleA.primaryDark, // Primary Blue
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Center(

@@ -1,3 +1,4 @@
+import '../widgets/smart_order_tour.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../widgets/sample_a.dart';
@@ -12,12 +13,14 @@ import 'orders/widgets/widgets.dart';
 /// Màn hình Quản lý Đơn hàng - Orchestrator quản lý danh sách, phân tab và tác vụ hủy/đặt lại
 class OrdersScreen extends StatefulWidget {
   final bool showBackButton;
+  final SmartOrderTour? tour;
   final String? initialOrderId;
 
   const OrdersScreen({
     super.key,
     this.showBackButton = true,
     this.initialOrderId,
+    this.tour,
   });
 
   @override
@@ -212,103 +215,109 @@ class _OrdersScreenState extends State<OrdersScreen>
 
     return Scaffold(
       backgroundColor: SampleA.background,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-              child: Row(
-                children: [
-                  if (widget.showBackButton && Navigator.canPop(context)) ...[
-                    AIconButton(
-                      icon: LucideIcons.chevronLeft,
-                      tooltip: 'Quay lại',
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  const Expanded(child: Text('Đơn hàng', style: SampleA.title)),
-                  AIconButton(
-                    icon: LucideIcons.filter,
-                    tooltip: 'Lọc đơn hàng',
-                    onPressed: () => _showFilters(provider),
-                  ),
-                  AIconButton(
-                    icon: LucideIcons.refreshCw,
-                    tooltip: 'Làm mới đơn hàng',
-                    onPressed: isLoading
-                        ? null
-                        : () {
-                            provider.refreshOrders();
-                          },
-                  ),
-                ],
-              ),
-            ),
-            OrderTabSelector(
-              controller: _tabController,
-              activeCount: activeOrders.length,
-              historyCount: historyOrders.length,
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                provider.totalItems == null
-                    ? 'Đã tải ${provider.orders.length} đơn'
-                    : 'Đã tải ${provider.orders.length}/${provider.totalItems} đơn',
-                style: SampleA.caption,
-              ),
-            ),
-            if (isLoading) const LinearProgressIndicator(),
-            const SizedBox(height: 12),
-            if (errorMessage != null &&
-                (activeOrders.isNotEmpty || historyOrders.isNotEmpty))
+      body: AContent(
+        maxWidth: SampleA.listWidth,
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Text(
-                  'Chưa thể làm mới dữ liệu. Kéo xuống để thử lại.',
-                  style: SampleA.caption.copyWith(color: SampleA.warning),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                child: Row(
+                  children: [
+                    if (widget.showBackButton && Navigator.canPop(context)) ...[
+                      AIconButton(
+                        icon: LucideIcons.chevronLeft,
+                        tooltip: 'Quay lại',
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    const Expanded(
+                      child: Text('Đơn hàng', style: SampleA.title),
+                    ),
+                    AIconButton(
+                      icon: LucideIcons.filter,
+                      tooltip: 'Lọc đơn hàng',
+                      onPressed: () => _showFilters(provider),
+                    ),
+                    AIconButton(
+                      icon: LucideIcons.refreshCw,
+                      tooltip: 'Làm mới đơn hàng',
+                      onPressed: isLoading
+                          ? null
+                          : () {
+                              provider.refreshOrders();
+                            },
+                    ),
+                  ],
                 ),
               ),
-            Expanded(
-              child: TabBarView(
+              OrderTabSelector(
+                key: widget.tour?.key(TourStep.orders),
                 controller: _tabController,
-                children: [
-                  RefreshIndicator(
-                    color: SampleA.primary,
-                    onRefresh: () async {
-                      await provider.refreshOrders();
-                    },
-                    child: _buildList(
-                      activeOrders,
-                      isLoading,
-                      errorMessage,
-                      () {
-                        provider.loadOrders();
-                      },
-                    ),
-                  ),
-                  RefreshIndicator(
-                    color: SampleA.primary,
-                    onRefresh: () async {
-                      await provider.refreshOrders();
-                    },
-                    child: _buildList(
-                      historyOrders,
-                      isLoading,
-                      errorMessage,
-                      () {
-                        provider.loadOrders();
-                      },
-                      history: true,
-                    ),
-                  ),
-                ],
+                activeCount: activeOrders.length,
+                historyCount: historyOrders.length,
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  provider.totalItems == null
+                      ? 'Đã tải ${provider.orders.length} đơn'
+                      : 'Đã tải ${provider.orders.length}/${provider.totalItems} đơn',
+                  style: SampleA.caption,
+                ),
+              ),
+              if (isLoading) const LinearProgressIndicator(),
+              const SizedBox(height: 12),
+              if (errorMessage != null &&
+                  (activeOrders.isNotEmpty || historyOrders.isNotEmpty))
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    'Chưa thể làm mới dữ liệu. Kéo xuống để thử lại.',
+                    style: SampleA.caption.copyWith(color: SampleA.warning),
+                  ),
+                ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    RefreshIndicator(
+                      color: SampleA.primary,
+                      onRefresh: () async {
+                        await provider.refreshOrders();
+                      },
+                      child: _buildList(
+                        activeOrders,
+                        isLoading,
+                        errorMessage,
+                        () {
+                          provider.loadOrders();
+                        },
+                      ),
+                    ),
+                    RefreshIndicator(
+                      color: SampleA.primary,
+                      onRefresh: () async {
+                        await provider.refreshOrders();
+                      },
+                      child: _buildList(
+                        historyOrders,
+                        isLoading,
+                        errorMessage,
+                        () {
+                          provider.loadOrders();
+                        },
+                        history: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -516,7 +525,8 @@ class _OrdersScreenState extends State<OrdersScreen>
               onCancel: () => _handleEmergencyCancel(order),
               onTrack: () => _showOrderDetail(order),
               onDetailTap: () => _showOrderDetail(order),
-              onReorder: _reordering.contains(order.deviceId)
+              isReordering: _reordering.contains(order.deviceId),
+              onReorder: order.deviceId.isEmpty
                   ? null
                   : () => _handleReorder(order),
             ),

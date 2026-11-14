@@ -288,7 +288,7 @@ void main() {
 
         await tester.pumpAndSettle();
 
-        expect(find.text('Địa chỉ nhận hàng'), findsOneWidget);
+        expect(find.text('Địa chỉ giao hàng'), findsOneWidget);
         expect(
           find.text('P.1204 - Tòa S2.05, Vinhomes Grand Park'),
           findsOneWidget,
@@ -300,7 +300,7 @@ void main() {
         );
 
         // Tap on edit button
-        expect(find.text('Sửa'), findsWidgets);
+        expect(find.byTooltip('Sửa'), findsWidgets);
         expect(find.text('Xóa'), findsWidgets);
       },
     );
@@ -392,7 +392,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Should now be on AddressListScreen!
-        expect(find.text('Địa chỉ nhận hàng'), findsOneWidget);
+        expect(find.text('Địa chỉ giao hàng'), findsOneWidget);
         expect(
           find.text('P.1204 - Tòa S2.05, Vinhomes Grand Park'),
           findsOneWidget,

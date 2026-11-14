@@ -1,3 +1,4 @@
+import 'sample_a.dart';
 import 'auth_guide.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -61,7 +62,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
   static const Color textDark = Color(0xFF102A43);
   static const Color textMuted = Color(0xFF627D98);
   static const Color dangerRed = Color(0xFFEF4444);
-  static const Color borderLight = Color(0xFFE2E8F0);
+  static const Color borderLight = SampleA.border;
   static const Color inputBg = Color(0xFFF9FAFB);
 
   @override
@@ -261,7 +262,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
         fontSize: 22,
         fontWeight: FontWeight.w800,
         color: textDark,
-        fontFamily: 'Be Vietnam Pro',
+        fontFamily: SampleA.fontFamily,
       ),
       decoration: BoxDecoration(
         color: inputBg,
@@ -350,7 +351,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
                                 fontSize: 18,
                                 fontWeight: FontWeight.w800,
                                 color: textDark,
-                                fontFamily: 'Be Vietnam Pro',
+                                fontFamily: SampleA.fontFamily,
                               ),
                             ),
                             SizedBox(height: 3),
@@ -359,7 +360,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
                               style: TextStyle(
                                 fontSize: 13,
                                 color: textMuted,
-                                fontFamily: 'Be Vietnam Pro',
+                                fontFamily: SampleA.fontFamily,
                               ),
                             ),
                           ],
@@ -376,7 +377,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                       color: textMuted,
-                      fontFamily: 'Be Vietnam Pro',
+                      fontFamily: SampleA.fontFamily,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -394,7 +395,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
                       fontWeight: FontWeight.w700,
                       color: textDark,
                       letterSpacing: 1.1,
-                      fontFamily: 'Be Vietnam Pro',
+                      fontFamily: SampleA.fontFamily,
                     ),
                     decoration: InputDecoration(
                       hintText: '0912 345 123',
@@ -485,7 +486,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryBlue,
-                        disabledBackgroundColor: const Color(0xFFE2E8F0),
+                        disabledBackgroundColor: SampleA.border,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -506,7 +507,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
                                 fontSize: 15.5,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
-                                fontFamily: 'Be Vietnam Pro',
+                                fontFamily: SampleA.fontFamily,
                               ),
                             ),
                     ),
@@ -623,7 +624,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
                             style: const TextStyle(
                               fontSize: 13.5,
                               color: textMuted,
-                              fontFamily: 'Be Vietnam Pro',
+                              fontFamily: SampleA.fontFamily,
                             ),
                           )
                         : GestureDetector(
@@ -634,7 +635,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w700,
                                 color: primaryBlue,
-                                fontFamily: 'Be Vietnam Pro',
+                                fontFamily: SampleA.fontFamily,
                               ),
                             ),
                           ),
@@ -652,7 +653,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryBlue,
-                        disabledBackgroundColor: const Color(0xFFE2E8F0),
+                        disabledBackgroundColor: SampleA.border,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -673,7 +674,7 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
                                 fontSize: 15.5,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
-                                fontFamily: 'Be Vietnam Pro',
+                                fontFamily: SampleA.fontFamily,
                               ),
                             ),
                     ),

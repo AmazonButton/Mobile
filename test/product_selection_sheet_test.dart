@@ -158,6 +158,34 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  for (final size in [const Size(320, 568), const Size(844, 390)]) {
+    testWidgets('product sheet stays scrollable with keyboard at $size', (
+      tester,
+    ) async {
+      await open(tester);
+      tester.view.physicalSize = size;
+      tester.view.viewInsets = const FakeViewPadding(bottom: 200);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.enterText(find.byType(TextField), 'Candy');
+      await tester.pumpAndSettle();
+      final scroll = find
+          .descendant(
+            of: find.byType(CustomScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        find.text('Lưu thay đổi'),
+        120,
+        scrollable: scroll,
+      );
+      expect(tester.takeException(), isNull);
+      expect(requests.where((r) => r.method == 'PUT'), isEmpty);
+    });
+  }
+
   testWidgets(
     'Loads Candy from API for the button store, with real categories and prices',
     (tester) async {
