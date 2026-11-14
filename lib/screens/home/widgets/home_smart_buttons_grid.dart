@@ -1,5 +1,5 @@
+import '../../../widgets/sample_a.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../models/device_model.dart';
 import '../../../widgets/devices/smart_button_card.dart';
@@ -11,7 +11,6 @@ class HomeSmartButtonsGrid extends StatelessWidget {
   final Map<String, String> buttonStateMap;
   final VoidCallback onManage;
   final VoidCallback onAddDevice;
-  final void Function(DeviceModel device) onDeviceTap;
   final void Function(DeviceModel device) onDeviceOrder;
   final void Function(DeviceModel device) onDeviceSettings;
 
@@ -22,7 +21,6 @@ class HomeSmartButtonsGrid extends StatelessWidget {
     this.buttonStateMap = const {},
     required this.onManage,
     required this.onAddDevice,
-    required this.onDeviceTap,
     required this.onDeviceOrder,
     required this.onDeviceSettings,
   });
@@ -32,33 +30,13 @@ class HomeSmartButtonsGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Nút bấm của tôi',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.3,
-              ),
-            ),
-            GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                onManage();
-              },
-              child: const Text(
-                'Quản lý >',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF2563EB),
-                ),
-              ),
-            ),
-          ],
+        ASectionHeader(
+          title: 'Nút của tôi',
+          action: TextButton.icon(
+            onPressed: onAddDevice,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Thêm nút'),
+          ),
         ),
         const SizedBox(height: 12),
         if (isLoading && devices.isEmpty)
@@ -67,7 +45,7 @@ class HomeSmartButtonsGrid extends StatelessWidget {
             child: const Center(
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                valueColor: AlwaysStoppedAnimation<Color>(SampleA.primary),
               ),
             ),
           )
@@ -79,7 +57,7 @@ class HomeSmartButtonsGrid extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: SampleA.border),
             ),
             child: Column(
               children: [
@@ -87,93 +65,91 @@ class HomeSmartButtonsGrid extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFEFF6FF),
+                    color: SampleA.pale,
                     shape: BoxShape.circle,
                   ),
                   child: const Center(
                     child: Icon(
                       LucideIcons.radio,
-                      color: Color(0xFF2563EB),
+                      color: SampleA.primary,
                       size: 24,
                     ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Chưa có nút bấm nào',
+                  'Chưa có thiết bị',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    color: SampleA.ink,
                   ),
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Kết nối nút bấm để đặt hàng tức thì chỉ với một chạm',
+                  'Kết nối Smart Button để đặt hàng bằng một chạm.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                 ),
                 const SizedBox(height: 16),
-                GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    onAddDevice();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 9,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(LucideIcons.plus, size: 16, color: Colors.white),
-                        SizedBox(width: 6),
-                        Text(
-                          'Thêm nút nhấn mới',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+                FilledButton(
+                  onPressed: onAddDevice,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SampleA.primary,
+                    minimumSize: const Size(48, 48),
                   ),
+                  child: const Text('Thêm thiết bị'),
                 ),
               ],
             ),
           )
         else
-          Column(
-            children: devices
-                .take(3)
-                .map(
-                  (device) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: GestureDetector(
-                      onTap: () => onDeviceTap(device),
-                      child: SmartButtonCard(
-                        id: device.id,
-                        name: device.name,
-                        room: device.room,
-                        product: device.product,
-                        price: device.price,
-                        battery: device.battery,
-                        imageUrl: device.imageUrl,
-                        badgeText: device.badgeText,
-                        state: buttonStateMap[device.id] ?? 'idle',
-                        onOrder: () => onDeviceOrder(device),
-                        onSettings: () => onDeviceSettings(device),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final singleColumn =
+                  constraints.maxWidth < 300 ||
+                  MediaQuery.textScalerOf(context).scale(14) > 21;
+              final width = singleColumn
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: devices
+                    .take(2)
+                    .map(
+                      (device) => SizedBox(
+                        width: width,
+                        child: SmartButtonCard(
+                          id: device.id,
+                          name: device.name,
+                          room: device.room,
+                          product: device.product,
+                          price: device.price,
+                          battery: device.battery,
+                          imageUrl: device.imageUrl,
+                          storeName: device.storeName,
+                          badgeText: device.badgeText,
+                          state: buttonStateMap[device.id] ?? 'idle',
+                          onOrder: () => onDeviceOrder(device),
+                          onSettings: () => onDeviceSettings(device),
+                        ),
                       ),
-                    ),
-                  ),
-                )
-                .toList(),
+                    )
+                    .toList(),
+              );
+            },
+          ),
+        if (devices.isNotEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onManage,
+              label: const Text('Xem tất cả nút'),
+              icon: const Icon(Icons.arrow_forward, size: 18),
+              iconAlignment: IconAlignment.end,
+              style: TextButton.styleFrom(foregroundColor: SampleA.primary),
+            ),
           ),
       ],
     );

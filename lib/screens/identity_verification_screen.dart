@@ -290,34 +290,70 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
           padding: const EdgeInsets.all(24),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            ResidentHero(
-              icon: Icons.verified_user_outlined,
-              eyebrow: 'Bảo mật tài khoản',
-              title: approved
-                  ? 'Đã xác minh danh tính'
-                  : current?.label ?? 'Chưa xác minh danh tính',
-              description: approved
-                  ? 'Kết quả đã được hệ thống xác nhận.'
-                  : 'Chuẩn bị giấy tờ tùy thân để tiếp tục với Didit.',
+            Center(
+              child: Container(
+                width: 112,
+                height: 112,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFE6F0FF),
+                ),
+                child: const Icon(
+                  Icons.verified_user_outlined,
+                  size: 64,
+                  color: residentBlue,
+                ),
+              ),
             ),
-            if (!approved)
+            Text(
+              approved ? 'Đã xác minh danh tính' : 'Xác minh tài khoản của bạn',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: ResidentBadge(
+                approved
+                    ? 'Đã xác minh'
+                    : _loading
+                    ? 'Đang tải trạng thái'
+                    : !_listReady
+                    ? 'Chưa tải được trạng thái'
+                    : current?.label ?? 'Chưa xác minh',
+                success: approved,
+                waiting: !approved,
+              ),
+            ),
+            const SizedBox(height: 22),
+            if (!approved) ...[
               const ResidentPanel(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Quy trình xác minh',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.badge_outlined),
+                      title: Text('Chuẩn bị giấy tờ tùy thân'),
                     ),
-                    SizedBox(height: 10),
-                    Text('1. Chuẩn bị giấy tờ tùy thân'),
-                    SizedBox(height: 8),
-                    Text('2. Làm theo hướng dẫn của Didit'),
-                    SizedBox(height: 8),
-                    Text('3. Quay lại ứng dụng để xem kết quả'),
+                    Divider(height: 1),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.light_mode_outlined),
+                      title: Text('Chọn nơi đủ ánh sáng'),
+                    ),
+                    Divider(height: 1),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.format_list_bulleted),
+                      title: Text('Làm theo hướng dẫn trên Didit'),
+                    ),
                   ],
                 ),
               ),
+              const ResidentNotice(
+                'Bạn sẽ chuyển sang Didit để thực hiện xác minh.',
+              ),
+            ],
             if (_loading || _busy)
               const Padding(
                 padding: EdgeInsets.all(16),

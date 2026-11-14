@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Primary
-  static const Color primary = Color(0xFF1B3A5C);
-  static const Color primaryDark = Color(0xFF0F2540);
-  static const Color primaryLight = Color(0xFF2A5580);
-  static const Color primaryUltraLight = Color(0xFFE8EFF6);
+  static const Color primary = Color(0xFF2563EB);
+  static const Color primaryDark = Color(0xFF1D4ED8);
+  static const Color primaryLight = Color(0xFF3B82F6);
+  static const Color primaryUltraLight = Color(0xFFEFF6FF);
 
   // Accent (FPT Orange)
   static const Color accent = Color(0xFFF5862B);
@@ -39,7 +39,7 @@ class AppColors {
   static const LinearGradient sidebarGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFF1B3A5C), Color(0xFF0F2540)],
+    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
   );
 
   // Shadows

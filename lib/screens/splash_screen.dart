@@ -1,3 +1,4 @@
+import '../widgets/sample_a.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import '../services/services.dart';
@@ -178,7 +179,7 @@ class _SplashScreenState extends State<SplashScreen>
                                     height: 1.5,
                                     color: Colors.grey.shade600,
                                     fontWeight: FontWeight.w400,
-                                    fontFamily: 'Be Vietnam Pro',
+                                    fontFamily: SampleA.fontFamily,
                                   ),
                                 ),
                               ),

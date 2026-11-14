@@ -1,3 +1,4 @@
+import '../../widgets/sample_a.dart';
 import 'dart:async';
 import '../../services/address_service.dart';
 import '../../models/address_prediction.dart';
@@ -289,7 +290,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
+                  color: SampleA.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -307,13 +308,13 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: SampleA.pale,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
                           _isEditing ? LucideIcons.pencil : LucideIcons.mapPin,
                           size: 18,
-                          color: const Color(0xFF2563EB),
+                          color: SampleA.primary,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -460,7 +461,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                         Container(
                           margin: const EdgeInsets.only(top: 8),
                           decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(color: SampleA.border),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Material(
@@ -474,7 +475,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                                       dense: true,
                                       leading: const Icon(
                                         Icons.location_on_outlined,
-                                        color: Color(0xFF2563EB),
+                                        color: SampleA.primary,
                                       ),
                                       title: Text(prediction.primaryText),
                                       subtitle: Text(prediction.secondaryText),
@@ -540,7 +541,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          border: Border.all(color: SampleA.border),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -550,7 +551,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                                 Icon(
                                   LucideIcons.checkCircle2,
                                   size: 18,
-                                  color: Color(0xFF2563EB),
+                                  color: SampleA.primary,
                                 ),
                                 SizedBox(width: 10),
                                 Column(
@@ -578,7 +579,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                             ),
                             Switch(
                               value: _isDefault,
-                              activeThumbColor: const Color(0xFF2563EB),
+                              activeThumbColor: SampleA.primary,
                               onChanged: (val) {
                                 setState(() => _isDefault = val);
                               },
@@ -605,15 +606,16 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                       // Save button
                       SizedBox(
                         width: double.infinity,
-                        height: 50,
+
                         child: ElevatedButton(
                           onPressed: _isSubmitting || _searching
                               ? null
                               : _submit,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
+                            backgroundColor: SampleA.primary,
                             disabledBackgroundColor: const Color(0xFF94A3B8),
                             elevation: 0,
+                            minimumSize: const Size(48, 48),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -666,7 +668,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: SampleA.border),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: TextFormField(

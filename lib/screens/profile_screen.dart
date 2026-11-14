@@ -1,3 +1,4 @@
+import '../widgets/sample_a.dart';
 import '../widgets/user_avatar.dart';
 import 'customer_bank_accounts_screen.dart';
 import 'customer_buttons_screen.dart';
@@ -5,7 +6,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../widgets/smart_order_tour.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
@@ -143,10 +143,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _openEditAddressModal() async {
     HapticFeedback.lightImpact();
+    final tour = widget.tour;
+    tour?.openAddresses();
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AddressListScreen()),
+      MaterialPageRoute(builder: (_) => AddressListScreen(tour: tour)),
     );
+    tour?.addressesClosed();
     if (mounted) setState(() {});
   }
 
@@ -226,308 +229,202 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFD),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            stops: [0.0, 0.35, 1.0],
-            colors: [Color(0xFFEBF4FE), Color(0xFFF7FAFD), Colors.white],
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            slivers: [
-              // Transparent App Bar
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 8, 20, 8),
-                  child: Row(
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.white,
+    appBar: AppBar(
+      title: const Text('Tài khoản'),
+      centerTitle: true,
+      automaticallyImplyLeading: widget.showBackButton,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+    ),
+    body: AContent(
+      maxWidth: SampleA.detailWidth,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                UserAvatar(
+                  size: 72,
+                  initials: userInitials,
+                  file: _avatarFile,
+                  url: _avatarUrl,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if ((widget.showBackButton as dynamic) == true &&
-                          Navigator.canPop(context))
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(
-                            LucideIcons.chevronLeft,
-                            color: Color(0xFF1E293B),
-                            size: 24,
-                          ),
-                          splashRadius: 22,
-                        )
-                      else
-                        const SizedBox(width: 8),
-                      const Expanded(
+                      InkWell(
+                        onTap: _openEditNameModal,
                         child: Text(
-                          'Hồ sơ của tôi',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                            letterSpacing: -0.4,
+                          userName,
+                          style: const TextStyle(
+                            fontSize: 23,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
-                      if (widget.showBackButton && Navigator.canPop(context))
-                        const SizedBox(width: 40)
-                      else
-                        const SizedBox(width: 8),
+                      const SizedBox(height: 4),
+                      Text(
+                        userPhone,
+                        style: const TextStyle(color: Color(0xFF475569)),
+                      ),
+                      TextButton.icon(
+                        onPressed: _editProfile,
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Chỉnh sửa hồ sơ'),
+                      ),
                     ],
                   ),
                 ),
-              ),
-
-              // Animated Grouped Cards
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    children:
-                        [
-                              // 1. Header Section (Avatar & Name)
-                              _buildHeaderSection(),
-                              const SizedBox(height: 28),
-
-                              // 2. Contact Info Group (Card 1)
-                              _buildContactInfoCard(),
-                              const SizedBox(height: 18),
-
-                              // 3. Settings & Support Group (Card 2)
-                              _buildSettingsCard(),
-                              const SizedBox(height: 18),
-
-                              // 4. Danger Zone (Card 3)
-                              _buildDangerZoneCard(),
-                              const SizedBox(height: 28),
-
-                              // 5. Footer
-                              _buildFooter(),
-                              const SizedBox(height: 40),
-                            ]
-                            .animate(interval: 50.ms)
-                            .fade(duration: 300.ms)
-                            .slideY(begin: 0.05, curve: Curves.easeOutQuad),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _groupTitle('Thông tin cá nhân'),
+            ActionTile(
+              key: widget.tour?.key(TourStep.addresses),
+              icon: LucideIcons.mapPin,
+              title: 'Địa chỉ giao hàng',
+              onTap: _openEditAddressModal,
+            ),
+            const Divider(height: 1),
+            ActionTile(
+              key: widget.tour?.key(TourStep.identity),
+              icon: LucideIcons.shieldCheck,
+              title: 'Xác minh danh tính',
+              onTap: () async {
+                final tour = widget.tour;
+                tour?.openIdentity();
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => IdentityVerificationScreen(tour: tour),
                   ),
+                );
+                tour?.identityClosed();
+              },
+            ),
+            const SizedBox(height: 16),
+            _groupTitle('Nút & hoàn cọc'),
+            ActionTile(
+              key: widget.tour?.key(TourStep.deposit),
+              icon: LucideIcons.package,
+              title: 'Nút và tiền cọc',
+              onTap: () async {
+                final tour = widget.tour;
+                tour?.openDeposit();
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => CustomerButtonsScreen(tour: tour),
+                  ),
+                );
+                tour?.depositClosed();
+              },
+            ),
+            const Divider(height: 1),
+            ActionTile(
+              key: widget.tour?.key(TourStep.bank),
+              icon: LucideIcons.landmark,
+              title: 'Tài khoản hoàn cọc',
+              onTap: () async {
+                final tour = widget.tour;
+                tour?.openBank();
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => CustomerBankAccountsScreen(tour: tour),
+                  ),
+                );
+                tour?.bankClosed();
+              },
+            ),
+            const SizedBox(height: 16),
+            _groupTitle('Hỗ trợ & bảo mật'),
+            ActionTile(
+              icon: LucideIcons.lock,
+              title: 'Đổi mật khẩu',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const ChangePasswordScreen(),
                 ),
               ),
-            ],
-          ),
+            ),
+            const Divider(height: 1),
+            if (widget.tour != null)
+              ActionTile(
+                icon: LucideIcons.bookOpen,
+                title: 'Xem lại hướng dẫn',
+                onTap: widget.tour!.replay,
+              ),
+            const Divider(height: 1),
+            ActionTile(
+              icon: LucideIcons.headphones,
+              title: 'Hỗ trợ',
+              onTap: () => _showFloatingToast('Tổng đài hỗ trợ: 1900 6868'),
+            ),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: _confirmLogout,
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Đăng xuất'),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
 
-  // ================= 1. HEADER SECTION =================
-  Widget _buildHeaderSection() {
-    return Center(
+  Widget _groupTitle(String text) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF1F3F6),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+    ),
+  );
+
+  void _editProfile() => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          UserAvatar(
-            size: 90,
-            initials: userInitials,
-            file: _avatarFile,
-            url: _avatarUrl,
+          InfoTile(
+            icon: LucideIcons.user,
+            title: 'Họ và tên',
+            value: userName,
+            isEditable: true,
+            onTap: () {
+              Navigator.pop(sheetContext);
+              _openEditNameModal();
+            },
           ),
-          const SizedBox(height: 14),
-
-          // Name with Edit Pencil
-          TactileTap(
-            onTap: _openEditNameModal,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    userName,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    LucideIcons.pencil,
-                    size: 16,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ],
-              ),
-            ),
+          InfoTile(
+            icon: LucideIcons.phone,
+            title: 'Số điện thoại',
+            value: userPhone,
+            isEditable: true,
+            onTap: () {
+              Navigator.pop(sheetContext);
+              _openEditPhoneModal();
+            },
           ),
-          const SizedBox(height: 2),
-
-          const Text(
-            'Thành viên từ Th08 2026',
-            style: TextStyle(
-              fontSize: 13,
-              color: Color(0xFF94A3B8),
-              fontWeight: FontWeight.w400,
-            ),
-          ),
+          InfoTile(icon: LucideIcons.mail, title: 'Email', value: userEmail),
         ],
       ),
-    );
-  }
-
-  // ================= 2. CONTACT INFO GROUP (Card 1) =================
-  Widget _buildContactInfoCard() {
-    return _buildGroupCard([
-      InfoTile(
-        icon: LucideIcons.phone,
-        title: 'Số điện thoại',
-        value: userPhone,
-        isEditable: true,
-        onTap: _openEditPhoneModal,
-      ),
-      const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-      InfoTile(
-        icon: LucideIcons.mail,
-        title: 'Email',
-        value: userEmail,
-        isEditable: false,
-      ),
-      const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-      InfoTile(
-        icon: LucideIcons.mapPin,
-        title: 'Địa chỉ giao hàng',
-        value: userAddress.trim().isNotEmpty
-            ? userAddress
-            : 'Chưa thiết lập địa chỉ',
-        isEditable: true,
-        onTap: _openEditAddressModal,
-      ),
-    ]);
-  }
-
-  // ================= 3. SETTINGS & SUPPORT GROUP (Card 2) =================
-  Widget _buildSettingsCard() {
-    return _buildGroupCard([
-      ActionTile(
-        icon: LucideIcons.package,
-        key: widget.tour?.key(TourStep.deposit),
-        title: 'Nút và tiền cọc',
-        onTap: () async {
-          final tour = widget.tour;
-          tour?.openDeposit();
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => CustomerButtonsScreen(tour: tour),
-            ),
-          );
-          tour?.depositClosed();
-        },
-      ),
-      const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-      ActionTile(
-        icon: LucideIcons.creditCard,
-        title: 'Tài khoản hoàn cọc',
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const CustomerBankAccountsScreen(),
-          ),
-        ),
-      ),
-      const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-      ActionTile(
-        icon: LucideIcons.lock,
-        title: 'Đổi mật khẩu',
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const ChangePasswordScreen()),
-        ),
-      ),
-      const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-      ActionTile(
-        icon: LucideIcons.shieldCheck,
-        key: widget.tour?.key(TourStep.identity),
-        title: 'Xác minh danh tính',
-        onTap: () async {
-          final tour = widget.tour;
-          tour?.openIdentity();
-          await Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => IdentityVerificationScreen(tour: tour),
-            ),
-          );
-          tour?.identityClosed();
-        },
-      ),
-      const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-      if (widget.tour != null)
-        ActionTile(
-          icon: LucideIcons.circleHelp,
-          title: 'Xem lại hướng dẫn',
-          onTap: widget.tour!.replay,
-        ),
-      ActionTile(
-        icon: LucideIcons.headphones,
-        title: 'Trung tâm hỗ trợ',
-        onTap: () => _showFloatingToast('Tổng đài hỗ trợ: 1900 6868'),
-      ),
-    ]);
-  }
-
-  // ================= 4. DANGER ZONE GROUP (Card 3) =================
-  Widget _buildDangerZoneCard() {
-    return _buildGroupCard([
-      ActionTile(
-        icon: LucideIcons.logOut,
-        iconColor: const Color(0xFF1E293B),
-        title: 'Đăng xuất',
-        titleColor: const Color(0xFF1E293B),
-        showChevron: false,
-        onTap: _confirmLogout,
-      ),
-    ]);
-  }
-
-  // ================= 5. FOOTER =================
-  Widget _buildFooter() {
-    return const Center(
-      child: Text(
-        'Phiên bản 1.0.0 (Build 12)',
-        style: TextStyle(
-          fontSize: 12,
-          color: Color(0xFF94A3B8), // Slate 400
-          fontWeight: FontWeight.w400,
-        ),
-      ),
-    );
-  }
-
-  // Card Container (iOS Grouped Style)
-  Widget _buildGroupCard(List<Widget> children) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(children: children),
-    );
-  }
+    ),
+  );
 }
 
 /// Reusable InfoTile Widget for Contact Info & Attributes

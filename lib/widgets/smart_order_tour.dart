@@ -1,3 +1,4 @@
+import 'sample_a.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -6,12 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum TourStep {
   intro(
     'Làm quen với SmartOrder',
-    'Cùng xem cách thêm nút, kiểm tra tiền cọc và xác minh CCCD.',
+    'Cùng thêm nút, khám phá cửa hàng và theo dõi đơn hàng của bạn.',
     0,
   ),
   add(
-    'Thêm nút',
-    'Chạm vào Thêm nút để kết nối thiết bị SmartOrder của bạn.',
+    'Thêm thiết bị',
+    'Chạm vào Thêm thiết bị để kết nối thiết bị SmartOrder của bạn.',
     1,
   ),
   code(
@@ -29,26 +30,61 @@ enum TourStep {
     'Bạn có thể xem nút của mình trong tab Thiết bị.',
     1,
   ),
-  deposit('Nút và tiền cọc', 'Chạm để mở hồ sơ nhận nút và xem tiền cọc.', 2),
+  stores(
+    'Khám phá cửa hàng',
+    'Chạm vào cửa hàng để xem sản phẩm. Chưa có thao tác mua hàng ở bước này.',
+    2,
+  ),
+  catalog(
+    'Sản phẩm của cửa hàng',
+    'Bạn có thể tìm sản phẩm và gán vào nút của cùng cửa hàng. Hướng dẫn dừng ở bước xem; Tiếp tục để tìm hiểu đơn hàng.',
+    2,
+  ),
+  orders(
+    'Theo dõi đơn hàng',
+    'Xem Đang xử lý hoặc Lịch sử. Mở chi tiết để xem tiến trình; thanh toán chỉ bắt đầu khi bạn chủ động chọn.',
+    3,
+  ),
+  addresses(
+    'Địa chỉ giao hàng',
+    'Chạm để xem nơi nhận hàng và địa chỉ mặc định của bạn.',
+    4,
+  ),
+  addressAdd(
+    'Thêm địa chỉ',
+    'Chạm Thêm địa chỉ để nhập nơi nhận hàng. Chỉ lưu khi bạn tự xác nhận trong biểu mẫu.',
+    4,
+  ),
+  deposit('Nút và tiền cọc', 'Chạm để mở hồ sơ nhận nút và xem tiền cọc.', 5),
   amount(
     'Tiền cọc theo hồ sơ',
     'Xem số tiền cọc và trạng thái hồ sơ nhận nút tại đây.',
-    2,
+    5,
   ),
   refund(
     'Tài khoản nhận hoàn cọc',
     'Mục này quản lý tài khoản ngân hàng dùng để nhận hoàn cọc.',
-    2,
+    5,
+  ),
+  bank(
+    'Tài khoản hoàn cọc',
+    'Chạm để xem tài khoản nhận hoàn cọc và trạng thái xác minh.',
+    6,
+  ),
+  bankInfo(
+    'Nhận hoàn cọc an toàn',
+    'Thêm tài khoản nếu chưa có. Xác minh chỉ bắt đầu khi bạn chủ động chọn; hướng dẫn không tự tạo thanh toán.',
+    6,
   ),
   identity(
     'Xác minh CCCD',
     'Chạm Xác minh danh tính để xem trạng thái và các bước xác minh.',
-    3,
+    7,
   ),
   identityAction(
     'Thao tác xác minh',
     'Bạn có thể dùng nút được làm sáng để bắt đầu, tiếp tục hoặc kiểm tra kết quả xác minh.',
-    3,
+    7,
   );
 
   const TourStep(this.title, this.message, this.chapter);
@@ -197,6 +233,37 @@ class SmartOrderTour with WidgetsBindingObserver {
     _go(success ? TourStep.connected : TourStep.add);
   }
 
+  void openCatalog() {
+    if (isAt(TourStep.stores)) _go(TourStep.catalog);
+  }
+
+  void catalogClosed() {
+    if (!isAt(TourStep.catalog)) return;
+    _guidedRoute = null;
+    changeTab(2);
+    _go(TourStep.orders);
+  }
+
+  void openAddresses() {
+    if (isAt(TourStep.addresses)) _go(TourStep.addressAdd);
+  }
+
+  void addressesClosed() {
+    if (!isAt(TourStep.addressAdd)) return;
+    _guidedRoute = null;
+    _go(TourStep.deposit);
+  }
+
+  void openBank() {
+    if (isAt(TourStep.bank)) _go(TourStep.bankInfo);
+  }
+
+  void bankClosed() {
+    if (!isAt(TourStep.bankInfo)) return;
+    _guidedRoute = null;
+    _go(TourStep.identity);
+  }
+
   void openDeposit() {
     if (isAt(TourStep.deposit)) _go(TourStep.amount);
   }
@@ -204,13 +271,13 @@ class SmartOrderTour with WidgetsBindingObserver {
   void depositClosed() {
     if (!isAt(TourStep.amount) && !isAt(TourStep.refund)) return;
     _guidedRoute = null;
-    _go(TourStep.identity);
+    _go(TourStep.bank);
   }
 
   void refundViewed() {
     if (isAt(TourStep.refund)) {
       _leaveGuidedRoute();
-      _go(TourStep.identity);
+      _go(TourStep.bank);
     }
   }
 
@@ -232,12 +299,28 @@ class SmartOrderTour with WidgetsBindingObserver {
       case TourStep.connect:
       case TourStep.connected:
         _leaveGuidedRoute();
+        changeTab(0);
+        _go(TourStep.stores);
+      case TourStep.stores:
+      case TourStep.catalog:
+        _leaveGuidedRoute();
+        changeTab(2);
+        _go(TourStep.orders);
+      case TourStep.orders:
         changeTab(3);
+        _go(TourStep.addresses);
+      case TourStep.addresses:
+      case TourStep.addressAdd:
+        _leaveGuidedRoute();
         _go(TourStep.deposit);
       case TourStep.amount:
         _go(TourStep.refund);
       case TourStep.deposit:
       case TourStep.refund:
+        _leaveGuidedRoute();
+        _go(TourStep.bank);
+      case TourStep.bank:
+      case TourStep.bankInfo:
         _leaveGuidedRoute();
         _go(TourStep.identity);
       case TourStep.identity:
@@ -271,6 +354,9 @@ class SmartOrderTour with WidgetsBindingObserver {
       TourStep.amount,
       TourStep.refund,
       TourStep.identityAction,
+      TourStep.catalog,
+      TourStep.addressAdd,
+      TourStep.bankInfo,
     }.contains(step);
     if ((!insideRoute && shell?.isCurrent != true) ||
         (target != null && ModalRoute.of(target)?.isCurrent != true) ||
@@ -373,7 +459,18 @@ class _Spotlight extends StatelessWidget {
             (media.viewInsets.bottom > 0
                 ? media.viewInsets.bottom
                 : media.padding.bottom) -
-            12;
+            12 -
+            ({
+                  TourStep.add,
+                  TourStep.stores,
+                  TourStep.orders,
+                  TourStep.addresses,
+                  TourStep.bank,
+                  TourStep.deposit,
+                  TourStep.identity,
+                }.contains(step)
+                ? 72
+                : 0);
         final above = hole == null ? 0.0 : hole.top - top - 12;
         final below = hole == null ? 0.0 : bottom - hole.bottom - 12;
         final putBelow = below >= 190 || below >= above;
@@ -426,7 +523,7 @@ class _Spotlight extends StatelessWidget {
                             Transform.scale(scale: scale, child: child),
                         child: const Icon(
                           Icons.touch_app,
-                          color: Color(0xFFF5862B),
+                          color: SampleA.primary,
                           size: 32,
                         ),
                       ),
@@ -470,7 +567,9 @@ class _Spotlight extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 if (step.chapter > 0)
-                                  Text('Chặng ${step.chapter}/3'),
+                                  Text(
+                                    'Chặng ${step.chapter}/7 · Bước ${TourStep.values.where((s) => s.chapter == step.chapter).toList().indexOf(step) + 1}/${TourStep.values.where((s) => s.chapter == step.chapter).length}',
+                                  ),
                                 Text(
                                   step.title,
                                   style: Theme.of(
@@ -533,7 +632,7 @@ class _Shade extends CustomPainter {
       canvas.drawRRect(
         RRect.fromRectAndRadius(target.inflate(3), const Radius.circular(10)),
         Paint()
-          ..color = const Color(0xFFFFBE69)
+          ..color = const Color(0xFF93C5FD)
           ..strokeWidth = 2
           ..style = PaintingStyle.stroke,
       );

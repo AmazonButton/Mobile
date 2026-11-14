@@ -1,3 +1,4 @@
+import '../widgets/sample_a.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/auth_api_service.dart';
@@ -140,7 +141,7 @@ class _ForgotInfoScreenState extends State<ForgotInfoScreen> {
                 const Icon(
                   Icons.lock_reset_rounded,
                   size: 72,
-                  color: Color(0xFF2563EB),
+                  color: SampleA.primary,
                 ),
                 const SizedBox(height: 24),
                 Text(

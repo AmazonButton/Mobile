@@ -1,3 +1,4 @@
+import '../widgets/sample_a.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
 import 'main_layout.dart';
+import '../widgets/smart_order_tour.dart';
 import 'device_detail_screen.dart';
 import '../models/device_model.dart';
 import '../models/order_model.dart';
@@ -17,6 +19,7 @@ import '../providers/notification_provider.dart';
 import '../services/user_profile_service.dart';
 import '../services/api_client.dart';
 import '../widgets/modals/notification_sheet.dart';
+import '../widgets/modals/connect_device_sheet.dart';
 import '../widgets/address_picker_sheet.dart';
 import 'home/widgets/widgets.dart';
 
@@ -25,8 +28,9 @@ typedef HomePage = HomeScreen;
 /// Màn hình Trang chủ - Orchestrator quản lý luồng dữ liệu, làm mới và điều hướng.
 class HomeScreen extends StatefulWidget {
   final bool showBottomNav;
+  final SmartOrderTour? tour;
 
-  const HomeScreen({super.key, this.showBottomNav = false});
+  const HomeScreen({super.key, this.showBottomNav = false, this.tour});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -68,6 +72,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String? _toastMessage;
   VoidCallback? _toastOnUndo;
   Timer? _toastTimer;
+  final _homeScrollController = ScrollController();
+  bool _showCompactHeader = false;
+
+  void _onHomeScroll() {
+    final compact = _homeScrollController.offset > 150;
+    if (compact != _showCompactHeader) {
+      setState(() => _showCompactHeader = compact);
+    }
+  }
 
   final Map<String, String> _buttonStateMap = {
     'btn-1': 'idle',
@@ -81,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _homeScrollController.addListener(_onHomeScroll);
     _userService.addListener(_onProfileChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -145,6 +159,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void dispose() {
     _userService.removeListener(_onProfileChanged);
     _toastController.dispose();
+    _homeScrollController.dispose();
     _toastTimer?.cancel();
     super.dispose();
   }
@@ -300,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
+                    color: SampleA.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -311,13 +326,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: SampleA.pale,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
                       Icons.radio_button_checked,
                       size: 20,
-                      color: Color(0xFF2563EB),
+                      color: SampleA.primary,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -330,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
+                            color: SampleA.ink,
                           ),
                         ),
                         Text(
@@ -354,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: SampleA.border),
                   ),
                   child: ListTile(
                     title: Text(
@@ -377,7 +392,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB),
+                        color: SampleA.primary,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
@@ -489,70 +504,129 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            RefreshIndicator(
-              onRefresh: _handleRefresh,
-              color: const Color(0xFF2563EB),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    HomeHeaderCard(
-                      userAvatar: _userAvatar,
-                      userAvatarUrl: _userAvatarUrl,
-                      userInitials: _userInitials,
-                      userShortName: _userShortName,
-                      userAddress: _userAddress,
-                      unreadNotificationCount: notifProvider?.unreadCount ?? 0,
-                      onAccountTap: _showAccountSheet,
-                      onNotificationTap: () => NotificationSheet.show(context),
-                      onLocationTap: _showLocationPicker,
-                    ),
-                    const SizedBox(height: 20),
-
-                    HomeSmartButtonsGrid(
-                      devices: displayDevices,
-                      isLoading: isDevLoading,
-                      buttonStateMap: _buttonStateMap,
-                      onManage: () => MainLayout.switchToTab(context, 1),
-                      onAddDevice: () => _showToast(
-                        'Đang quét Bluetooth tìm Smart Button mới...',
+      body: AContent(
+        maxWidth: SampleA.listWidth,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              RefreshIndicator(
+                onRefresh: _handleRefresh,
+                color: SampleA.primary,
+                child: SingleChildScrollView(
+                  controller: _homeScrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      HomeHeaderCard(
+                        userAvatar: _userAvatar,
+                        userAvatarUrl: _userAvatarUrl,
+                        userInitials: _userInitials,
+                        userShortName: _userShortName,
+                        userAddress: _userAddress,
+                        unreadNotificationCount:
+                            notifProvider?.unreadCount ?? 0,
+                        onAccountTap: _showAccountSheet,
+                        onNotificationTap: () =>
+                            NotificationSheet.show(context),
+                        onLocationTap: _showLocationPicker,
                       ),
-                      onDeviceTap: _openDeviceSettings,
-                      onDeviceOrder: (device) => _handleButtonPress(
-                        device.id,
-                        device.name,
-                        device.product,
+                      const SizedBox(height: 14),
+                      const HomeButtonHint(
+                        title: 'Đặt món quen từ nút của bạn',
                       ),
-                      onDeviceSettings: _openDeviceSettings,
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 18),
+                      HomeSmartButtonsGrid(
+                        devices: displayDevices,
+                        isLoading: isDevLoading,
+                        buttonStateMap: _buttonStateMap,
+                        onManage: () => MainLayout.switchToTab(context, 1),
+                        onAddDevice: () =>
+                            ConnectDeviceSheet.showAndRefresh(context),
+                        onDeviceOrder: (device) => _handleButtonPress(
+                          device.id,
+                          device.name,
+                          device.product,
+                        ),
+                        onDeviceSettings: _openDeviceSettings,
+                      ),
+                      const SizedBox(height: 16),
 
-                    const HomeQuickShopShelf().animate().fade(duration: 400.ms),
-                    const SizedBox(height: 24),
-
-                    const SizedBox(height: 32),
-                  ],
+                      HomeQuickShopShelf(
+                        tour: widget.tour,
+                      ).animate().fade(duration: 400.ms),
+                      const SizedBox(height: 16),
+                      const HomeButtonHint(
+                        title: 'Chọn sản phẩm, gán vào nút',
+                        subtitle: 'Sẵn sàng cho lần đặt hàng tiếp theo.',
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            if (_toastMessage != null)
-              HomeFloatingToast(
-                slideAnimation: _toastSlideAnimation,
-                fadeAnimation: _toastFadeAnimation,
-                scaleAnimation: _toastScaleAnimation,
-                message: _toastMessage!,
-                onUndo: _toastOnUndo,
-              ),
-          ],
+              if (_showCompactHeader)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Material(
+                    color: const Color(0xFFF8FAFC),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 4,
+                      ),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Color(0xFFE8EDF5)),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'SmartOrder',
+                              style: TextStyle(
+                                color: SampleA.primary,
+                                fontSize: 23,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Thông báo',
+                            onPressed: () => NotificationSheet.show(context),
+                            icon: Badge(
+                              isLabelVisible:
+                                  (notifProvider?.unreadCount ?? 0) > 0,
+                              backgroundColor: SampleA.primary,
+                              child: const Icon(
+                                Icons.notifications_none_rounded,
+                                size: 27,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              if (_toastMessage != null)
+                HomeFloatingToast(
+                  slideAnimation: _toastSlideAnimation,
+                  fadeAnimation: _toastFadeAnimation,
+                  scaleAnimation: _toastScaleAnimation,
+                  message: _toastMessage!,
+                  onUndo: _toastOnUndo,
+                ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,3 +1,5 @@
+import 'package:provider/provider.dart';
+import 'package:smart_order_button/providers/address_provider.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -34,7 +36,12 @@ void main() {
           );
         });
 
-        await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+        await tester.pumpWidget(
+          ChangeNotifierProvider(
+            create: (_) => AddressProvider(),
+            child: const MaterialApp(home: LoginScreen()),
+          ),
+        );
 
         await enterCredentials(tester, 'WrongPassword123!');
 
@@ -65,7 +72,12 @@ void main() {
           throw SocketException('Connection refused');
         });
 
-        await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+        await tester.pumpWidget(
+          ChangeNotifierProvider(
+            create: (_) => AddressProvider(),
+            child: const MaterialApp(home: LoginScreen()),
+          ),
+        );
 
         await enterCredentials(tester, 'AnyPassword123!');
 
@@ -86,7 +98,12 @@ void main() {
     testWidgets('Method selection cannot bypass authentication', (
       tester,
     ) async {
-      await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+      await tester.pumpWidget(
+        ChangeNotifierProvider(
+          create: (_) => AddressProvider(),
+          child: const MaterialApp(home: LoginScreen()),
+        ),
+      );
       expect(find.text('Đăng nhập bằng email'), findsOneWidget);
       expect(find.text('Đăng nhập bằng số điện thoại / OTP'), findsOneWidget);
       expect(find.byType(DashboardScreen), findsNothing);
@@ -118,7 +135,7 @@ void main() {
         return Response('Not Found', 404);
       });
 
-      await tester.pumpWidget(const MaterialApp(home: WelcomeScreen()));
+      await tester.pumpWidget(ChangeNotifierProvider(create: (_) => AddressProvider(), child: const MaterialApp(home: WelcomeScreen())));
 
       await tester.ensureVisible(find.text('Tôi đã có tài khoản rồi'));
       await tester.tap(find.text('Tôi đã có tài khoản rồi'));

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'constants/app_colors.dart';
+import 'widgets/sample_a.dart';
 import 'providers/providers.dart';
 import 'screens/splash_screen.dart';
 import 'services/services.dart';
@@ -54,8 +55,34 @@ class SmartOrderButtonApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
+          textTheme: const TextTheme(
+            titleLarge: SampleA.title,
+            titleMedium: SampleA.section,
+            bodyLarge: SampleA.body,
+            bodyMedium: SampleA.body,
+            bodySmall: SampleA.caption,
+          ),
+          inputDecorationTheme: const InputDecorationThemeData(
+            errorMaxLines: 6,
+            helperMaxLines: 6,
+          ),
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(48, 48),
+              textStyle: SampleA.body,
+            ),
+          ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(48, 48),
+              textStyle: SampleA.body,
+            ),
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+          ),
           scaffoldBackgroundColor: AppColors.bgPage,
-          fontFamily: 'Be Vietnam Pro',
+          fontFamily: SampleA.fontFamily,
           fontFamilyFallback: const [
             'Inter',
             'Segoe UI',

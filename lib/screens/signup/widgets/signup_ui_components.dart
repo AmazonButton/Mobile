@@ -1,3 +1,4 @@
+import '../../../widgets/sample_a.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'signup_theme.dart';
@@ -28,7 +29,7 @@ class SignupPrimaryButton extends StatelessWidget {
         onPressed: (isEnabled && !isLoading) ? onTap : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: SignupTheme.figmaBlue,
-          disabledBackgroundColor: const Color(0xFFE2E8F0),
+          disabledBackgroundColor: SampleA.border,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),

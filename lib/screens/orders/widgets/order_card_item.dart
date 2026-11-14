@@ -7,6 +7,7 @@ import 'payos_qr_payment_sheet.dart';
 class OrderCardItem extends StatelessWidget {
   final OrderModel order;
   final int cancelCountdown;
+  final bool isReordering;
   final VoidCallback? onEmergencyCancel,
       onCancel,
       onReorder,
@@ -17,6 +18,7 @@ class OrderCardItem extends StatelessWidget {
     super.key,
     required this.order,
     this.cancelCountdown = 60,
+    this.isReordering = false,
     this.onEmergencyCancel,
     this.onCancel,
     this.onReorder,
@@ -29,8 +31,10 @@ class OrderCardItem extends StatelessWidget {
       : cancelCountdown.clamp(0, 60);
   @override
   Widget build(BuildContext context) {
-    final past = order.isTerminal;
-    final canPay = order.canPay;
+    final showPayment = order.canPay && order.isPayos && order.isPending;
+    final showReorder = order.isCompleted && onReorder != null;
+    final openDetails = onDetailTap ?? onTrack;
+    final cancel = onEmergencyCancel ?? onCancel;
     final emergency = order.isPending && _seconds > 0;
     return ACard(
       child: Column(
@@ -42,21 +46,24 @@ class OrderCardItem extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
+              Text(order.orderCode, style: SampleA.section),
               OrderStatusBadge(order: order),
-              Text(
-                order.orderCode,
-                style: SampleA.caption.copyWith(fontWeight: FontWeight.w600),
-              ),
             ],
           ),
-          const SizedBox(height: 8),
-          InkWell(
-            onTap: onDetailTap ?? onTrack,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: OrderProductLine(order: order),
+          if (order.storeName.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.storefront_outlined, size: 18),
+                const SizedBox(width: 6),
+                Expanded(child: Text(order.storeName, style: SampleA.caption)),
+              ],
             ),
+          ],
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: OrderProductLine(order: order),
           ),
           const SizedBox(height: 8),
           const Divider(color: SampleA.border, height: 1),
@@ -67,14 +74,37 @@ class OrderCardItem extends StatelessWidget {
             spacing: 12,
             runSpacing: 4,
             children: [
-              Text(order.price, style: SampleA.title.copyWith(fontSize: 22)),
-              Text(
-                order.isPaid
-                    ? 'Đã thanh toán'
-                    : order.isPayos
-                    ? 'PayOS'
-                    : 'COD',
-                style: SampleA.caption,
+              const Text('Tổng tiền', style: SampleA.body),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(order.price, style: SampleA.section),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: order.isPaid
+                          ? const Color(0xFFDCFCE7)
+                          : SampleA.warningLight,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      order.paymentStatus == 'REFUNDED'
+                          ? 'Đã hoàn tiền'
+                          : order.isPaid
+                          ? 'Đã thanh toán'
+                          : 'Chưa thanh toán',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: order.isPaid ? SampleA.success : SampleA.warning,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -84,55 +114,60 @@ class OrderCardItem extends StatelessWidget {
               child: Text(order.time, style: SampleA.caption),
             ),
           const SizedBox(height: 8),
-          if (past) ...[
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final primary = AButton(
+                label: showPayment
+                    ? 'Thanh toán'
+                    : showReorder
+                    ? 'Đặt lại'
+                    : order.isTerminal
+                    ? 'Xem chi tiết'
+                    : 'Theo dõi đơn',
+                kind: showPayment || showReorder
+                    ? AButtonKind.primary
+                    : AButtonKind.secondary,
+                busy: isReordering,
+                onPressed: showPayment
+                    ? onPay ??
+                          () => PayosQrPaymentSheet.show(context, order: order)
+                    : showReorder
+                    ? onReorder
+                    : order.isTerminal
+                    ? openDetails
+                    : onTrack ?? openDetails,
+              );
+              if (!(showPayment || showReorder) || openDetails == null) {
+                return primary;
+              }
+              final secondary = AButton(
+                label: 'Xem chi tiết',
+                onPressed: openDetails,
+                kind: AButtonKind.secondary,
+              );
+              if (constraints.maxWidth < 330 ||
+                  MediaQuery.textScalerOf(context).scale(14) > 20) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [primary, const SizedBox(height: 8), secondary],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: primary),
+                  const SizedBox(width: 10),
+                  Expanded(child: secondary),
+                ],
+              );
+            },
+          ),
+          if (emergency && cancel != null) ...[
+            const SizedBox(height: 8),
             AButton(
-              label: !order.isCompleted || onReorder == null
-                  ? 'Xem chi tiết'
-                  : 'Đặt lại',
-              onPressed: !order.isCompleted || onReorder == null
-                  ? onDetailTap
-                  : onReorder,
-              kind: AButtonKind.secondary,
+              label: 'Hủy đơn · 00:${_seconds.toString().padLeft(2, '0')}',
+              onPressed: cancel,
+              kind: AButtonKind.danger,
             ),
-            if (!order.isCancelled && onDetailTap != null)
-              TextButton(
-                onPressed: onDetailTap,
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  foregroundColor: SampleA.primary,
-                ),
-                child: const Text(
-                  'Chi tiết',
-                  style: TextStyle(fontFamily: 'SampleA Vietnam', fontSize: 14),
-                ),
-              ),
-          ] else ...[
-            if (canPay && order.isPayos && order.isPending)
-              AButton(
-                label: 'Thanh toán',
-                onPressed:
-                    onPay ??
-                    () => PayosQrPaymentSheet.show(context, order: order),
-              ),
-            if (!(canPay && order.isPayos && order.isPending))
-              AButton(label: 'Theo dõi đơn', onPressed: onTrack ?? onDetailTap)
-            else
-              TextButton(
-                onPressed: onTrack ?? onDetailTap,
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  foregroundColor: SampleA.primary,
-                ),
-                child: const Text('Xem chi tiết'),
-              ),
-            if (emergency && (onEmergencyCancel ?? onCancel) != null) ...[
-              const SizedBox(height: 8),
-              AButton(
-                label: 'Hủy đơn · 00:${_seconds.toString().padLeft(2, '0')}',
-                onPressed: onEmergencyCancel ?? onCancel,
-                kind: AButtonKind.danger,
-              ),
-            ],
           ],
         ],
       ),
@@ -176,6 +211,7 @@ class OrderProductLine extends StatelessWidget {
       AProductImage(
         product: order.product,
         imageUrl: order.items.isNotEmpty ? order.items.first.imageUrl : null,
+        size: 76,
       ),
       const SizedBox(width: 12),
       Expanded(
@@ -189,11 +225,8 @@ class OrderProductLine extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            if (order.storeName.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(order.storeName, style: SampleA.caption),
-              ),
+            if (order.items.isNotEmpty)
+              Text('x${order.items.first.quantity}', style: SampleA.caption),
           ],
         ),
       ),
@@ -214,16 +247,26 @@ class OrderTimeline extends StatelessWidget {
     if (stage < 0 || status == 'DELIVERY_FAILED') {
       return Text(OrderModel.lifecycleLabel(status), style: SampleA.body);
     }
-    return Column(
-      children: [
-        for (var i = 0; i < labels.length; i++)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-              children: [
+    return Semantics(
+      label:
+          'Tiến trình đơn hàng. Bước ${stage + 1} trên ${labels.length}. '
+          '${labels[stage]}',
+      excludeSemantics: true,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              for (var i = 0; i < labels.length; i++) ...[
+                if (i > 0)
+                  Expanded(
+                    child: ColoredBox(
+                      color: i <= stage ? SampleA.primary : SampleA.border,
+                      child: const SizedBox(height: 3),
+                    ),
+                  ),
                 Container(
-                  width: 24,
-                  height: 24,
+                  width: 20,
+                  height: 20,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: i <= stage ? SampleA.primary : Colors.white,
@@ -232,30 +275,41 @@ class OrderTimeline extends StatelessWidget {
                       width: 2,
                     ),
                   ),
-                  child: i < stage
+                  alignment: Alignment.center,
+                  child: i < stage || stage == labels.length - 1
                       ? const Icon(
                           LucideIcons.check,
-                          size: 16,
+                          size: 12,
                           color: Colors.white,
+                        )
+                      : i == stage
+                      ? const DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: SizedBox(width: 6, height: 6),
                         )
                       : null,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    labels[i],
-                    style: SampleA.body.copyWith(
-                      color: i <= stage ? SampleA.ink : SampleA.muted,
-                      fontWeight: i == stage
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                    ),
-                  ),
-                ),
               ],
-            ),
+            ],
           ),
-      ],
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(child: Text(labels.first, style: SampleA.caption)),
+              Expanded(
+                child: Text(
+                  labels.last,
+                  style: SampleA.caption,
+                  textAlign: TextAlign.end,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

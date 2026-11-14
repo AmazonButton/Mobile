@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../../services/stock_service.dart';
 import '../sample_a.dart';
-import 'a_stock_status.dart';
 
+/// Device management card; ordering remains on Home and device detail.
 class DeviceCard extends StatelessWidget {
   final String id, name, room, product, price, badgeText, signal, state;
   final int batteryLevel;
-  final String? imageUrl;
+  final String? imageUrl, storeName;
   final bool isOnline, showOrderButton;
-  final VoidCallback? onTap, onSettings, onOrder;
+  final VoidCallback? onTap, onSettings, onOrder, onSelectProduct;
   const DeviceCard({
     super.key,
     required this.id,
@@ -19,139 +18,131 @@ class DeviceCard extends StatelessWidget {
     required this.price,
     required this.batteryLevel,
     this.imageUrl,
+    this.storeName,
     this.badgeText = '20L',
     this.signal = 'Rất tốt',
     this.isOnline = true,
     this.onTap,
     this.onSettings,
     this.onOrder,
+    this.onSelectProduct,
     this.state = 'idle',
-    this.showOrderButton = true,
+    this.showOrderButton = false,
   });
+
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: StockService.instance,
-    builder: (context, _) {
-      final problem = StockService.instance.problem(id);
-      return ACard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
+  Widget build(BuildContext context) {
+    final unassigned = product == 'Chưa gán sản phẩm';
+    final battery = batteryLevel.clamp(0, 100);
+    final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: SampleA.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: ColoredBox(
+                  color: const Color(0xFFF0F3F8),
+                  child: unassigned
+                      ? SizedBox(
+                          width: largeText ? 60 : 90,
+                          height: largeText ? 80 : 108,
+                          child: const Icon(
+                            LucideIcons.circleDot,
+                            size: 45,
+                            color: SampleA.muted,
+                          ),
+                        )
+                      : AProductImage(
+                          product: product,
+                          imageUrl: imageUrl,
+                          size: largeText ? 60 : 90,
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AProductImage(
-                      product: product,
-                      imageUrl: imageUrl,
-                      size: 48,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    Text(name, style: SampleA.section.copyWith(fontSize: 17)),
+                    const SizedBox(height: 7),
+                    _line(LucideIcons.package, product),
+                    if (!unassigned && storeName?.isNotEmpty == true) ...[
+                      const SizedBox(height: 4),
+                      _line(LucideIcons.store, storeName!),
+                    ],
+                    if (unassigned)
+                      TextButton(
+                        onPressed: onSelectProduct,
+                        child: const Text('Chọn sản phẩm'),
+                      )
+                    else ...[
+                      const SizedBox(height: 9),
+                      Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Text(
-                            name,
-                            maxLines:
-                                MediaQuery.textScalerOf(context).scale(16) > 21
-                                ? null
-                                : 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: SampleA.body.copyWith(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                          SizedBox(
+                            width: 44,
+                            child: LinearProgressIndicator(
+                              value: battery / 100,
+                              minHeight: 8,
+                              borderRadius: BorderRadius.circular(4),
+                              color: battery <= 20
+                                  ? SampleA.warning
+                                  : SampleA.success,
+                              backgroundColor: SampleA.border,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(product, style: SampleA.caption),
-                          const SizedBox(height: 6),
-                          AStatus(
-                            label: !isOnline
-                                ? 'Mất kết nối'
-                                : batteryLevel <= 20
-                                ? 'Pin yếu · $batteryLevel%'
-                                : 'Sẵn sàng',
-                            icon: !isOnline
-                                ? LucideIcons.wifiOff
-                                : batteryLevel <= 20
-                                ? LucideIcons.batteryLow
-                                : LucideIcons.check,
-                            color: !isOnline
-                                ? SampleA.danger
-                                : batteryLevel <= 20
-                                ? SampleA.warning
-                                : SampleA.primary,
-                            background: !isOnline
-                                ? SampleA.dangerLight
-                                : batteryLevel <= 20
-                                ? SampleA.warningLight
-                                : SampleA.pale,
+                          Text(
+                            'Pin $battery%',
+                            style: SampleA.caption.copyWith(fontSize: 12),
                           ),
                         ],
                       ),
-                    ),
-                    IconButton(
-                      tooltip: 'Cài đặt $name',
-                      onPressed: onSettings,
-                      constraints: const BoxConstraints(
-                        minWidth: 48,
-                        minHeight: 48,
+                    ],
+                    if (!isOnline)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Mất kết nối',
+                          style: TextStyle(color: SampleA.danger, fontSize: 12),
+                        ),
                       ),
-                      icon: const Icon(
-                        LucideIcons.settings,
-                        size: 20,
-                        color: SampleA.muted,
-                      ),
-                    ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final priceWidget = Text(price, style: SampleA.section);
-                final action = AButton(
-                  label: !isOnline ? 'Kết nối lại' : 'Đặt lại',
-                  onPressed: !isOnline
-                      ? onSettings
-                      : problem == null
-                      ? onOrder
-                      : null,
-                  kind: !isOnline ? AButtonKind.secondary : AButtonKind.primary,
-                  busy: state == 'ordering',
-                );
-                return constraints.maxWidth < 250 ||
-                        MediaQuery.textScalerOf(context).scale(16) > 21
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          priceWidget,
-                          const SizedBox(height: 12),
-                          action,
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          Expanded(child: priceWidget),
-                          const SizedBox(width: 12),
-                          SizedBox(width: 128, child: action),
-                        ],
-                      );
-              },
-            ),
-            if (isOnline)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: AStockStatus(deviceId: id),
+              IconButton(
+                tooltip: 'Cài đặt $name',
+                onPressed: onSettings ?? onTap,
+                icon: const Icon(LucideIcons.chevronRight, size: 20),
               ),
-          ],
+            ],
+          ),
         ),
-      );
-    },
+      ),
+    );
+  }
+
+  Widget _line(IconData icon, String text) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Icon(icon, size: 16, color: SampleA.ink),
+      const SizedBox(width: 6),
+      Expanded(
+        child: Text(text, style: SampleA.caption.copyWith(fontSize: 13)),
+      ),
+    ],
   );
 }

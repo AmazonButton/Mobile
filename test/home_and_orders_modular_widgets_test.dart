@@ -13,6 +13,7 @@ import 'package:smart_order_button/models/device_model.dart';
 import 'package:smart_order_button/models/order_model.dart';
 import 'package:smart_order_button/screens/home/widgets/widgets.dart';
 import 'package:smart_order_button/screens/home_screen.dart';
+import 'package:smart_order_button/screens/main_layout.dart';
 import 'package:smart_order_button/screens/orders/widgets/widgets.dart';
 import 'package:smart_order_button/screens/orders_screen.dart';
 
@@ -43,12 +44,12 @@ void main() {
         );
 
         // Verify initials & name
-        expect(find.text('JD'), findsOneWidget);
-        expect(find.text('John'), findsOneWidget);
+        expect(find.text('Giao đến'), findsOneWidget);
+        expect(find.text('Chào John 👋'), findsOneWidget);
         expect(find.textContaining('Vinhomes Central Park'), findsOneWidget);
 
         // Tap on account avatar
-        await tester.tap(find.text('JD'));
+        await tester.tap(find.text('Chào John 👋'));
         await tester.pump();
         expect(accountTapped, isTrue);
 
@@ -115,7 +116,6 @@ void main() {
                 isLoading: false,
                 onManage: () {},
                 onAddDevice: () => addDeviceTapped = true,
-                onDeviceTap: (_) {},
                 onDeviceOrder: (_) {},
                 onDeviceSettings: (_) {},
               ),
@@ -123,10 +123,10 @@ void main() {
           ),
         );
 
-        expect(find.text('Nút bấm của tôi'), findsOneWidget);
-        expect(find.text('Chưa có nút bấm nào'), findsOneWidget);
+        expect(find.text('Nút của tôi'), findsOneWidget);
+        expect(find.text('Chưa có thiết bị'), findsOneWidget);
 
-        final pairBtn = find.text('Thêm nút nhấn mới');
+        final pairBtn = find.text('Thêm thiết bị');
         expect(pairBtn, findsOneWidget);
         await tester.tap(pairBtn);
         await tester.pump();
@@ -184,7 +184,6 @@ void main() {
                   buttonStateMap: const {'dev-1': 'idle'},
                   onManage: () {},
                   onAddDevice: () {},
-                  onDeviceTap: (_) {},
                   onDeviceOrder: (d) => orderedDevice = d,
                   onDeviceSettings: (_) {},
                 ),
@@ -194,11 +193,11 @@ void main() {
         );
 
         expect(find.text('Nút Bếp'), findsOneWidget);
-        expect(find.textContaining('Gas Petro 12kg ·'), findsOneWidget);
+        expect(find.text('Gas Petro 12kg'), findsOneWidget);
 
         await tester.pumpAndSettle();
         // Tap order button
-        final orderAction = find.byTooltip('Đặt hàng');
+        final orderAction = find.text('Đặt hàng');
         expect(orderAction, findsOneWidget);
         await tester.tap(orderAction);
         await tester.pump();
@@ -312,6 +311,8 @@ void main() {
       );
 
       expect(find.text('Đang giao'), findsOneWidget);
+      expect(find.byType(OrderTimeline), findsNothing);
+      expect(OrderModel.timelineStage(shippingOrder.rawStatus), 4);
       expect(find.text('#SO-9921'), findsOneWidget);
       expect(find.text('Theo dõi đơn'), findsOneWidget);
       expect(find.textContaining('Hủy đơn'), findsNothing);
@@ -360,10 +361,10 @@ void main() {
 
         expect(find.text('2× Đổi bình Gas Petrolimex'), findsOneWidget);
         expect(find.text('Đã giao'), findsOneWidget);
-        expect(find.text('Chi tiết'), findsOneWidget);
+        expect(find.text('Xem chi tiết'), findsOneWidget);
         expect(find.text('Đặt lại'), findsOneWidget);
 
-        await tester.tap(find.text('Chi tiết'));
+        await tester.tap(find.text('Xem chi tiết'));
         await tester.pump();
         expect(detailTapped, isTrue);
 
@@ -427,15 +428,32 @@ void main() {
   });
 
   group('Story 4.3 - Orchestrators Smoke Tests', () {
-    testWidgets('HomeScreen renders without throwing', (tester) async {
-      await tester.pumpWidget(ChangeNotifierProvider(
-        create: (_) => AddressProvider(),
-        child: const MaterialApp(home: HomeScreen()),
-      ));
+    testWidgets('MainLayout keeps the same navigation bar across four tabs', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        ChangeNotifierProvider(
+          create: (_) => AddressProvider(),
+          child: const MaterialApp(home: MainLayout()),
+        ),
+      );
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(HomeScreen), findsOneWidget);
       expect(find.byType(HomeHeaderCard), findsOneWidget);
+
+      final bar = find.byType(NavigationBar);
+      final originalBar = tester.element(bar);
+      final labels = ['Trang chủ', 'Thiết bị', 'Đơn hàng', 'Tài khoản'];
+      for (final index in [1, 2, 3, 0]) {
+        await tester.tap(
+          find.descendant(of: bar, matching: find.text(labels[index])),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(tester.element(bar), same(originalBar));
+        expect(tester.widget<NavigationBar>(bar).selectedIndex, index);
+      }
     });
 
     testWidgets('OrdersScreen renders with tab selector and list views', (
