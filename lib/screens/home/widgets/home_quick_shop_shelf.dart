@@ -1,3 +1,5 @@
+import '../../../widgets/sample_a.dart';
+import '../../../widgets/smart_order_tour.dart';
 import '../../store_catalog_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../services/stores_api_service.dart';
@@ -7,7 +9,8 @@ import 'package:provider/provider.dart';
 
 /// Stores loaded from the authenticated stores API.
 class HomeQuickShopShelf extends StatefulWidget {
-  const HomeQuickShopShelf({super.key});
+  const HomeQuickShopShelf({super.key, this.tour});
+  final SmartOrderTour? tour;
 
   @override
   State<HomeQuickShopShelf> createState() => _HomeQuickShopShelfState();
@@ -42,8 +45,9 @@ class _HomeQuickShopShelfState extends State<HomeQuickShopShelf> {
     if (origin == null) return stores;
     for (final store in stores) {
       final point = await goong.geocode(store['address']?.toString() ?? '');
-      if (point != null)
+      if (point != null) {
         store['distanceKm'] = GoongService.distanceKm(origin, point);
+      }
     }
     stores.sort(
       (a, b) => ((a['distanceKm'] as double?) ?? double.infinity).compareTo(
@@ -63,13 +67,17 @@ class _HomeQuickShopShelfState extends State<HomeQuickShopShelf> {
     _stores = _loadStores();
   });
 
-  void _openStore(Map store) {
-    Navigator.of(context).push(
+  Future<void> _openStore(Map store) async {
+    widget.tour?.openCatalog();
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            StoreCatalogScreen(store: Map<String, dynamic>.from(store)),
+        builder: (_) => StoreCatalogScreen(
+          store: Map<String, dynamic>.from(store),
+          tour: widget.tour,
+        ),
       ),
     );
+    widget.tour?.catalogClosed();
   }
 
   @override
@@ -78,12 +86,17 @@ class _HomeQuickShopShelfState extends State<HomeQuickShopShelf> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Các cửa hàng gần đây',
+          'Khám phá cửa hàng',
           style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
             color: Color(0xFF1E293B),
           ),
+        ),
+        const SizedBox(height: 3),
+        const Text(
+          'Chọn cửa hàng để xem sản phẩm',
+          style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
         ),
         const SizedBox(height: 12),
         FutureBuilder<List<dynamic>>(
@@ -107,83 +120,138 @@ class _HomeQuickShopShelfState extends State<HomeQuickShopShelf> {
                 .whereType<Map>()
                 .where((s) => s['status'] == 'ACTIVE')
                 .toList();
-            if (stores.isEmpty)
+            if (stores.isEmpty) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Text('Chưa có cửa hàng đang hoạt động.'),
               );
-            return SizedBox(
-              height: 184,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: stores.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final store = stores[index];
-                  return SizedBox(
-                    width: 144,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
+            }
+            return Column(
+              children: [
+                for (final store in stores)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _StoreCard(
+                      key: identical(store, stores.first)
+                          ? widget.tour?.key(TourStep.stores)
+                          : null,
+                      store: store,
                       onTap: () => _openStore(store),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            height: 94,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8F0FE),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Icon(
-                              Icons.storefront,
-                              size: 52,
-                              color: Color(0xFF4478BB),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            store['name']?.toString() ?? 'Cửa hàng',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.location_on_outlined,
-                                size: 15,
-                                color: Color(0xFF2563EB),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  store['distanceKm'] != null
-                                      ? '${(store['distanceKm'] as double).toStringAsFixed(1)} km (đường thẳng)'
-                                      : store['address']?.toString() ??
-                                            'Chưa có địa chỉ',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF64748B),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
                     ),
-                  );
-                },
-              ),
+                  ),
+              ],
             );
           },
         ),
       ],
+    );
+  }
+}
+
+class _StoreCard extends StatelessWidget {
+  final Map store;
+  final VoidCallback onTap;
+  const _StoreCard({super.key, required this.store, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final image =
+        (store['coverImageUrl'] ?? store['imageUrl'] ?? store['logoUrl'])
+            ?.toString();
+    final fallback = Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFDBEAFE), SampleA.pale],
+        ),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.storefront_rounded,
+          size: 72,
+          color: Color(0xFF6093CF),
+        ),
+      ),
+    );
+    final description = store['description']?.toString().trim();
+    final address = store['address']?.toString().trim();
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE0E8F5)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 136,
+              child: image == null || image.isEmpty
+                  ? fallback
+                  : Image.network(
+                      image,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => fallback,
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          store['name']?.toString() ?? 'Cửa hàng',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            height: 1.25,
+                            fontWeight: FontWeight.w800,
+                            color: SampleA.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          description?.isNotEmpty == true
+                              ? description!
+                              : address?.isNotEmpty == true
+                              ? address!
+                              : 'Khám phá sản phẩm của cửa hàng',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                        if (store['distanceKm'] is num) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '${(store['distanceKm'] as num).toStringAsFixed(1)} km (đường thẳng)',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right, color: Color(0xFF334155)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

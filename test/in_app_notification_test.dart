@@ -192,7 +192,7 @@ void main() {
   });
 
   group('HomeHeaderCard & NotificationSheet Widget Tests', () {
-    testWidgets('HomeHeaderCard renders notification bell with red badge only when unreadCount > 0',
+    testWidgets('HomeHeaderCard renders notification bell with blue badge only when unreadCount > 0',
         (tester) async {
       bool bellTapped = false;
 
@@ -214,12 +214,7 @@ void main() {
       );
 
       expect(find.byIcon(LucideIcons.bell), findsOneWidget);
-      // Red badge dot should not be rendered
-      final redBoxZero = find.byWidgetPredicate((widget) =>
-          widget is Container &&
-          widget.decoration is BoxDecoration &&
-          (widget.decoration as BoxDecoration).color == const Color(0xFFEF4444));
-      expect(redBoxZero, findsNothing);
+      expect(tester.widget<Badge>(find.byType(Badge)).isLabelVisible, isFalse);
 
       // Tap bell
       await tester.tap(find.byIcon(LucideIcons.bell));
@@ -242,11 +237,9 @@ void main() {
         ),
       );
 
-      final redBoxActive = find.byWidgetPredicate((widget) =>
-          widget is Container &&
-          widget.decoration is BoxDecoration &&
-          (widget.decoration as BoxDecoration).color == const Color(0xFFEF4444));
-      expect(redBoxActive, findsOneWidget);
+      final badge = tester.widget<Badge>(find.byType(Badge));
+      expect(badge.isLabelVisible, isTrue);
+      expect(badge.backgroundColor, const Color(0xFF2563EB));
     });
 
     testWidgets('NotificationSheet renders empty state when no notifications exist', (tester) async {

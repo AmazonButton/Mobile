@@ -68,6 +68,94 @@ class OrderModel {
 
   String get displayTitle => title.isNotEmpty ? title : product;
 
+  static const timelineLabels = [
+    'Đã đặt',
+    'Đã xác nhận',
+    'Đang chuẩn bị',
+    'Sẵn sàng giao',
+    'Đang giao hàng',
+    'Đã giao hàng',
+    'Hoàn tất',
+  ];
+
+  static const _lifecycle =
+      <String, ({String label, OrderStatus tone, bool active, int stage})>{
+        'PENDING': (
+          label: 'Chờ xác nhận',
+          tone: OrderStatus.warning,
+          active: true,
+          stage: 0,
+        ),
+        'CONFIRMED': (
+          label: 'Đã xác nhận',
+          tone: OrderStatus.info,
+          active: true,
+          stage: 1,
+        ),
+        'PROCESSING': (
+          label: 'Đang xử lý',
+          tone: OrderStatus.info,
+          active: true,
+          stage: 2,
+        ),
+        'PREPARING': (
+          label: 'Đang chuẩn bị',
+          tone: OrderStatus.info,
+          active: true,
+          stage: 2,
+        ),
+        'READY_FOR_DELIVERY': (
+          label: 'Sẵn sàng giao',
+          tone: OrderStatus.info,
+          active: true,
+          stage: 3,
+        ),
+        'SHIPPING': (
+          label: 'Đang giao',
+          tone: OrderStatus.info,
+          active: true,
+          stage: 4,
+        ),
+        'DELIVERY_FAILED': (
+          label: 'Giao hàng thất bại',
+          tone: OrderStatus.danger,
+          active: true,
+          stage: 4,
+        ),
+        'DELIVERED': (
+          label: 'Đã giao',
+          tone: OrderStatus.success,
+          active: false,
+          stage: 5,
+        ),
+        'COMPLETED': (
+          label: 'Hoàn tất',
+          tone: OrderStatus.success,
+          active: false,
+          stage: 6,
+        ),
+        'CANCELLED': (
+          label: 'Đã hủy',
+          tone: OrderStatus.danger,
+          active: false,
+          stage: -1,
+        ),
+        'REJECTED': (
+          label: 'Đã từ chối',
+          tone: OrderStatus.danger,
+          active: false,
+          stage: -1,
+        ),
+      };
+
+  static int timelineStage(String? status) => _lifecycle[status]?.stage ?? -1;
+  static String lifecycleLabel(String status) =>
+      _lifecycle[status]?.label ?? 'Đang cập nhật';
+  bool get isActive => _lifecycle[rawStatus]?.active ?? true;
+  bool get isTerminal => !isActive;
+  bool get canPay => isUnpaid && isActive && rawStatus != 'DELIVERY_FAILED';
+  bool get countsTowardsSpend => isCompleted && isPaid;
+
   bool get isPending => rawStatus == 'PENDING';
   bool get isShipping => rawStatus == 'SHIPPING';
   bool get isCompleted => rawStatus == 'COMPLETED' || rawStatus == 'DELIVERED';
@@ -141,9 +229,15 @@ class OrderModel {
       final images = source['images'];
       if (images is List) {
         final ordered = [...images];
-        ordered.sort((a, b) =>
-            (b is Map && (b['isPrimary'] == true || b['isThumbnail'] == true) ? 1 : 0) -
-            (a is Map && (a['isPrimary'] == true || a['isThumbnail'] == true) ? 1 : 0));
+        ordered.sort(
+          (a, b) =>
+              (b is Map && (b['isPrimary'] == true || b['isThumbnail'] == true)
+                  ? 1
+                  : 0) -
+              (a is Map && (a['isPrimary'] == true || a['isThumbnail'] == true)
+                  ? 1
+                  : 0),
+        );
         for (final image in ordered) {
           final result = url(image is Map ? image['imageUrl'] : image);
           if (result != null) return result;
@@ -157,26 +251,11 @@ class OrderModel {
   }
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
-    final rawStatus = (json['orderStatus'] ?? json['status'] ?? 'PENDING').toString().toUpperCase();
-    OrderStatus status = OrderStatus.warning;
-    String statusText = 'Chờ xử lý';
-
-    if (rawStatus == 'COMPLETED' || rawStatus == 'DELIVERED') {
-      status = OrderStatus.success;
-      statusText = 'Đã giao';
-    } else if (rawStatus == 'SHIPPING') {
-      status = OrderStatus.info;
-      statusText = 'Đang giao';
-    } else if (rawStatus == 'CONFIRMED' || rawStatus == 'PROCESSING') {
-      status = OrderStatus.info;
-      statusText = 'Đang xử lý';
-    } else if (rawStatus == 'CANCELLED') {
-      status = OrderStatus.danger;
-      statusText = 'Đã hủy';
-    } else if (rawStatus == 'PENDING') {
-      status = OrderStatus.warning;
-      statusText = 'Chờ xác nhận';
-    }
+    final rawStatus = (json['orderStatus'] ?? json['status'] ?? 'PENDING')
+        .toString()
+        .toUpperCase();
+    final status = _lifecycle[rawStatus]?.tone ?? OrderStatus.warning;
+    final statusText = lifecycleLabel(rawStatus);
 
     // Extract product and items list with robust fallback
     final rawItems = json['items'] ?? json['orderItems'];
@@ -190,21 +269,27 @@ class OrderModel {
           final qty = item['quantity'] is num
               ? (item['quantity'] as num).toInt()
               : (int.tryParse(item['quantity']?.toString() ?? '1') ?? 1);
-          final name = item['productName'] ??
+          final name =
+              item['productName'] ??
               item['productNameSnapshot'] ??
               item['product']?['productName'] ??
               item['product']?['name'] ??
               item['name'] ??
               'Sản phẩm';
-          final pStr = item['unitPrice']?.toString() ?? item['finalUnitPrice']?.toString() ?? '';
+          final pStr =
+              item['unitPrice']?.toString() ??
+              item['finalUnitPrice']?.toString() ??
+              '';
           final img = _productImage(item);
 
-          parsedItems.add(OrderItemInfo(
-            name: name.toString(),
-            quantity: qty,
-            price: pStr,
-            imageUrl: img,
-          ));
+          parsedItems.add(
+            OrderItemInfo(
+              name: name.toString(),
+              quantity: qty,
+              price: pStr,
+              imageUrl: img,
+            ),
+          );
         }
       }
 
@@ -214,7 +299,8 @@ class OrderModel {
         if (parsedItems.length == 1) {
           displayTitle = '${first.quantity}x ${first.name}';
         } else {
-          displayTitle = '${first.quantity}x ${first.name} (+${parsedItems.length - 1} món khác)';
+          displayTitle =
+              '${first.quantity}x ${first.name} (+${parsedItems.length - 1} món khác)';
         }
       }
     } else if (json['productName'] != null) {
@@ -251,24 +337,34 @@ class OrderModel {
       timeStr = json['time'].toString();
     }
 
-    final custName = json['customer']?['fullName'] ??
+    final custName =
+        json['customer']?['fullName'] ??
         json['customer']?['user']?['fullName'] ??
         json['customerName'] ??
         'Cư dân';
 
     final apt = json['deliveryAddress'] ?? json['apartment'] ?? 'Căn hộ';
-    final id = json['orderId']?.toString() ?? json['id']?.toString() ?? json['orderNumber']?.toString() ?? 'SOB';
-    final orderCode = json['orderCode']?.toString() ?? json['orderNumber']?.toString() ?? '#$id';
+    final id =
+        json['orderId']?.toString() ??
+        json['id']?.toString() ??
+        json['orderNumber']?.toString() ??
+        'SOB';
+    final orderCode =
+        json['orderCode']?.toString() ??
+        json['orderNumber']?.toString() ??
+        '#$id';
 
     // Robust Button Name extraction
     String buttonName = 'Nút bấm IoT';
     final buttonObj = json['button'];
     if (buttonObj is Map) {
-      buttonName = buttonObj['buttonName']?.toString() ??
+      buttonName =
+          buttonObj['buttonName']?.toString() ??
           buttonObj['name']?.toString() ??
           buttonObj['buttonCode']?.toString() ??
           'Nút bấm IoT';
-    } else if (json['buttonName'] != null && json['buttonName'].toString().isNotEmpty) {
+    } else if (json['buttonName'] != null &&
+        json['buttonName'].toString().isNotEmpty) {
       buttonName = json['buttonName'].toString();
     }
 
@@ -276,29 +372,55 @@ class OrderModel {
     String storeName = '';
     final storeObj = json['store'];
     if (storeObj is Map) {
-      storeName = storeObj['name']?.toString() ?? storeObj['storeName']?.toString() ?? '';
-    } else if (json['storeName'] != null && json['storeName'].toString().isNotEmpty) {
+      storeName =
+          storeObj['name']?.toString() ??
+          storeObj['storeName']?.toString() ??
+          '';
+    } else if (json['storeName'] != null &&
+        json['storeName'].toString().isNotEmpty) {
       storeName = json['storeName'].toString();
     }
 
-    final deviceId = json['button']?['deviceId']?.toString() ?? json['deviceId']?.toString() ?? '';
+    final deviceId =
+        json['button']?['deviceId']?.toString() ??
+        json['deviceId']?.toString() ??
+        '';
 
-    final rawAmount = json['totalAmount'] ?? json['subtotalAmount'] ?? json['rawAmount'] ?? json['price'];
-    final num amountNum = rawAmount is num ? rawAmount : (num.tryParse(rawAmount?.toString().replaceAll(RegExp(r'[^\d.]'), '') ?? '') ?? 0);
-    final priceStr = json['priceFormatted']?.toString() ?? formatCurrency(amountNum);
+    final rawAmount =
+        json['totalAmount'] ??
+        json['subtotalAmount'] ??
+        json['rawAmount'] ??
+        json['price'];
+    final num amountNum = rawAmount is num
+        ? rawAmount
+        : (num.tryParse(
+                rawAmount?.toString().replaceAll(RegExp(r'[^\d.]'), '') ?? '',
+              ) ??
+              0);
+    final priceStr =
+        json['priceFormatted']?.toString() ?? formatCurrency(amountNum);
 
     IconData icon = LucideIcons.package;
     final lowerTitle = displayTitle.toLowerCase();
-    if (lowerTitle.contains('nước') || lowerTitle.contains('water') || lowerTitle.contains('lavie')) {
+    if (lowerTitle.contains('nước') ||
+        lowerTitle.contains('water') ||
+        lowerTitle.contains('lavie')) {
       icon = LucideIcons.droplets;
-    } else if (lowerTitle.contains('gas') || lowerTitle.contains('petrolimex')) {
+    } else if (lowerTitle.contains('gas') ||
+        lowerTitle.contains('petrolimex')) {
       icon = LucideIcons.flame;
-    } else if (lowerTitle.contains('gạo') || lowerTitle.contains('rice') || lowerTitle.contains('st25')) {
+    } else if (lowerTitle.contains('gạo') ||
+        lowerTitle.contains('rice') ||
+        lowerTitle.contains('st25')) {
       icon = LucideIcons.shoppingBag;
     }
 
-    final paymentStatus = (json['paymentStatus'] ?? 'UNPAID').toString().toUpperCase();
-    final paymentMethod = (json['paymentMethod'] ?? 'COD').toString().toUpperCase();
+    final paymentStatus = (json['paymentStatus'] ?? 'UNPAID')
+        .toString()
+        .toUpperCase();
+    final paymentMethod = (json['paymentMethod'] ?? 'COD')
+        .toString()
+        .toUpperCase();
 
     return OrderModel(
       id: id,

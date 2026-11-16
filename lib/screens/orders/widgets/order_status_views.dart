@@ -183,7 +183,7 @@ class _CancelConfirmationState extends State<_CancelConfirmation> {
                 child: Text(
                   _error!,
                   style: const TextStyle(
-                    fontFamily: 'SampleA Vietnam',
+                    fontFamily: SampleA.fontFamily,
                     color: SampleA.danger,
                   ),
                 ),

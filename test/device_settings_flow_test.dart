@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_order_button/models/device_model.dart';
 import 'package:smart_order_button/providers/device_provider.dart';
 import 'package:smart_order_button/screens/device_detail_screen.dart';
+import 'package:smart_order_button/screens/store_selection_screen.dart';
 import 'package:smart_order_button/services/api_client.dart';
 import 'package:smart_order_button/widgets/modals/product_selection_sheet.dart';
 import 'package:smart_order_button/widgets/modals/wifi_provisioning_sheet.dart';
@@ -86,34 +87,35 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets(
-    'Overview shows live device summary and only overview offers deletion',
-    (tester) async {
-      await open(tester);
-      expect(find.text('LêBảoStore'), findsOneWidget);
-      expect(find.text('Candy Sweet'), findsOneWidget);
-      expect(find.text('Kho trung tâm'), findsOneWidget);
-      expect(find.text('100%'), findsOneWidget);
-      expect(find.text('Xác nhận kép'), findsNothing);
-      expect(find.text('VÙNG NGUY HIỂM'), findsNothing);
-      await tester.ensureVisible(find.text('Thiết lập đặt hàng'));
-      await tester.tap(find.text('Thiết lập đặt hàng'));
-      await tester.pumpAndSettle();
-      expect(find.text('Đơn hàng của nút bấm'), findsOneWidget);
-      expect(find.text('Xóa thiết bị'), findsNothing);
-      expect(find.byType(Switch), findsNothing);
-      await tester.tap(find.text('Xong'));
-      await tester.pumpAndSettle();
-      expect(find.text('Sản phẩm đã gán'), findsOneWidget);
-    },
-  );
+  testWidgets('Overview omits room banner and opens the store list directly', (
+    tester,
+  ) async {
+    await open(tester);
+    expect(find.text('LêBảoStore'), findsOneWidget);
+    expect(find.text('Candy Sweet'), findsOneWidget);
+    expect(find.text('Kho trung tâm'), findsNothing);
+    expect(find.text('Kitchen_Wifi'), findsNWidgets(2));
+    expect(find.text('100%'), findsOneWidget);
+    expect(find.text('Xác nhận kép'), findsNothing);
+    expect(find.text('VÙNG NGUY HIỂM'), findsNothing);
+    await tester.ensureVisible(find.text('Đổi cửa hàng'));
+    await tester.tap(find.text('Đổi cửa hàng'));
+    await tester.pumpAndSettle();
+    expect(find.byType(StoreSelectionScreen), findsOneWidget);
+    expect(find.text('Cửa hàng mới'), findsOneWidget);
+    expect(find.text('Xóa thiết bị'), findsNothing);
+    expect(find.byType(Switch), findsNothing);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Sản phẩm đã gán'), findsOneWidget);
+  });
 
   testWidgets(
     'System back returns from connection and Wi-Fi updates overview',
     (tester) async {
       await open(tester);
-      await tester.ensureVisible(find.text('Kết nối & thiết bị'));
-      await tester.tap(find.text('Kết nối & thiết bị'));
+      await tester.ensureVisible(find.text('Wi-Fi thiết bị'));
+      await tester.tap(find.text('Wi-Fi thiết bị'));
       await tester.pumpAndSettle();
       expect(find.text('Kitchen_Wifi'), findsOneWidget);
       expect(find.text('Thông tin thiết bị'), findsNothing);
@@ -131,18 +133,16 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.text('Sản phẩm đã gán'), findsOneWidget);
-      expect(find.text('New_Wifi'), findsOneWidget);
+      expect(find.text('New_Wifi'), findsNWidgets(2));
     },
   );
 
-  testWidgets('Store save clears stale product and refreshes both screens', (
+  testWidgets('Store save clears stale product and returns to overview', (
     tester,
   ) async {
     await open(tester);
-    await tester.ensureVisible(find.text('Thiết lập đặt hàng'));
-    await tester.tap(find.text('Thiết lập đặt hàng'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cửa hàng'));
+    await tester.ensureVisible(find.text('Đổi cửa hàng'));
+    await tester.tap(find.text('Đổi cửa hàng'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cửa hàng mới'));
     await tester.pump();
@@ -153,53 +153,37 @@ void main() {
     expect(find.textContaining('Candy Sweet'), findsNothing);
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sản phẩm'));
+    await tester.ensureVisible(find.text('Đổi sản phẩm'));
+    await tester.tap(find.text('Đổi sản phẩm'));
     await tester.pumpAndSettle();
     expect(find.byType(ProductSelectionSheet), findsOneWidget);
     Navigator.of(tester.element(find.byType(ProductSelectionSheet))).pop();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Xong'));
     await tester.pumpAndSettle();
     expect(find.text('Cửa hàng mới'), findsOneWidget);
     expect(find.text('Chưa gán sản phẩm'), findsOneWidget);
   });
 
-  testWidgets('Deletion requires confirmation and does not pretend success', (
-    tester,
-  ) async {
+  testWidgets('Rental device has no standalone unlink action', (tester) async {
     await open(tester);
-    await tester.ensureVisible(find.byKey(const ValueKey('deleteDevice')));
-    await tester.tap(find.byKey(const ValueKey('deleteDevice')));
-    await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
-    await tester.tap(find.text('Hủy'));
-    await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('deleteDevice')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Xóa'));
-    await tester.pumpAndSettle();
-    expect(
-      find.textContaining('Chức năng xóa thiết bị hiện chưa khả dụng'),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('deleteDevice')), findsNothing);
+    expect(find.text('Xóa thiết bị'), findsNothing);
     expect(provider.devices, hasLength(1));
     expect(find.byType(DeviceDetailScreen), findsOneWidget);
   });
 
   testWidgets(
-    'Long names and large text fit small screens and keep done reachable',
+    'Long names and large text keep store and Wi-Fi actions reachable',
     (tester) async {
       await open(tester, small: true);
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('Thiết lập đặt hàng'));
-      await tester.tap(find.text('Thiết lập đặt hàng'));
+      await tester.ensureVisible(find.text('Đổi cửa hàng'));
+      await tester.tap(find.text('Đổi cửa hàng'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Xong'));
-      await tester.tap(find.text('Xong'));
+      await tester.ensureVisible(find.text('Lưu cửa hàng'));
+      await tester.pageBack();
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Kết nối & thiết bị'));
-      await tester.tap(find.text('Kết nối & thiết bị'));
+      await tester.ensureVisible(find.text('Wi-Fi thiết bị'));
+      await tester.tap(find.text('Wi-Fi thiết bị'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Xong'));
       expect(tester.takeException(), isNull);

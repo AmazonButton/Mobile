@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_order_button/models/device_model.dart';
+import 'package:smart_order_button/providers/address_provider.dart';
 import 'package:smart_order_button/providers/device_provider.dart';
 import 'package:smart_order_button/screens/devices_screen.dart';
 import 'package:smart_order_button/screens/home_screen.dart';
@@ -143,7 +144,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.text('Chào người bạn mới!'), findsOneWidget);
-        expect(find.text('Kết nối thiết bị đầu tiên'), findsOneWidget);
+        expect(find.text('Thêm thiết bị'), findsOneWidget);
         expect(find.text('0 nút bấm đang kết nối'), findsNothing);
       },
     );
@@ -185,7 +186,7 @@ void main() {
 
       expect(find.text('Nút Bếp Căn Hộ 1204'), findsOneWidget);
       expect(find.text('1 người bạn của nhà'), findsOneWidget);
-      expect(find.text('Chưa có nút bấm nào'), findsNothing);
+      expect(find.text('Chưa có thiết bị'), findsNothing);
     });
 
     testWidgets('DevicesScreen supports pull-to-refresh', (tester) async {
@@ -227,8 +228,11 @@ void main() {
 
         await tester.pumpWidget(
           MaterialApp(
-            home: ChangeNotifierProvider<DeviceProvider>.value(
-              value: provider,
+            home: MultiProvider(
+              providers: [
+                ChangeNotifierProvider.value(value: provider),
+                ChangeNotifierProvider(create: (_) => AddressProvider()),
+              ],
               child: const HomeScreen(),
             ),
           ),
@@ -237,8 +241,33 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
 
-        expect(find.text('Chưa có nút bấm nào'), findsOneWidget);
-        expect(find.text('Thêm nút nhấn mới'), findsOneWidget);
+        expect(find.text('Chưa có thiết bị'), findsOneWidget);
+        final addDevice = find.text('Thêm thiết bị');
+        expect(addDevice, findsOneWidget);
+        final callsBeforeConnect = mockApi.getDevicesCalls;
+        await tester.tap(addDevice);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('Mã kết nối / mã QR'), findsOneWidget);
+
+        Navigator.of(tester.element(find.text('Mã kết nối / mã QR'))).pop();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(addDevice, findsOneWidget);
+        expect(find.text('Mã kết nối / mã QR'), findsNothing);
+        expect(mockApi.getDevicesCalls, callsBeforeConnect);
+
+        await tester.tap(addDevice);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        mockApi.mockDevices = [DeviceModel.sampleDevices.first];
+        Navigator.of(tester.element(find.text('Mã kết nối / mã QR'))).pop(true);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(mockApi.getDevicesCalls, callsBeforeConnect + 1);
+        expect(addDevice, findsNothing);
+        expect(find.text(mockApi.mockDevices.single.name), findsOneWidget);
       },
     );
   });

@@ -1,8 +1,11 @@
+import '../widgets/sample_a.dart';
+import '../widgets/user_avatar.dart';
+import 'customer_bank_accounts_screen.dart';
+import 'customer_buttons_screen.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../widgets/smart_order_tour.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
@@ -10,11 +13,14 @@ import '../providers/address_provider.dart';
 import '../services/services.dart';
 import 'address/address_list_screen.dart';
 import 'login_screen.dart';
+import 'change_password_screen.dart';
+import 'identity_verification_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool showBackButton;
 
-  const ProfileScreen({super.key, this.showBackButton = true});
+  const ProfileScreen({super.key, this.showBackButton = true, this.tour});
+  final SmartOrderTour? tour;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -22,7 +28,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final UserProfileService _userService = UserProfileService();
-  final ImagePicker _imagePicker = ImagePicker();
+  String? get _avatarUrl => _userProvider?.avatarUrl ?? _userService.avatarUrl;
 
   UserProvider? get _userProvider {
     try {
@@ -61,283 +67,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _onProfileChanged() {
     if (mounted) setState(() {});
-  }
-
-  void _updateName(String newName) {
-    try {
-      Provider.of<UserProvider>(context, listen: false).updateName(newName);
-    } catch (_) {
-      _userService.updateName(newName);
-    }
-  }
-
-  void _updatePhone(String newPhone) {
-    try {
-      Provider.of<UserProvider>(context, listen: false).updatePhone(newPhone);
-    } catch (_) {
-      _userService.updatePhone(newPhone);
-    }
-  }
-
-  void _updateEmail(String newEmail) {
-    try {
-      Provider.of<UserProvider>(context, listen: false).updateEmail(newEmail);
-    } catch (_) {
-      _userService.updateEmail(newEmail);
-    }
-  }
-
-
-  void _updateAvatar(File? file) {
-    try {
-      Provider.of<UserProvider>(context, listen: false).updateAvatar(file);
-    } catch (_) {
-      _userService.updateAvatar(file);
-    }
-  }
-
-  Future<void> _pickAvatar(ImageSource source) async {
-    try {
-      final XFile? picked = await _imagePicker.pickImage(
-        source: source,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
-      );
-      if (picked != null) {
-        _updateAvatar(File(picked.path));
-        _showFloatingToast('Cập nhật ảnh đại diện thành công');
-      }
-    } catch (e) {
-      _showFloatingToast('Không thể mở ảnh. Vui lòng cấp quyền truy cập thiết bị.');
-    }
-  }
-
-  void _showAvatarPickerModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Thay đổi ảnh đại diện',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(LucideIcons.x,
-                          color: Color(0xFF94A3B8), size: 20),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Chọn ảnh từ bộ sưu tập hoặc chụp ảnh mới để hoàn tất hồ sơ của bạn.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF64748B),
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Option 1: Chọn từ bộ sưu tập
-                TactileTap(
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickAvatar(ImageSource.gallery);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFF1F5F9)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEFF6FF),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            LucideIcons.image,
-                            size: 18,
-                            color: Color(0xFF3B82F6),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Chọn từ bộ sưu tập',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Mở album ảnh trên điện thoại',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF94A3B8),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(LucideIcons.chevronRight,
-                            size: 16, color: Color(0xFFCBD5E1)),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Option 2: Chụp ảnh mới
-                TactileTap(
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickAvatar(ImageSource.camera);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFF1F5F9)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF0FDF4),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            LucideIcons.camera,
-                            size: 18,
-                            color: Color(0xFF10B981),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Chụp ảnh mới',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Sử dụng máy ảnh thiết bị',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF94A3B8),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(LucideIcons.chevronRight,
-                            size: 16, color: Color(0xFFCBD5E1)),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Option 3: Gỡ ảnh hiện tại
-                if (_avatarFile != null) ...[
-                  const SizedBox(height: 12),
-                  TactileTap(
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _updateAvatar(null);
-                      _showFloatingToast('Đã xóa ảnh đại diện');
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF2F2),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFFEE2E2)),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFFEE2E2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              LucideIcons.trash2,
-                              size: 18,
-                              color: Color(0xFFEF4444),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          const Expanded(
-                            child: Text(
-                              'Gỡ ảnh đại diện hiện tại',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFFEF4444),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 14),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 
   void _showFloatingToast(String message) {
@@ -390,370 +119,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _openEditNameModal() {
-    final TextEditingController nameController =
-        TextEditingController(text: userName);
+  void _openEditNameModal() => _openProfileEditor(isPhone: false);
 
-    showModalBottomSheet(
+  void _openEditPhoneModal() => _openProfileEditor(isPhone: true);
+
+  Future<void> _openProfileEditor({required bool isPhone}) async {
+    final provider = context.read<UserProvider>();
+    final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      showDragHandle: true,
+      builder: (_) => _ProfileEditSheet(
+        isPhone: isPhone,
+        initialValue: isPhone ? userPhone : userName,
+        onSave: (value) =>
+            isPhone ? provider.updatePhone(value) : provider.updateName(value),
       ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            left: 20,
-            right: 20,
-            top: 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Đổi họ và tên',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(LucideIcons.x,
-                        color: Color(0xFF94A3B8), size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'HỌ VÀ TÊN',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF94A3B8),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: TextField(
-                  controller: nameController,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.words,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1E293B),
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Nhập họ và tên...',
-                    hintStyle: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 14,
-                      fontWeight: FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final newName = nameController.text.trim();
-                    if (newName.isNotEmpty) {
-                      _updateName(newName);
-                      Navigator.pop(ctx);
-                      _showFloatingToast('Cập nhật tên thành công');
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF64748B),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Lưu thay đổi',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
+    if (saved == true && mounted) {
+      _showFloatingToast('Cập nhật hồ sơ thành công');
+    }
   }
 
   void _openEditAddressModal() async {
     HapticFeedback.lightImpact();
+    final tour = widget.tour;
+    tour?.openAddresses();
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AddressListScreen()),
+      MaterialPageRoute(builder: (_) => AddressListScreen(tour: tour)),
     );
+    tour?.addressesClosed();
     if (mounted) setState(() {});
-  }
-
-  void _openEditPhoneModal() {
-    final TextEditingController phoneController =
-        TextEditingController(text: userPhone);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            left: 20,
-            right: 20,
-            top: 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Đổi số điện thoại',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(LucideIcons.x,
-                        color: Color(0xFF94A3B8), size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'SỐ ĐIỆN THOẠI',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF94A3B8),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: TextField(
-                  controller: phoneController,
-                  autofocus: true,
-                  keyboardType: TextInputType.phone,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1E293B),
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Nhập số điện thoại...',
-                    hintStyle: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 14,
-                      fontWeight: FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final newPhone = phoneController.text.trim();
-                    if (newPhone.isNotEmpty) {
-                      _updatePhone(newPhone);
-                      Navigator.pop(ctx);
-                      _showFloatingToast('Cập nhật số điện thoại thành công');
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF64748B),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Lưu thay đổi',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _openEditEmailModal() {
-    final TextEditingController emailController =
-        TextEditingController(text: userEmail);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            left: 20,
-            right: 20,
-            top: 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Đổi địa chỉ email',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(LucideIcons.x,
-                        color: Color(0xFF94A3B8), size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'EMAIL',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF94A3B8),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: TextField(
-                  controller: emailController,
-                  autofocus: true,
-                  keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1E293B),
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Nhập email mới...',
-                    hintStyle: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 14,
-                      fontWeight: FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final newEmail = emailController.text.trim();
-                    if (newEmail.isNotEmpty) {
-                      _updateEmail(newEmail);
-                      Navigator.pop(ctx);
-                      _showFloatingToast('Cập nhật email thành công');
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF64748B),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Lưu thay đổi',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   void _confirmLogout() {
@@ -761,9 +158,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text(
           'Đăng xuất',
           style: TextStyle(
@@ -779,9 +174,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy',
-                style: TextStyle(
-                    color: Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
+            child: const Text(
+              'Hủy',
+              style: TextStyle(
+                color: Color(0xFF94A3B8),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -816,58 +215,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text('Đăng xuất',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmDeleteAccount() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        title: const Text(
-          'Xóa tài khoản',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFFDC2626),
-          ),
-        ),
-        content: const Text(
-          'Hành động này không thể hoàn tác. Toàn bộ thiết bị SmartTap đã ghép nối và lịch sử đơn hàng của bạn sẽ bị xóa vĩnh viễn.',
-          style: TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Giữ lại',
-                style: TextStyle(
-                    color: Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showFloatingToast('Yêu cầu xóa tài khoản đã được ghi nhận');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            child: const Text(
+              'Đăng xuất',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            child: const Text('Xác nhận xóa',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -875,322 +229,202 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFD),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            stops: [0.0, 0.35, 1.0],
-            colors: [
-              Color(0xFFEBF4FE),
-              Color(0xFFF7FAFD),
-              Colors.white,
-            ],
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            slivers: [
-              // Transparent App Bar
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 8, 20, 8),
-                  child: Row(
-                    children: [
-                      if ((widget.showBackButton as dynamic) == true && Navigator.canPop(context))
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(
-                            LucideIcons.chevronLeft,
-                            color: Color(0xFF1E293B),
-                            size: 24,
-                          ),
-                          splashRadius: 22,
-                        )
-                      else
-                        const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Hồ sơ của tôi',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                            letterSpacing: -0.4,
-                          ),
-                        ),
-                      ),
-                      if (widget.showBackButton && Navigator.canPop(context))
-                        const SizedBox(width: 40)
-                      else
-                        const SizedBox(width: 8),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Animated Grouped Cards
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      // 1. Header Section (Avatar & Name)
-                      _buildHeaderSection(),
-                      const SizedBox(height: 28),
-
-                      // 2. Contact Info Group (Card 1)
-                      _buildContactInfoCard(),
-                      const SizedBox(height: 18),
-
-                      // 3. Settings & Support Group (Card 2)
-                      _buildSettingsCard(),
-                      const SizedBox(height: 18),
-
-                      // 4. Danger Zone (Card 3)
-                      _buildDangerZoneCard(),
-                      const SizedBox(height: 28),
-
-                      // 5. Footer
-                      _buildFooter(),
-                      const SizedBox(height: 40),
-                    ]
-                        .animate(interval: 50.ms)
-                        .fade(duration: 300.ms)
-                        .slideY(begin: 0.05, curve: Curves.easeOutQuad),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ================= 1. HEADER SECTION =================
-  Widget _buildHeaderSection() {
-    return Center(
-      child: Column(
-        children: [
-          // Avatar with Camera Badge
-          TactileTap(
-            onTap: _showAvatarPickerModal,
-            child: Stack(
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.white,
+    appBar: AppBar(
+      title: const Text('Tài khoản'),
+      centerTitle: true,
+      automaticallyImplyLeading: widget.showBackButton,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+    ),
+    body: AContent(
+      maxWidth: SampleA.detailWidth,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFFA3B8CD).withValues(alpha: 0.4),
-                      width: 2,
-                    ),
-                  ),
-                  child: CircleAvatar(
-                    radius: 45,
-                    backgroundColor: const Color(0xFFE2E8F0),
-                    backgroundImage:
-                        _avatarFile != null ? FileImage(_avatarFile!) : null,
-                    child: _avatarFile == null
-                        ? Text(
-                            userInitials,
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF334155),
-                              letterSpacing: 0.5,
-                            ),
-                          )
-                        : null,
-                  ),
+                UserAvatar(
+                  size: 72,
+                  initials: userInitials,
+                  file: _avatarFile,
+                  url: _avatarUrl,
                 ),
-                Positioned(
-                  bottom: 2,
-                  right: 2,
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFE2E8F0),
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.08),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap: _openEditNameModal,
+                        child: Text(
+                          userName,
+                          style: const TextStyle(
+                            fontSize: 23,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ],
-                    ),
-                    child: const Icon(
-                      LucideIcons.camera,
-                      size: 14,
-                      color: Color(0xFF475569),
-                    ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        userPhone,
+                        style: const TextStyle(color: Color(0xFF475569)),
+                      ),
+                      TextButton.icon(
+                        onPressed: _editProfile,
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Chỉnh sửa hồ sơ'),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 14),
-
-          // Name with Edit Pencil
-          TactileTap(
-            onTap: _openEditNameModal,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    userName,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                      letterSpacing: -0.5,
-                    ),
+            const SizedBox(height: 20),
+            _groupTitle('Thông tin cá nhân'),
+            ActionTile(
+              key: widget.tour?.key(TourStep.addresses),
+              icon: LucideIcons.mapPin,
+              title: 'Địa chỉ giao hàng',
+              onTap: _openEditAddressModal,
+            ),
+            const Divider(height: 1),
+            ActionTile(
+              key: widget.tour?.key(TourStep.identity),
+              icon: LucideIcons.shieldCheck,
+              title: 'Xác minh danh tính',
+              onTap: () async {
+                final tour = widget.tour;
+                tour?.openIdentity();
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => IdentityVerificationScreen(tour: tour),
                   ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    LucideIcons.pencil,
-                    size: 16,
-                    color: Color(0xFF94A3B8),
+                );
+                tour?.identityClosed();
+              },
+            ),
+            const SizedBox(height: 16),
+            _groupTitle('Nút & hoàn cọc'),
+            ActionTile(
+              key: widget.tour?.key(TourStep.deposit),
+              icon: LucideIcons.package,
+              title: 'Nút và tiền cọc',
+              onTap: () async {
+                final tour = widget.tour;
+                tour?.openDeposit();
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => CustomerButtonsScreen(tour: tour),
                   ),
-                ],
+                );
+                tour?.depositClosed();
+              },
+            ),
+            const Divider(height: 1),
+            ActionTile(
+              key: widget.tour?.key(TourStep.bank),
+              icon: LucideIcons.landmark,
+              title: 'Tài khoản hoàn cọc',
+              onTap: () async {
+                final tour = widget.tour;
+                tour?.openBank();
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => CustomerBankAccountsScreen(tour: tour),
+                  ),
+                );
+                tour?.bankClosed();
+              },
+            ),
+            const SizedBox(height: 16),
+            _groupTitle('Hỗ trợ & bảo mật'),
+            ActionTile(
+              icon: LucideIcons.lock,
+              title: 'Đổi mật khẩu',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const ChangePasswordScreen(),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 2),
-
-          const Text(
-            'Thành viên từ Th08 2026',
-            style: TextStyle(
-              fontSize: 13,
-              color: Color(0xFF94A3B8),
-              fontWeight: FontWeight.w400,
+            const Divider(height: 1),
+            if (widget.tour != null)
+              ActionTile(
+                icon: LucideIcons.bookOpen,
+                title: 'Xem lại hướng dẫn',
+                onTap: widget.tour!.replay,
+              ),
+            const Divider(height: 1),
+            ActionTile(
+              icon: LucideIcons.headphones,
+              title: 'Hỗ trợ',
+              onTap: () => _showFloatingToast('Tổng đài hỗ trợ: 1900 6868'),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ================= 2. CONTACT INFO GROUP (Card 1) =================
-  Widget _buildContactInfoCard() {
-    return _buildGroupCard([
-      InfoTile(
-        icon: LucideIcons.phone,
-        title: 'Số điện thoại',
-        value: userPhone,
-        isEditable: true,
-        onTap: _openEditPhoneModal,
-      ),
-      const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-      InfoTile(
-        icon: LucideIcons.mail,
-        title: 'Email',
-        value: userEmail,
-        isEditable: true,
-        onTap: _openEditEmailModal,
-      ),
-      const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-      InfoTile(
-        icon: LucideIcons.mapPin,
-        title: 'Địa chỉ giao hàng',
-        value: userAddress.trim().isNotEmpty ? userAddress : 'Chưa thiết lập địa chỉ',
-        isEditable: true,
-        onTap: _openEditAddressModal,
-      ),
-    ]);
-  }
-
-  // ================= 3. SETTINGS & SUPPORT GROUP (Card 2) =================
-  Widget _buildSettingsCard() {
-    return _buildGroupCard([
-      ActionTile(
-        icon: LucideIcons.settings,
-        title: 'Cài đặt ứng dụng',
-        onTap: () => _showFloatingToast('Mở cài đặt ứng dụng'),
-      ),
-      const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-      ActionTile(
-        icon: LucideIcons.headphones,
-        title: 'Trung tâm hỗ trợ',
-        onTap: () => _showFloatingToast('Tổng đài hỗ trợ: 1900 6868'),
-      ),
-    ]);
-  }
-
-  // ================= 4. DANGER ZONE GROUP (Card 3) =================
-  Widget _buildDangerZoneCard() {
-    return _buildGroupCard([
-      ActionTile(
-        icon: LucideIcons.logOut,
-        iconColor: const Color(0xFF1E293B),
-        title: 'Đăng xuất',
-        titleColor: const Color(0xFF1E293B),
-        showChevron: false,
-        onTap: _confirmLogout,
-      ),
-      const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-      ActionTile(
-        icon: LucideIcons.trash2,
-        iconColor: Colors.red.shade600,
-        title: 'Xóa tài khoản',
-        titleColor: Colors.red.shade600,
-        showChevron: false,
-        onTap: _confirmDeleteAccount,
-      ),
-    ]);
-  }
-
-  // ================= 5. FOOTER =================
-  Widget _buildFooter() {
-    return const Center(
-      child: Text(
-        'Phiên bản 1.0.0 (Build 12)',
-        style: TextStyle(
-          fontSize: 12,
-          color: Color(0xFF94A3B8), // Slate 400
-          fontWeight: FontWeight.w400,
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: _confirmLogout,
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Đăng xuất'),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
 
-  // Card Container (iOS Grouped Style)
-  Widget _buildGroupCard(List<Widget> children) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+  Widget _groupTitle(String text) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF1F3F6),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+    ),
+  );
+
+  void _editProfile() => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InfoTile(
+            icon: LucideIcons.user,
+            title: 'Họ và tên',
+            value: userName,
+            isEditable: true,
+            onTap: () {
+              Navigator.pop(sheetContext);
+              _openEditNameModal();
+            },
           ),
+          InfoTile(
+            icon: LucideIcons.phone,
+            title: 'Số điện thoại',
+            value: userPhone,
+            isEditable: true,
+            onTap: () {
+              Navigator.pop(sheetContext);
+              _openEditPhoneModal();
+            },
+          ),
+          InfoTile(icon: LucideIcons.mail, title: 'Email', value: userEmail),
         ],
       ),
-      child: Column(children: children),
-    );
-  }
+    ),
+  );
 }
 
 /// Reusable InfoTile Widget for Contact Info & Attributes
@@ -1365,4 +599,125 @@ class _TactileTapState extends State<TactileTap> {
       ),
     );
   }
+}
+
+class _ProfileEditSheet extends StatefulWidget {
+  final bool isPhone;
+  final String initialValue;
+  final Future<void> Function(String) onSave;
+  const _ProfileEditSheet({
+    required this.isPhone,
+    required this.initialValue,
+    required this.onSave,
+  });
+
+  @override
+  State<_ProfileEditSheet> createState() => _ProfileEditSheetState();
+}
+
+class _ProfileEditSheetState extends State<_ProfileEditSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialValue,
+  );
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_saving || !_formKey.currentState!.validate()) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final value = _controller.text.trim();
+      await widget.onSave(
+        widget.isPhone ? value.replaceAll(RegExp(r'\s+'), '') : value,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error = error is ApiException
+              ? error.message
+              : 'Không thể lưu hồ sơ. Vui lòng thử lại.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_saving,
+    child: SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          12,
+          24,
+          24 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.isPhone
+                    ? 'Chỉnh sửa số điện thoại'
+                    : 'Chỉnh sửa họ và tên',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _controller,
+                enabled: !_saving,
+                keyboardType: widget.isPhone
+                    ? TextInputType.phone
+                    : TextInputType.name,
+                decoration: InputDecoration(
+                  labelText: widget.isPhone ? 'Số điện thoại' : 'Họ và tên',
+                ),
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  if (widget.isPhone) {
+                    return RegExp(
+                          r'^[0-9+]{8,15}$',
+                        ).hasMatch(text.replaceAll(RegExp(r'\s+'), ''))
+                        ? null
+                        : 'Số điện thoại không hợp lệ';
+                  }
+                  return text.isEmpty || text.length > 100
+                      ? 'Họ tên phải từ 1 đến 100 ký tự'
+                      : null;
+                },
+              ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: Text(_saving ? 'Đang lưu...' : 'Lưu thay đổi'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }

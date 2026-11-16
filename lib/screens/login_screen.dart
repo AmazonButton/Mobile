@@ -1,3 +1,4 @@
+import '../widgets/sample_a.dart';
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'signup_screen.dart';
@@ -6,15 +7,18 @@ import '../services/services.dart';
 import '../utils/validators.dart';
 import '../widgets/phone_login_bottom_sheet.dart';
 import '../widgets/auth_guide.dart';
+import '../services/google_login_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final GoogleLoginService? googleService;
+  const LoginScreen({super.key, this.googleService});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  late final _google = widget.googleService ?? GoogleLoginService();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -37,9 +41,9 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _hasPasswordBlurred = false;
 
   // Màu sắc chủ đạo theo yêu cầu: Tone Xanh dương nhạt & Navy thanh lịch
-  static const Color primaryBlue = Color(0xFF1D5B9F);
+  static const Color primaryBlue = SampleA.primary;
   static const Color textMuted = Color(0xFF627D98);
-  static const Color borderLight = Color(0xFFE2E8F0);
+  static const Color borderLight = SampleA.border;
 
   void _applySuggestion(String suggested) {
     setState(() {
@@ -204,6 +208,46 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _handleGoogleLogin() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      final response = await _google.signIn();
+      if (!mounted || response == null) return;
+      final data = response['data'] ?? response;
+      final user = data['user'] ?? response['user'];
+      final profile = UserProfileService()..reset();
+      if (user is Map) {
+        if (user['fullName'] != null) {
+          profile.updateName(user['fullName'].toString());
+        }
+        if (user['email'] != null) {
+          profile.updateEmail(user['email'].toString());
+        }
+        if (user['phone'] != null) {
+          profile.updatePhone(user['phone'].toString());
+        }
+        profile.updateAvatarUrl(user['avatarUrl']?.toString());
+      }
+      NotificationService().syncTokenWithBackend();
+      await _navigateToDashboard();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is ApiException
+                  ? error.message
+                  : 'Không thể đăng nhập Google. Vui lòng thử lại.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted && !_loginSuccess) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _handleLogin() async {
     if (!_isFormValid || _isLoading) return;
     setState(() => _isLoading = true);
@@ -304,7 +348,7 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
+                constraints: const BoxConstraints(maxWidth: SampleA.formWidth),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -364,10 +408,18 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   List<Widget> _methodChoices() => [
+    OutlinedButton.icon(
+      key: const ValueKey('googleLogin'),
+      onPressed: _isLoading ? null : _handleGoogleLogin,
+      icon: const Icon(Icons.account_circle_outlined),
+      label: const Text('Tiếp tục với Google'),
+      style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(18)),
+    ),
+    const SizedBox(height: 16),
     _action('Đăng nhập bằng email', () => _changeStep(1)),
     const SizedBox(height: 16),
     OutlinedButton.icon(
-      onPressed: _openPhoneLoginSheet,
+      onPressed: _isLoading ? null : _openPhoneLoginSheet,
       icon: const Icon(Icons.phone_outlined),
       label: const Text(
         'Đăng nhập bằng số điện thoại / OTP',
@@ -377,7 +429,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ),
     const SizedBox(height: 24),
     TextButton(
-      onPressed: () => _navigateToSignUp(),
+      onPressed: _isLoading ? null : () => _navigateToSignUp(),
       child: const Text(
         'Tạo tài khoản mới bằng số điện thoại',
         textAlign: TextAlign.center,

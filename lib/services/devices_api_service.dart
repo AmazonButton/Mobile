@@ -1,7 +1,10 @@
+import 'paged_list_service.dart';
 import '../models/device_model.dart';
 import 'api_client.dart';
 import 'api_config.dart';
 import 'products_api_service.dart';
+import 'customer_buttons_api_service.dart';
+import '../models/customer_button_contract.dart';
 
 class DevicesApiService {
   static final DevicesApiService _instance = DevicesApiService._internal();
@@ -10,36 +13,66 @@ class DevicesApiService {
 
   final ApiClient _client = ApiClient();
 
+  Future<Map<String, CustomerButtonContract>> _usageByButton() async {
+    try {
+      final contracts = await CustomerButtonsApiService().getMyButtons();
+      return {
+        for (final contract in contracts)
+          for (final button in contract.buttons) button.id: contract,
+      };
+    } catch (_) {
+      // Older servers and non-customer accounts may not expose custody data.
+      // The order endpoint remains authoritative when this lookup is unavailable.
+      return {};
+    }
+  }
+
+  Map<String, dynamic> _withUsage(
+    Map<String, dynamic> data,
+    Map<String, CustomerButtonContract> usage,
+  ) {
+    final contract =
+        usage[data['buttonId']?.toString() ?? data['id']?.toString()];
+    if (contract == null) return data;
+    return {
+      ...data,
+      'rentalId': contract.id,
+      'rentalStatus': contract.status,
+      if (data['canOrder'] is! bool && contract.canOrder != null)
+        'canOrder': contract.canOrder,
+    };
+  }
+
   /// Lấy danh sách tất cả các nút bấm IoT của người dùng được ánh xạ thành DeviceModel
   Future<List<DeviceModel>> getDevices({String? status, String? search}) async {
     final query = <String, dynamic>{};
     if (status != null && status.isNotEmpty) query['status'] = status;
     if (search != null && search.isNotEmpty) query['search'] = search;
 
-    final response = await _client.get(ApiConfig.devices, queryParams: query);
-    final data = response['data'] ?? response;
-    if (data is List) {
-      final devices = data.map((item) {
-        if (item is Map<String, dynamic>) {
-          return DeviceModel.fromJson(item);
-        } else if (item is Map) {
-          return DeviceModel.fromJson(Map<String, dynamic>.from(item));
-        }
-        return DeviceModel.fromJson({});
-      }).toList();
+    final data = await getAllApiPages(ApiConfig.devices, query: query);
+    {
+      final usage = data.any((item) => item['buttonId'] != null)
+          ? await _usageByButton()
+          : <String, CustomerButtonContract>{};
+      final devices = data
+          .map((item) => DeviceModel.fromJson(_withUsage(item, usage)))
+          .toList();
       if (!devices.any((device) => device.imageUrl == null)) return devices;
       try {
         final products = await ProductsApiService().getProducts();
         final byId = <String, Map>{
           for (final product in products)
-            if (product is Map && (product['productId'] ?? product['id']) != null)
+            if (product is Map &&
+                (product['productId'] ?? product['id']) != null)
               (product['productId'] ?? product['id']).toString(): product,
         };
         return devices.map((device) {
           final product = byId[device.productId];
           if (device.imageUrl != null || product == null) return device;
           final enriched = DeviceModel.fromJson({
-            'products': [{'product': product}],
+            'products': [
+              {'product': product},
+            ],
           });
           return device.copyWith(imageUrl: enriched.imageUrl);
         }).toList();
@@ -47,7 +80,6 @@ class DevicesApiService {
         return devices;
       }
     }
-    return [];
   }
 
   /// Lấy thông tin chi tiết một nút bấm dạng strongly-typed DeviceModel
@@ -59,7 +91,9 @@ class DevicesApiService {
   /// Lấy thông tin chi tiết một nút bấm
   Future<Map<String, dynamic>> getDeviceById(String id) async {
     final response = await _client.get(ApiConfig.deviceDetail(id));
-    return response['data'] ?? response;
+    final data = Map<String, dynamic>.from(response['data'] ?? response);
+    if (data['buttonId'] == null) return data;
+    return _withUsage(data, await _usageByButton());
   }
 
   /// Tra cứu thiết bị theo mã PIN 6 số hoặc payload QR

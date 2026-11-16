@@ -14,28 +14,28 @@ class AuthApiService {
     required String password,
     bool? rememberMe,
   }) async {
-    final body = <String, dynamic>{
-      'email': email.trim(),
-      'password': password,
-    };
+    final body = <String, dynamic>{'email': email.trim(), 'password': password};
     if (rememberMe != null) {
       body['rememberMe'] = rememberMe;
     }
 
-    final response = await _client.post(
-      ApiConfig.authLogin,
-      body: body,
-    );
+    final response = await _client.post(ApiConfig.authLogin, body: body);
 
     final data = response['data'] ?? response;
-    final accessToken = response['accessToken'] ?? data['token'] ?? data['accessToken'];
+    final accessToken =
+        response['accessToken'] ?? data['token'] ?? data['accessToken'];
     final refreshToken = response['refreshToken'] ?? data['refreshToken'];
 
     if (accessToken != null) {
-      await _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
+      await _client.setTokens(
+        accessToken: accessToken.toString(),
+        refreshToken: refreshToken?.toString(),
+      );
     }
 
-    return response is Map<String, dynamic> ? response : {'success': true, 'data': response};
+    return response is Map<String, dynamic>
+        ? response
+        : {'success': true, 'data': response};
   }
 
   /// Đăng ký tài khoản cư dân / người dùng mới
@@ -57,23 +57,28 @@ class AuthApiService {
     };
     if (phone != null && phone.isNotEmpty) body['phone'] = phone.trim();
     if (address != null && address.isNotEmpty) body['address'] = address.trim();
-    if (storeName != null && storeName.isNotEmpty) body['storeName'] = storeName.trim();
+    if (storeName != null && storeName.isNotEmpty) {
+      body['storeName'] = storeName.trim();
+    }
     if (role != null && role.isNotEmpty) body['role'] = role;
 
-    final response = await _client.post(
-      ApiConfig.authRegister,
-      body: body,
-    );
+    final response = await _client.post(ApiConfig.authRegister, body: body);
 
     final data = response['data'] ?? response;
-    final accessToken = response['accessToken'] ?? data['token'] ?? data['accessToken'];
+    final accessToken =
+        response['accessToken'] ?? data['token'] ?? data['accessToken'];
     final refreshToken = response['refreshToken'] ?? data['refreshToken'];
 
     if (accessToken != null) {
-      await _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
+      await _client.setTokens(
+        accessToken: accessToken.toString(),
+        refreshToken: refreshToken?.toString(),
+      );
     }
 
-    return response is Map<String, dynamic> ? response : {'success': true, 'data': response};
+    return response is Map<String, dynamic>
+        ? response
+        : {'success': true, 'data': response};
   }
 
   /// Đăng ký tài khoản cư dân bằng Firebase Phone Auth ID Token
@@ -96,14 +101,20 @@ class AuthApiService {
     );
 
     final data = response['data'] ?? response;
-    final accessToken = response['accessToken'] ?? data['token'] ?? data['accessToken'];
+    final accessToken =
+        response['accessToken'] ?? data['token'] ?? data['accessToken'];
     final refreshToken = response['refreshToken'] ?? data['refreshToken'];
 
     if (accessToken != null) {
-      await _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
+      await _client.setTokens(
+        accessToken: accessToken.toString(),
+        refreshToken: refreshToken?.toString(),
+      );
     }
 
-    return response is Map<String, dynamic> ? response : {'success': true, 'data': response};
+    return response is Map<String, dynamic>
+        ? response
+        : {'success': true, 'data': response};
   }
 
   /// Đăng nhập bằng Firebase Phone Auth ID Token
@@ -116,17 +127,23 @@ class AuthApiService {
     );
 
     final data = response['data'] ?? response;
-    final accessToken = response['accessToken'] ?? data['token'] ?? data['accessToken'];
+    final accessToken =
+        response['accessToken'] ?? data['token'] ?? data['accessToken'];
     final refreshToken = response['refreshToken'] ?? data['refreshToken'];
 
     if (accessToken != null) {
-      await _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
+      await _client.setTokens(
+        accessToken: accessToken.toString(),
+        refreshToken: refreshToken?.toString(),
+      );
     }
 
-    return response is Map<String, dynamic> ? response : {'success': true, 'data': response};
+    return response is Map<String, dynamic>
+        ? response
+        : {'success': true, 'data': response};
   }
 
-  /// Đăng nhập bằng Google qua Supabase Access Token
+  /// Exchange a verified Google ID token for the backend session.
   Future<Map<String, dynamic>> googleLogin(String token) async {
     final response = await _client.post(
       ApiConfig.authGoogleLogin,
@@ -134,14 +151,45 @@ class AuthApiService {
     );
 
     final data = response['data'] ?? response;
-    final accessToken = response['accessToken'] ?? data['token'];
+    final accessToken =
+        response['accessToken'] ?? data['accessToken'] ?? data['token'];
     final refreshToken = response['refreshToken'] ?? data['refreshToken'];
 
-    if (accessToken != null) {
-      await _client.setTokens(accessToken: accessToken.toString(), refreshToken: refreshToken?.toString());
+    if (response['success'] == false ||
+        accessToken is! String ||
+        accessToken.trim().isEmpty ||
+        refreshToken is! String ||
+        refreshToken.trim().isEmpty) {
+      throw ApiException(
+        message: 'Máy chủ không trả phiên đăng nhập hợp lệ.',
+        statusCode: 502,
+      );
     }
+    await _client.clearTokens();
+    await _client.setTokens(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+    );
 
     return response;
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await _client.post(
+      '/auth/change-password',
+      body: {'currentPassword': currentPassword, 'newPassword': newPassword},
+    );
+    if (response['success'] != true) {
+      throw ApiException(
+        message: 'Chưa thể xác nhận đổi mật khẩu. Vui lòng thử lại.',
+        statusCode: 502,
+      );
+    }
+    // The backend revokes every session after changing the password.
+    await _client.clearTokens();
   }
 
   /// Cấp mới Access Token khi hết hạn
@@ -154,7 +202,8 @@ class AuthApiService {
         ApiConfig.authRefresh,
         body: {'refreshToken': refreshToken},
       );
-      final newAccessToken = response['accessToken'] ?? response['data']?['token'];
+      final newAccessToken =
+          response['accessToken'] ?? response['data']?['token'];
       if (newAccessToken != null) {
         await _client.setTokens(accessToken: newAccessToken.toString());
         return true;
@@ -171,7 +220,10 @@ class AuthApiService {
       if (_client.isAuthenticated) {
         await _client.post(
           ApiConfig.authLogout,
-          body: {if (_client.refreshToken != null) 'refreshToken': _client.refreshToken},
+          body: {
+            if (_client.refreshToken != null)
+              'refreshToken': _client.refreshToken,
+          },
         );
       }
     } finally {
@@ -194,26 +246,31 @@ class AuthApiService {
     String? phone,
     String? email,
     String? address,
+    String? avatarUrl,
   }) async {
     final body = <String, dynamic>{};
     if (fullName != null) body['fullName'] = fullName.trim();
     if (phone != null) body['phone'] = phone.trim();
-    if (email != null) body['email'] = email.trim();
-    if (address != null) body['address'] = address.trim();
-
-    try {
-      final response = await _client.put(ApiConfig.authMe, body: body);
-      return response is Map<String, dynamic> ? response : {'success': true, 'data': response};
-    } catch (_) {
-      // Cho phép cập nhật cục bộ tiếp tục ngay cả khi backend chưa mở PUT /auth/me
-      return {'success': true, 'data': body};
+    if (avatarUrl != null) body['avatarUrl'] = avatarUrl;
+    if (email != null || address != null) {
+      throw ApiException(
+        message:
+            'Email không thể sửa tại đây. Vui lòng quản lý địa chỉ trong sổ địa chỉ.',
+        statusCode: 400,
+        errorCode: 'UNSUPPORTED_PROFILE_FIELD',
+      );
     }
+    final response = await _client.patch(ApiConfig.authMe, body: body);
+    return Map<String, dynamic>.from(response);
   }
 
   /// Kiểm tra email đã đăng ký chưa
   Future<bool> checkEmail(String email) async {
     try {
-      final res = await _client.get(ApiConfig.authCheckEmail, queryParams: {'email': email.trim()});
+      final res = await _client.get(
+        ApiConfig.authCheckEmail,
+        queryParams: {'email': email.trim()},
+      );
       return res['exists'] == true || res['available'] == false;
     } catch (_) {
       return false;
@@ -223,7 +280,10 @@ class AuthApiService {
   /// Kiểm tra username đã đăng ký chưa
   Future<bool> checkUsername(String username) async {
     try {
-      final res = await _client.get(ApiConfig.authCheckUsername, queryParams: {'username': username.trim()});
+      final res = await _client.get(
+        ApiConfig.authCheckUsername,
+        queryParams: {'username': username.trim()},
+      );
       return res['exists'] == true || res['available'] == false;
     } catch (_) {
       return false;
@@ -232,14 +292,25 @@ class AuthApiService {
 
   /// Quên mật khẩu
   Future<void> forgotPassword(String email) async {
-    await _client.post(ApiConfig.authForgotPassword, body: {'email': email.trim()});
+    await _client.post(
+      ApiConfig.authForgotPassword,
+      body: {'email': email.trim()},
+    );
   }
 
   /// Đặt lại mật khẩu mới
-  Future<void> resetPassword({required String token, required String newPassword}) async {
+  Future<void> resetPassword({
+    required String email,
+    required String token,
+    required String newPassword,
+  }) async {
     await _client.post(
       ApiConfig.authResetPassword,
-      body: {'token': token.trim(), 'newPassword': newPassword},
+      body: {
+        'email': email.trim().toLowerCase(),
+        'token': token.trim(),
+        'newPassword': newPassword,
+      },
     );
   }
 }

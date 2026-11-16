@@ -1,3 +1,4 @@
+import 'paged_list_service.dart';
 import 'api_client.dart';
 import 'api_config.dart';
 
@@ -19,12 +20,7 @@ class ProductsApiService {
     if (category != null && category.isNotEmpty) query['category'] = category;
     if (search != null && search.isNotEmpty) query['search'] = search;
 
-    final response = await _client.get(ApiConfig.products, queryParams: query);
-    final data = response['data'] ?? response;
-    if (data is List) {
-      return data;
-    }
-    return [];
+    return getAllApiPages(ApiConfig.products, query: query);
   }
 
   /// Lấy thông tin chi tiết một sản phẩm

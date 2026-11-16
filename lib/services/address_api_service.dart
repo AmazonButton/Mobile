@@ -10,8 +10,9 @@ class AddressApiService {
   Future<List<AddressModel>> getAddresses() async {
     final response = await _client.get(ApiConfig.addresses);
     final data = response['data'];
-    if (data is! List)
+    if (data is! List) {
       throw const FormatException('Không thể đọc danh sách địa chỉ');
+    }
     return data
         .map((item) => AddressModel.fromJson(Map<String, dynamic>.from(item)))
         .toList();
@@ -26,7 +27,7 @@ class AddressApiService {
     ),
   );
   Future<AddressModel> updateAddress(AddressModel address) async => _address(
-    await _client.put(
+    await _client.patch(
       ApiConfig.addressDetail(address.id),
       body: address.toJson()
         ..remove('id')
@@ -39,7 +40,7 @@ class AddressApiService {
   }
 
   Future<bool> setDefaultAddress(String id) async {
-    await _client.patch(ApiConfig.addressSetDefault(id));
+    await _client.patch(ApiConfig.addressDetail(id), body: {'isDefault': true});
     return true;
   }
 }

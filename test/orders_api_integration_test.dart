@@ -1,3 +1,4 @@
+import 'package:smart_order_button/models/page_result.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +24,23 @@ class MockOrdersApiService implements OrdersApiService {
   }
 
   @override
+  Future<PageResult<OrderModel>> getOrdersPage({
+    int page = 1,
+    int pageSize = 20,
+    String? status,
+    String? paymentStatus,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    return PageResult(
+      items: await getOrders(status: status),
+      page: page,
+      pageSize: pageSize,
+      hasNextPage: false,
+    );
+  }
+
+  @override
   Future<Map<String, dynamic>> cancelOrder(String id, {String? reason}) async {
     cancelOrderCalls++;
     lastCancelledId = id;
@@ -44,66 +62,70 @@ void main() {
       mockApi = MockOrdersApiService();
     });
 
-    test('OrderProvider loads orders and separates active vs history correctly', () async {
-      mockApi.mockOrders = [
-        const OrderModel(
-          id: 'ord-active-1',
-          orderCode: '#ORD-001',
-          customerName: 'Nguyễn Văn A',
-          apartment: 'P1204',
-          product: 'Lavie 20L',
-          time: '10:00',
-          price: '65.000đ',
-          rawAmount: 65000,
-          status: OrderStatus.warning,
-          rawStatus: 'PENDING',
-          statusText: 'Chờ xử lý',
-        ),
-        const OrderModel(
-          id: 'ord-active-2',
-          orderCode: '#ORD-002',
-          customerName: 'Nguyễn Văn A',
-          apartment: 'P1204',
-          product: 'Aquafina 500ml',
-          time: '09:30',
-          price: '98.000đ',
-          rawAmount: 98000,
-          status: OrderStatus.info,
-          rawStatus: 'SHIPPING',
-          statusText: 'Đang giao',
-        ),
-        const OrderModel(
-          id: 'ord-history-1',
-          orderCode: '#ORD-003',
-          customerName: 'Nguyễn Văn A',
-          apartment: 'P1204',
-          product: 'Gas Petrolimex 12kg',
-          time: 'Hôm qua',
-          price: '380.000đ',
-          rawAmount: 380000,
-          status: OrderStatus.success,
-          rawStatus: 'DELIVERED',
-          statusText: 'Đã giao',
-        ),
-      ];
+    test(
+      'OrderProvider loads orders and separates active vs history correctly',
+      () async {
+        mockApi.mockOrders = [
+          const OrderModel(
+            id: 'ord-active-1',
+            orderCode: '#ORD-001',
+            customerName: 'Nguyễn Văn A',
+            apartment: 'P1204',
+            product: 'Lavie 20L',
+            time: '10:00',
+            price: '65.000đ',
+            rawAmount: 65000,
+            status: OrderStatus.warning,
+            rawStatus: 'PENDING',
+            statusText: 'Chờ xử lý',
+          ),
+          const OrderModel(
+            id: 'ord-active-2',
+            orderCode: '#ORD-002',
+            customerName: 'Nguyễn Văn A',
+            apartment: 'P1204',
+            product: 'Aquafina 500ml',
+            time: '09:30',
+            price: '98.000đ',
+            rawAmount: 98000,
+            status: OrderStatus.info,
+            rawStatus: 'SHIPPING',
+            statusText: 'Đang giao',
+          ),
+          const OrderModel(
+            id: 'ord-history-1',
+            orderCode: '#ORD-003',
+            customerName: 'Nguyễn Văn A',
+            apartment: 'P1204',
+            product: 'Gas Petrolimex 12kg',
+            time: 'Hôm qua',
+            price: '380.000đ',
+            rawAmount: 380000,
+            status: OrderStatus.success,
+            rawStatus: 'DELIVERED',
+            paymentStatus: 'PAID',
+            statusText: 'Đã giao',
+          ),
+        ];
 
-      final provider = OrderProvider(apiService: mockApi, initialOrders: []);
+        final provider = OrderProvider(apiService: mockApi, initialOrders: []);
 
-      expect(provider.orders.isEmpty, isTrue);
-      expect(provider.isLoading, isFalse);
+        expect(provider.orders.isEmpty, isTrue);
+        expect(provider.isLoading, isFalse);
 
-      final future = provider.loadOrders();
-      expect(provider.isLoading, isTrue);
+        final future = provider.loadOrders();
+        expect(provider.isLoading, isTrue);
 
-      await future;
-      expect(provider.isLoading, isFalse);
-      expect(provider.errorMessage, isNull);
-      expect(provider.orders.length, equals(3));
-      expect(provider.activeOrders.length, equals(2));
-      expect(provider.historyOrders.length, equals(1));
-      expect(provider.totalSpend, equals(380000));
-      expect(mockApi.getOrdersCalls, equals(1));
-    });
+        await future;
+        expect(provider.isLoading, isFalse);
+        expect(provider.errorMessage, isNull);
+        expect(provider.orders.length, equals(3));
+        expect(provider.activeOrders.length, equals(2));
+        expect(provider.historyOrders.length, equals(1));
+        expect(provider.totalSpend, equals(380000));
+        expect(mockApi.getOrdersCalls, equals(1));
+      },
+    );
 
     test('OrderProvider handles empty orders list from backend', () async {
       mockApi.mockOrders = [];
@@ -138,12 +160,18 @@ void main() {
         ),
       ];
 
-      final provider = OrderProvider(apiService: mockApi, initialOrders: initial);
+      final provider = OrderProvider(
+        apiService: mockApi,
+        initialOrders: initial,
+      );
 
       await provider.loadOrders();
 
       expect(provider.isLoading, isFalse);
-      expect(provider.errorMessage, contains('Không thể kết nối đến máy chủ đơn hàng'));
+      expect(
+        provider.errorMessage,
+        contains('Không thể kết nối đến máy chủ đơn hàng'),
+      );
       expect(provider.orders.length, equals(1));
     });
 
@@ -163,7 +191,10 @@ void main() {
         ),
       ];
 
-      final provider = OrderProvider(apiService: mockApi, initialOrders: initial);
+      final provider = OrderProvider(
+        apiService: mockApi,
+        initialOrders: initial,
+      );
 
       expect(provider.activeOrders.length, equals(1));
       expect(provider.historyOrders.length, equals(0));
@@ -188,77 +219,85 @@ void main() {
   });
 
   group('Story 3.3 - OrdersScreen UI Integration Tests', () {
-    testWidgets('OrdersScreen displays empty state when no active orders exist', (tester) async {
-      final mockApi = MockOrdersApiService();
-      mockApi.mockOrders = [];
+    testWidgets(
+      'OrdersScreen displays empty state when no active orders exist',
+      (tester) async {
+        final mockApi = MockOrdersApiService();
+        mockApi.mockOrders = [];
 
-      final provider = OrderProvider(apiService: mockApi, initialOrders: []);
+        final provider = OrderProvider(apiService: mockApi, initialOrders: []);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ChangeNotifierProvider<OrderProvider>.value(
-            value: provider,
-            child: const OrdersScreen(),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ChangeNotifierProvider<OrderProvider>.value(
+              value: provider,
+              child: const OrdersScreen(),
+            ),
           ),
-        ),
-      );
+        );
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Không có đơn hàng nào đang diễn ra'), findsOneWidget);
-      expect(find.text('Đang diễn ra (0)'), findsOneWidget);
-      expect(find.text('Lịch sử (0)'), findsOneWidget);
-    });
+        expect(find.text('Chưa có đơn đang xử lý'), findsOneWidget);
+        expect(find.text('Đang xử lý'), findsOneWidget);
+        expect(find.text('Lịch sử'), findsOneWidget);
+      },
+    );
 
-    testWidgets('OrdersScreen displays Error State with retry button on network failure', (tester) async {
-      final mockApi = MockOrdersApiService();
-      mockApi.shouldFail = true;
+    testWidgets(
+      'OrdersScreen displays Error State with retry button on network failure',
+      (tester) async {
+        final mockApi = MockOrdersApiService();
+        mockApi.shouldFail = true;
 
-      final provider = OrderProvider(apiService: mockApi, initialOrders: []);
+        final provider = OrderProvider(apiService: mockApi, initialOrders: []);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ChangeNotifierProvider<OrderProvider>.value(
-            value: provider,
-            child: const OrdersScreen(),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ChangeNotifierProvider<OrderProvider>.value(
+              value: provider,
+              child: const OrdersScreen(),
+            ),
           ),
-        ),
-      );
+        );
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Không thể tải đơn hàng'), findsOneWidget);
-      expect(find.text('Thử lại'), findsOneWidget);
+        expect(find.text('Không thể tải đơn hàng'), findsOneWidget);
+        expect(find.text('Thử lại'), findsOneWidget);
 
-      // Now fix mock network and tap retry
-      mockApi.shouldFail = false;
-      mockApi.mockOrders = [
-        const OrderModel(
-          id: 'ord-recovered',
-          orderCode: '#ORD-REC',
-          customerName: 'Nguyễn Văn A',
-          apartment: 'P1204',
-          product: 'Nước Lavie 20L',
-          time: 'Vừa xong',
-          price: '65.000đ',
-          status: OrderStatus.warning,
-          rawStatus: 'PENDING',
-          statusText: 'Chờ xử lý',
-        ),
-      ];
+        // Now fix mock network and tap retry
+        mockApi.shouldFail = false;
+        mockApi.mockOrders = [
+          const OrderModel(
+            id: 'ord-recovered',
+            orderCode: '#ORD-REC',
+            customerName: 'Nguyễn Văn A',
+            apartment: 'P1204',
+            product: 'Nước Lavie 20L',
+            time: 'Vừa xong',
+            price: '65.000đ',
+            status: OrderStatus.warning,
+            rawStatus: 'PENDING',
+            statusText: 'Chờ xử lý',
+          ),
+        ];
 
-      await tester.tap(find.text('Thử lại'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        await tester.tap(find.text('Thử lại'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Không thể tải đơn hàng'), findsNothing);
-      expect(find.text('Nước Lavie 20L'), findsOneWidget);
-      expect(find.text('Đang diễn ra (1)'), findsOneWidget);
-    });
+        expect(find.text('Không thể tải đơn hàng'), findsNothing);
+        expect(find.text('Nước Lavie 20L'), findsOneWidget);
+        expect(find.text('Đang xử lý'), findsOneWidget);
+      },
+    );
 
-    testWidgets('OrdersScreen supports pull-to-refresh on active tab', (tester) async {
+    testWidgets('OrdersScreen supports pull-to-refresh on active tab', (
+      tester,
+    ) async {
       final mockApi = MockOrdersApiService();
       mockApi.mockOrders = [];
 
@@ -275,7 +314,11 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      await tester.fling(find.byType(ListView).first, const Offset(0, 300), 1000);
+      await tester.fling(
+        find.byType(ListView).first,
+        const Offset(0, 300),
+        1000,
+      );
       await tester.pumpAndSettle();
 
       expect(mockApi.getOrdersCalls, greaterThanOrEqualTo(1));

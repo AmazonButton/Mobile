@@ -1,3 +1,4 @@
+import '../../../widgets/sample_a.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -27,7 +28,7 @@ class HomeActiveOrderBanner extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: SampleA.border),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.02),
@@ -44,14 +45,14 @@ class HomeActiveOrderBanner extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
+                    color: SampleA.pale,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Center(
                     child: Icon(
                       LucideIcons.droplets,
                       size: 20,
-                      color: Color(0xFF2563EB),
+                      color: SampleA.primary,
                     ),
                   ),
                 ),
@@ -75,7 +76,7 @@ class HomeActiveOrderBanner extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
+                          color: SampleA.ink,
                         ),
                       ),
                     ],
@@ -113,7 +114,7 @@ class HomeActiveOrderBanner extends StatelessWidget {
               height: 4,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFFE2E8F0),
+                color: SampleA.border,
                 borderRadius: BorderRadius.circular(2),
               ),
               child: FractionallySizedBox(
@@ -121,7 +122,7 @@ class HomeActiveOrderBanner extends StatelessWidget {
                 widthFactor: progress.clamp(0.0, 1.0),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2563EB),
+                    color: SampleA.primary,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),

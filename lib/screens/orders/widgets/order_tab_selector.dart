@@ -25,19 +25,19 @@ class OrderTabSelector extends StatelessWidget {
         dividerColor: Colors.transparent,
         indicatorSize: TabBarIndicatorSize.tab,
         indicator: BoxDecoration(
-          color: SampleA.pale,
+          color: SampleA.primary,
           borderRadius: BorderRadius.circular(13),
         ),
-        labelColor: SampleA.primary,
+        labelColor: Colors.white,
         unselectedLabelColor: SampleA.muted,
         labelPadding: const EdgeInsets.symmetric(horizontal: 4),
         labelStyle: const TextStyle(
-          fontFamily: 'SampleA Vietnam',
+          fontFamily: SampleA.fontFamily,
           fontSize: 15,
           fontWeight: FontWeight.w700,
         ),
         unselectedLabelStyle: const TextStyle(
-          fontFamily: 'SampleA Vietnam',
+          fontFamily: SampleA.fontFamily,
           fontSize: 15,
           fontWeight: FontWeight.w500,
         ),

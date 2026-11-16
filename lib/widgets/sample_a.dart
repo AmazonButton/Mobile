@@ -6,8 +6,19 @@ import '../constants/app_colors.dart';
 
 /// Colors shared by device and order components, matching the homepage palette.
 abstract final class SampleA {
-  static const primary = Color(0xFF2563EB);
-  static const primaryDark = Color(0xFF1D4ED8);
+  static const fontFamily = 'SampleA Vietnam';
+  static const spaceXs = 4.0,
+      spaceSm = 8.0,
+      spaceMd = 12.0,
+      spaceLg = 16.0,
+      spaceXl = 24.0,
+      spaceXxl = 32.0;
+  static const cardRadius = 20.0, buttonRadius = 16.0, sheetRadius = 24.0;
+  static const detailWidth = 600.0, listWidth = 960.0, formWidth = 480.0;
+  static const pagePadding = EdgeInsets.all(spaceLg);
+
+  static const primary = AppColors.primary;
+  static const primaryDark = AppColors.primaryDark;
   static const pale = Color(0xFFEFF6FF);
   static const ink = Color(0xFF0F172A);
   static const muted = AppColors.textSecondary;
@@ -20,7 +31,7 @@ abstract final class SampleA {
   static const warningLight = Color(0xFFFFFBEB);
 
   static const title = TextStyle(
-    fontFamily: 'SampleA Vietnam',
+    fontFamily: SampleA.fontFamily,
     fontSize: 26,
     fontWeight: FontWeight.w800,
     height: 1.25,
@@ -28,20 +39,20 @@ abstract final class SampleA {
     letterSpacing: -0.6,
   );
   static const section = TextStyle(
-    fontFamily: 'SampleA Vietnam',
+    fontFamily: SampleA.fontFamily,
     fontSize: 18,
     fontWeight: FontWeight.w700,
     height: 1.35,
     color: ink,
   );
   static const body = TextStyle(
-    fontFamily: 'SampleA Vietnam',
+    fontFamily: SampleA.fontFamily,
     fontSize: 16,
     height: 1.4,
     color: ink,
   );
   static const caption = TextStyle(
-    fontFamily: 'SampleA Vietnam',
+    fontFamily: SampleA.fontFamily,
     fontSize: 14,
     height: 1.4,
     color: muted,
@@ -65,7 +76,7 @@ class ACard extends StatelessWidget {
     padding: padding,
     decoration: BoxDecoration(
       color: color,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(SampleA.cardRadius),
       border: border ? Border.all(color: SampleA.border, width: 2) : null,
     ),
     child: child,
@@ -127,7 +138,7 @@ class _AButtonState extends State<AButton> {
           offset: Offset(0, _pressed && enabled ? 4 : 0),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(SampleA.buttonRadius),
               boxShadow: _pressed || !enabled
                   ? []
                   : [BoxShadow(color: edge, offset: const Offset(0, 4))],
@@ -151,11 +162,11 @@ class _AButtonState extends State<AButton> {
                   vertical: 10,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(SampleA.buttonRadius),
                   side: BorderSide(color: edge, width: 2),
                 ),
                 textStyle: const TextStyle(
-                  fontFamily: 'SampleA Vietnam',
+                  fontFamily: SampleA.fontFamily,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   height: 1.35,
@@ -208,7 +219,9 @@ class AIconButton extends StatelessWidget {
       foregroundColor: SampleA.primary,
       minimumSize: const Size(48, 48),
       side: const BorderSide(color: SampleA.border, width: 2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(SampleA.buttonRadius),
+      ),
     ),
   );
 }
@@ -241,7 +254,7 @@ class AStatus extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontFamily: 'SampleA Vietnam',
+              fontFamily: SampleA.fontFamily,
               fontSize: 14,
               height: 1.3,
               fontWeight: FontWeight.w600,
@@ -282,7 +295,7 @@ class AProductImage extends StatelessWidget {
             height: size,
             decoration: BoxDecoration(
               color: SampleA.pale,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(SampleA.buttonRadius),
             ),
             child: const Icon(
               Icons.inventory_2_outlined,
@@ -342,7 +355,7 @@ class SampleANavigation extends StatelessWidget {
         indicatorColor: SampleA.pale,
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
-            fontFamily: 'SampleA Vietnam',
+            fontFamily: SampleA.fontFamily,
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: states.contains(WidgetState.selected)
@@ -378,6 +391,115 @@ class SampleANavigation extends StatelessWidget {
           ),
         ],
       ),
+    ),
+  );
+}
+
+/// Layout only: retains the child's scrolling, state and callbacks.
+class AContent extends StatelessWidget {
+  const AContent({
+    super.key,
+    required this.child,
+    this.maxWidth = SampleA.detailWidth,
+  });
+  final Widget child;
+  final double maxWidth;
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topCenter,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: child,
+    ),
+  );
+}
+
+class ASectionHeader extends StatelessWidget {
+  const ASectionHeader({super.key, required this.title, this.action});
+  final String title;
+  final Widget? action;
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final heading = Text(title, style: SampleA.section);
+      if (action == null) return heading;
+      if (constraints.maxWidth < 360 ||
+          MediaQuery.textScalerOf(context).scale(16) > 22) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [heading, action!],
+        );
+      }
+      return Row(
+        children: [
+          Expanded(child: heading),
+          const SizedBox(width: SampleA.spaceSm),
+          action!,
+        ],
+      );
+    },
+  );
+}
+
+/// One scroll owner, with space for the keyboard and system navigation.
+class ASheetScroll extends StatelessWidget {
+  const ASheetScroll({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: AContent(
+        child: SingleChildScrollView(
+          padding: SampleA.pagePadding,
+          child: child,
+        ),
+      ),
+    ),
+  );
+}
+
+/// A readable label/value pair; important values never ellipsize.
+class AInfoRow extends StatelessWidget {
+  const AInfoRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.onCopy,
+    this.highlight = false,
+  });
+  final String label, value;
+  final VoidCallback? onCopy;
+  final bool highlight;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: SampleA.spaceXs),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: SampleA.caption),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                value,
+                style: SampleA.body.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: highlight ? SampleA.primary : SampleA.ink,
+                ),
+              ),
+            ),
+            if (onCopy != null)
+              IconButton(
+                tooltip: 'Sao chép $label',
+                onPressed: onCopy,
+                icon: const Icon(LucideIcons.copy, size: 20),
+              ),
+          ],
+        ),
+      ],
     ),
   );
 }

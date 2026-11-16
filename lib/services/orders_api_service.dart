@@ -1,3 +1,5 @@
+import '../models/page_result.dart';
+import '../models/order_timeline_entry.dart';
 import 'stock_service.dart';
 import 'products_api_service.dart';
 import '../models/order_model.dart';
@@ -14,12 +16,44 @@ class OrdersApiService {
 
   /// Lấy danh sách lịch sử đơn hàng của người dùng được ánh xạ thành strongly-typed OrderModel
   Future<List<OrderModel>> getOrders({String? status}) async {
-    final query = <String, dynamic>{};
+    final orders = <String, OrderModel>{};
+    var page = 1;
+    while (true) {
+      final batch = await getOrdersPage(page: page, status: status);
+      for (final order in batch.items) {
+        orders[order.id] = order;
+      }
+      if (!batch.hasNextPage) return orders.values.toList();
+      page++;
+    }
+  }
+
+  Future<PageResult<OrderModel>> getOrdersPage({
+    int page = 1,
+    int pageSize = 20,
+    String? status,
+    String? paymentStatus,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    final query = <String, dynamic>{
+      'page': page,
+      'pageSize': pageSize,
+      'paymentStatus': ?paymentStatus,
+      if (fromDate != null) 'fromDate': fromDate.toUtc().toIso8601String(),
+      if (toDate != null) 'toDate': toDate.toUtc().toIso8601String(),
+    };
     if (status != null && status.isNotEmpty) query['status'] = status;
 
     final response = await _client.get(ApiConfig.orders, queryParams: query);
-    final data = response['data'] ?? response;
-    if (data is List) {
+    final batch = PageResult<Map<String, dynamic>>.fromResponse(
+      response,
+      (row) => row,
+      requestedPage: page,
+      pageSize: pageSize,
+    );
+    final data = batch.items;
+    {
       // Older order responses omit images; resolve by product ID, never by name.
       final catalog = <String, Map>{};
       try {
@@ -33,40 +67,62 @@ class OrdersApiService {
       } catch (_) {
         // Product lookup must not prevent customers from viewing their orders.
       }
-      return data.map((item) {
-        if (item is Map) {
-          item = Map<String, dynamic>.from(item);
-          final key = item['items'] is List ? 'items' : 'orderItems';
-          final items = item[key];
-          if (items is List) {
-            item[key] = items.map((line) {
-              if (line is! Map) return line;
-              final copy = Map<String, dynamic>.from(line);
-              final nested = copy['product'];
-              final id = copy['productId'] ??
-                  (nested is Map ? nested['productId'] ?? nested['id'] : null);
-              final product = id == null ? null : catalog[id.toString()];
-              if (product != null) {
-                copy['product'] = {
-                  ...product,
-                  if (nested is Map) ...nested,
-                  'imageUrl': product['imageUrl'] ?? product['thumbnailUrl'],
-                  'images': product['images'],
-                };
-              }
-              return copy;
-            }).toList();
-          }
+      final orders = data.map((raw) {
+        final item = Map<String, dynamic>.from(raw);
+        final key = item['items'] is List ? 'items' : 'orderItems';
+        final items = item[key];
+        if (items is List) {
+          item[key] = items.map((line) {
+            if (line is! Map) return line;
+            final copy = Map<String, dynamic>.from(line);
+            final nested = copy['product'];
+            final id =
+                copy['productId'] ??
+                (nested is Map ? nested['productId'] ?? nested['id'] : null);
+            final product = id == null ? null : catalog[id.toString()];
+            if (product != null) {
+              copy['product'] = {
+                ...product,
+                if (nested is Map) ...nested,
+                'imageUrl': product['imageUrl'] ?? product['thumbnailUrl'],
+                'images': product['images'],
+              };
+            }
+            return copy;
+          }).toList();
         }
-        if (item is Map<String, dynamic>) {
-          return OrderModel.fromJson(item);
-        } else if (item is Map) {
-          return OrderModel.fromJson(Map<String, dynamic>.from(item));
-        }
-        return OrderModel.fromJson({});
+        return OrderModel.fromJson(item);
       }).toList();
+      return PageResult(
+        items: orders,
+        page: batch.page,
+        pageSize: batch.pageSize,
+        totalItems: batch.totalItems,
+        hasNextPage: batch.hasNextPage,
+      );
     }
-    return [];
+  }
+
+  Future<List<OrderTimelineEntry>> getTimeline(String id) async {
+    final response = await _client.get(
+      '/orders/${Uri.encodeComponent(id)}/timeline',
+    );
+    final rows = response['data']?['timeline'];
+    if (rows is! List) {
+      throw const FormatException('Không thể tải lịch sử đơn hàng');
+    }
+    final entries = rows
+        .map<OrderTimelineEntry>(
+          (row) => OrderTimelineEntry.fromJson(
+            Map<String, dynamic>.from(row as Map),
+          ),
+        )
+        .toList();
+    entries.sort(
+      (a, b) => (a.timestamp ?? DateTime.fromMillisecondsSinceEpoch(0))
+          .compareTo(b.timestamp ?? DateTime.fromMillisecondsSinceEpoch(0)),
+    );
+    return entries;
   }
 
   /// Lấy thông tin chi tiết một đơn hàng theo ID

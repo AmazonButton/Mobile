@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import '../models/product_stock.dart';
+import '../models/device_model.dart';
 import 'products_api_service.dart';
 import 'devices_api_service.dart';
 import 'api_client.dart';
@@ -10,6 +11,7 @@ class StockService extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
   }
   final Map<String, ProductStock?> stocks = {};
+  final Map<String, String> _deviceRestrictions = {};
   final Map<String, List<Map<String, dynamic>>> configurations = {};
   final Map<String, Future<void>> _pending = {};
   final Set<String> _tracked = {};
@@ -26,6 +28,12 @@ class StockService extends ChangeNotifier with WidgetsBindingObserver {
     _tracked.add(id);
     try {
       final device = await DevicesApiService().getDeviceById(id);
+      final restriction = DeviceModel.fromJson(device).orderRestriction;
+      if (restriction == null) {
+        _deviceRestrictions.remove(id);
+      } else {
+        _deviceRestrictions[id] = restriction;
+      }
       final raw = device['products'] ?? device['buttonProducts'];
       if (raw is! List) throw StateError('Missing configuration');
       final items = raw
@@ -68,6 +76,7 @@ class StockService extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   String? problem(String id) {
+    if (_deviceRestrictions.containsKey(id)) return _deviceRestrictions[id];
     final items = configurations[id];
     if (items == null) return 'Chưa kiểm tra được tồn kho';
     if (items.isEmpty) return 'Chưa gán sản phẩm';

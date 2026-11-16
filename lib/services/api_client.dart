@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'order_updates.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_config.dart';
@@ -89,6 +90,7 @@ class ApiClient {
   Future<void> clearTokens() async {
     _accessToken = null;
     _refreshToken = null;
+    OrderUpdates.endSession();
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_prefAccessTokenKey);
@@ -373,7 +375,7 @@ class ApiClient {
     request.files.add(multipartFile);
 
     try {
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final streamedResponse = await _httpClient.send(request).timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 401 && !path.contains('/auth/') && !isRetry) {

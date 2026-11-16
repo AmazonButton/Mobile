@@ -24,8 +24,13 @@ class MediaApiService {
     );
 
     final data = response['data'] ?? response;
-    final url = data['url'] ?? data['secure_url'] ?? data['fileUrl'];
-    if (url != null) {
+    final url =
+        data['secureUrl'] ??
+        data['secure_url'] ??
+        data['url'] ??
+        data['fileUrl'];
+    final uri = Uri.tryParse(url?.toString() ?? '');
+    if (uri != null && uri.scheme == 'https' && uri.host.isNotEmpty) {
       return url.toString();
     }
     throw ApiException(
@@ -37,7 +42,10 @@ class MediaApiService {
   /// Lấy Presigned Signature để upload trực tiếp lên Cloudinary
   Future<Map<String, dynamic>> getSignature({String? folder}) async {
     final query = folder != null ? {'folder': folder} : null;
-    final response = await _client.get(ApiConfig.mediaSignature, queryParams: query);
+    final response = await _client.get(
+      ApiConfig.mediaSignature,
+      queryParams: query,
+    );
     return response['data'] ?? response;
   }
 }

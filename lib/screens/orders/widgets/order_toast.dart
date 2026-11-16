@@ -1,3 +1,4 @@
+import '../../../widgets/sample_a.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -41,7 +42,7 @@ class OrderToast {
               child: Text(
                 message,
                 style: const TextStyle(
-                  fontFamily: 'SampleA Vietnam',
+                  fontFamily: SampleA.fontFamily,
                   color: Colors.white,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
