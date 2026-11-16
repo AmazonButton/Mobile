@@ -1,6 +1,7 @@
 import '../widgets/smart_order_tour.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../widgets/resident_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/customer_bank_account.dart';
@@ -525,10 +526,8 @@ class _CustomerBankVerificationScreenState
 
   Future<void> _openPayment() async {
     if (_opening) return;
-    final uri = Uri.tryParse(_session?['checkoutUrl']?.toString() ?? '');
-    if (uri == null ||
-        uri.scheme != 'https' ||
-        !(uri.host == 'payos.vn' || uri.host.endsWith('.payos.vn'))) {
+    final uri = _checkoutUri;
+    if (uri == null) {
       setState(
         () => _error = 'Liên kết thanh toán chưa hợp lệ. Vui lòng thử lại.',
       );
@@ -550,18 +549,39 @@ class _CustomerBankVerificationScreenState
     }
   }
 
+  Uri? get _checkoutUri {
+    final uri = Uri.tryParse(_session?['checkoutUrl']?.toString() ?? '');
+    if (uri == null ||
+        uri.scheme != 'https' ||
+        !(uri.host == 'payos.vn' || uri.host.endsWith('.payos.vn'))) {
+      return null;
+    }
+    return uri;
+  }
+
+  String? get _qrPayload {
+    final qrCode = _session?['qrCode']?.toString().trim() ?? '';
+    if (qrCode.isEmpty) return null;
+    return qrCode;
+  }
+
   @override
   Widget build(BuildContext context) {
     final canPay =
         _session != null &&
+        _state != null &&
         num.tryParse(_session!['amount'].toString()) == 2000 &&
+        _session!['sessionStatus']?.toString() == 'ACTIVE' &&
         _state?.isVerified != true &&
         _state?.expired != true &&
+        _state?.rejectionReason == null &&
         !{'PAID', 'PENDING_RECONCILIATION'}.contains(_state?.paymentStatus);
+    final qrPayload = canPay ? _qrPayload : null;
+    final checkoutUri = canPay ? _checkoutUri : null;
     return ResidentScaffold(
       appBar: AppBar(title: const Text('Xác minh tài khoản')),
       actions: [
-        if (canPay)
+        if (checkoutUri != null)
           FilledButton(
             onPressed: _starting || _opening ? null : _openPayment,
             child: const Text('Mở thanh toán xác minh 2.000đ'),
@@ -591,6 +611,37 @@ class _CustomerBankVerificationScreenState
             description:
                 'Chuyển đúng số tiền qua PayOS từ tài khoản cần xác minh.',
           ),
+          if (qrPayload != null)
+            ResidentPanel(
+              child: Column(
+                children: [
+                  const Text(
+                    'Quét mã VietQR để xác minh',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      width: 220,
+                      height: 220,
+                      child: QrImageView(
+                        key: const Key('bank-verification-qr'),
+                        data: qrPayload,
+                        version: QrVersions.auto,
+                        backgroundColor: Colors.white,
+                        errorCorrectionLevel: QrErrorCorrectLevel.M,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Dùng tài khoản ngân hàng cần xác minh để chuyển đúng 2.000đ.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
           ResidentPanel(
             child: ListTile(
               contentPadding: EdgeInsets.zero,

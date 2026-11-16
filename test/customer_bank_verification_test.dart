@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:smart_order_button/models/customer_bank_account.dart';
 import 'package:smart_order_button/screens/customer_bank_accounts_screen.dart';
 import 'package:smart_order_button/services/api_client.dart';
@@ -151,6 +152,9 @@ void main() {
   testWidgets(
     'F07: verification pending does not report success; check reads authoritative status',
     (tester) async {
+      const qrPayload =
+          '00020101021238540010A0000007270124000697042201100987654321'
+          '0208QRIBFTTA5204601153037045405650005802VN62140810DH123456786304ABCD';
       var verified = false;
       var received = false;
       var starts = 0;
@@ -163,6 +167,7 @@ void main() {
               'accountId': '7',
               'amount': 2000,
               'checkoutUrl': 'https://pay.payos.vn/web/test',
+              'qrCode': qrPayload,
               'sessionStatus': 'ACTIVE',
             },
           });
@@ -193,8 +198,20 @@ void main() {
       await tester.pumpAndSettle();
       expect(starts, 1);
       expect(find.text('Đã xác minh chính chủ'), findsNothing);
-      expect(find.text('Đang chờ xác minh'), findsOneWidget);
       expect(find.text('Mở thanh toán xác minh 2.000đ'), findsOneWidget);
+      expect(find.byKey(const Key('bank-verification-qr')), findsOneWidget);
+      final validation = QrValidator.validate(
+        data: qrPayload,
+        version: QrVersions.auto,
+        errorCorrectionLevel: QrErrorCorrectLevel.M,
+      );
+      expect(validation.isValid, isTrue);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('bank-verification-status')),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('Đang chờ xác minh'), findsOneWidget);
       received = true;
       await tester.ensureVisible(find.text('Kiểm tra trạng thái'));
       await tester.tap(find.text('Kiểm tra trạng thái'));
@@ -205,6 +222,7 @@ void main() {
       );
       expect(find.text('Đã xác minh chính chủ'), findsNothing);
       expect(find.text('Mở thanh toán xác minh 2.000đ'), findsNothing);
+      expect(find.byKey(const Key('bank-verification-qr')), findsNothing);
       verified = true;
       await tester.ensureVisible(find.text('Kiểm tra trạng thái'));
       await tester.tap(find.text('Kiểm tra trạng thái'));
@@ -216,6 +234,58 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets('F07: non-payable sessions never expose QR or checkout actions', (
+    tester,
+  ) async {
+    final scenarios = [
+      {'amount': 1999, 'sessionStatus': 'ACTIVE', 'rejectionReason': null},
+      {'amount': 2000, 'sessionStatus': 'CANCELLED', 'rejectionReason': null},
+      {
+        'amount': 2000,
+        'sessionStatus': 'ACTIVE',
+        'rejectionReason': 'Không khớp chủ tài khoản',
+      },
+    ];
+
+    for (final scenario in scenarios) {
+      api.testClient = MockClient(
+        (request) async => request.method == 'POST'
+            ? response({
+                'data': {
+                  'amount': scenario['amount'],
+                  'checkoutUrl': 'https://pay.payos.vn/web/test',
+                  'qrCode': '00020101021238540010A000000727',
+                  'sessionStatus': scenario['sessionStatus'],
+                },
+              })
+            : response({
+                'data': {
+                  'accountVerificationStatus': 'PENDING',
+                  'session': {
+                    'paymentStatus': 'PENDING',
+                    'refundStatus': 'NONE',
+                    'rejectionReason': scenario['rejectionReason'],
+                  },
+                },
+              }),
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CustomerBankVerificationScreen(
+            account: account,
+            initiate: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('bank-verification-qr')), findsNothing);
+      expect(find.text('Mở thanh toán xác minh 2.000đ'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    }
+  });
 
   testWidgets(
     'F07: disabled provider shows error without fabricated payment link',
@@ -247,6 +317,8 @@ void main() {
               'data': {
                 'amount': 2000,
                 'checkoutUrl': 'https://pay.payos.vn/web/test',
+                'qrCode': '00020101021238540010A000000727',
+                'sessionStatus': 'ACTIVE',
               },
             })
           : response({

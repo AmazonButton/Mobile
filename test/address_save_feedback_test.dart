@@ -15,7 +15,6 @@ class FailingAddressApi extends AddressApiService {
     throw ApiException(message: 'Customer profile not found', statusCode: 404);
   }
 }
-
 void main() {
   testWidgets('Validation scrolls to missing recipient above the save button', (
     tester,
@@ -68,4 +67,3 @@ void main() {
     expect(api.attempts, 2);
   });
 }
-

@@ -41,6 +41,7 @@ dependencies:
   lucide_icons_flutter: ^3.1.24
   image_picker: ^1.2.3
   cached_network_image: ^3.4.1
+  qr_flutter: ^4.1.0
   shimmer: ^3.0.0
   flutter_blue_plus: ^1.31.0
   network_info_plus: ^5.0.0
