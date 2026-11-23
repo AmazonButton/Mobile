@@ -30,13 +30,13 @@ Future<List<Map<String, dynamic>>> getAllApiPages(
 
   final firstResponse = await ApiClient().get(
     path,
-    queryParams: {...query, 'page': 1, 'pageSize': 50, 'limit': 50},
+    queryParams: {...query, 'page': 1, 'pageSize': 100, 'limit': 100},
   );
   final firstBatch = PageResult<Map<String, dynamic>>.fromResponse(
     firstResponse,
     (row) => row,
     requestedPage: 1,
-    pageSize: 50,
+    pageSize: 100,
   );
   collect(firstBatch.items);
 
@@ -44,35 +44,69 @@ Future<List<Map<String, dynamic>>> getAllApiPages(
     return [...result.values, ...withoutId];
   }
 
+  final totalPages = firstBatch.totalPages;
   final totalItems = firstBatch.totalItems;
   final effectivePageSize = firstBatch.items.isNotEmpty
       ? firstBatch.items.length
       : firstBatch.pageSize;
-  final estimatedPages = totalItems != null && effectivePageSize > 0
-      ? ((totalItems + effectivePageSize - 1) ~/ effectivePageSize)
-      : maxPages;
-  final lastPage = estimatedPages < maxPages ? estimatedPages : maxPages;
 
-  if (lastPage >= 2) {
-    final futures = <Future<PageResult<Map<String, dynamic>>?>>[];
-    for (var p = 2; p <= lastPage; p++) {
-      futures.add(
-        ApiClient()
-            .get(path, queryParams: {...query, 'page': p, 'pageSize': 50, 'limit': 50})
-            .then(
-              (resp) => PageResult<Map<String, dynamic>>.fromResponse(
-                resp,
-                (row) => row,
-                requestedPage: p,
-                pageSize: 50,
-              ),
-            )
-            .catchError((_) => null),
-      );
+  final int? knownPages = totalPages ??
+      (totalItems != null && effectivePageSize > 0
+          ? ((totalItems + effectivePageSize - 1) ~/ effectivePageSize)
+          : null);
+
+  if (knownPages != null) {
+    final lastPage = knownPages < maxPages ? knownPages : maxPages;
+    if (lastPage >= 2) {
+      final futures = <Future<PageResult<Map<String, dynamic>>?>>[];
+      for (var p = 2; p <= lastPage; p++) {
+        futures.add(
+          ApiClient()
+              .get(
+                path,
+                queryParams: {...query, 'page': p, 'pageSize': 100, 'limit': 100},
+              )
+              .then<PageResult<Map<String, dynamic>>?>(
+                (resp) => PageResult<Map<String, dynamic>>.fromResponse(
+                  resp,
+                  (row) => row,
+                  requestedPage: p,
+                  pageSize: 100,
+                ),
+              )
+              .catchError((_) => null),
+        );
+      }
+      final batches = await Future.wait(futures);
+      for (final b in batches) {
+        if (b != null) collect(b.items);
+      }
     }
-    final batches = await Future.wait(futures);
-    for (final b in batches) {
-      if (b != null) collect(b.items);
+  } else {
+    var currentPage = 2;
+    while (currentPage <= maxPages) {
+      try {
+        final resp = await ApiClient().get(
+          path,
+          queryParams: {
+            ...query,
+            'page': currentPage,
+            'pageSize': 100,
+            'limit': 100,
+          },
+        );
+        final batch = PageResult<Map<String, dynamic>>.fromResponse(
+          resp,
+          (row) => row,
+          requestedPage: currentPage,
+          pageSize: 100,
+        );
+        collect(batch.items);
+        if (!batch.hasNextPage) break;
+      } catch (_) {
+        break;
+      }
+      currentPage++;
     }
   }
 

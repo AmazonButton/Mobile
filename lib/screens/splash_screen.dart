@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import '../widgets/app_motion.dart';
 import '../widgets/sample_a.dart';
@@ -21,12 +22,15 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _fadeAnimation;
   bool _isTextShown = false;
   bool _isNavigated = false;
+  Timer? _navTimer;
   late final Future<bool> _authCheckFuture;
 
   Future<bool> _preloadAuth() async {
     try {
       final apiClient = ApiClient();
-      await apiClient.ensureAuthenticated().timeout(const Duration(seconds: 3));
+      if (!apiClient.isAuthenticated) {
+        await apiClient.ensureAuthenticated();
+      }
       return apiClient.isAuthenticated;
     } catch (_) {
       return false;
@@ -46,11 +50,11 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(milliseconds: 760),
     );
 
-    // Subtle Wi-Fi wave pulse + gentle float while logo glides
+    // Subtle Wi-Fi wave pulse + gentle float while logo glides (respects reduced motion)
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
-    )..repeat();
+    );
 
     // Wordmark & tagline fade in cleanly while staying completely still
     _fadeController = AnimationController(
@@ -65,8 +69,21 @@ class _SplashScreenState extends State<SplashScreen>
 
     _glideController.addListener(_onGlideProgress);
     _glideController.forward().then((_) {
-      Future.delayed(const Duration(milliseconds: 140), _navigateNext);
+      if (!mounted) return;
+      _navTimer?.cancel();
+      _navTimer = Timer(const Duration(milliseconds: 140), _navigateNext);
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.allowAmbient(context)) {
+      if (!_pulseController.isAnimating) _pulseController.repeat();
+    } else {
+      _pulseController.stop();
+      _pulseController.value = 0;
+    }
   }
 
   void _onGlideProgress() {
@@ -114,6 +131,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
+    _navTimer?.cancel();
     _glideController.removeListener(_onGlideProgress);
     _glideController.dispose();
     _pulseController.dispose();

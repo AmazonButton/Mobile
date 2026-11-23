@@ -62,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String get _userShortName =>
       _userProvider?.shortName ?? _userService.shortName;
   String get _userAddress {
-    final address = context.read<AddressProvider>().currentAddressDisplay;
+    final address = context.read<AddressProvider?>()?.currentAddressDisplay ?? '';
     return address.isEmpty ? 'Thêm địa chỉ giao hàng' : address;
   }
 
@@ -2121,7 +2121,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    context.watch<AddressProvider>();
+    context.watch<AddressProvider?>();
     List<DeviceModel> displayDevices = _fallbackDevices;
     try {
       final provider = Provider.of<DeviceProvider>(context);

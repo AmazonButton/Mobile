@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../providers/device_provider.dart';
 import '../providers/user_provider.dart';
-import '../services/stock_service.dart';
 import '../widgets/devices/device_order_sheet.dart';
 import '../widgets/modals/product_selection_sheet.dart';
 import '../widgets/modals/rename_device_dialog.dart';
@@ -44,7 +43,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
   late String _deviceName;
   late String _productName;
   late String _productPrice;
-  late String _productImageUrl;
   late int _battery;
   late String _wifiSsid;
   _DevicePage _page = _DevicePage.overview;
@@ -56,7 +54,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     _deviceName = widget.deviceName;
     _productName = widget.productName;
     _productPrice = widget.productPrice;
-    _productImageUrl = widget.productImageUrl ?? '';
     _battery = widget.battery;
     _wifiSsid = widget.wifiSsid;
   }
@@ -124,7 +121,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
         setState(() {
           _productName = selectedProduct.shortName;
           _productPrice = selectedProduct.priceFormatted;
-          _productImageUrl = '';
         });
 
         _showToast('Đã gán $_productName vào $_deviceName');
@@ -150,7 +146,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
       setState(() {
         _productName = device.product;
         _productPrice = device.price;
-        _productImageUrl = device.imageUrl ?? '';
       });
     }
     _showToast('Đã đổi cửa hàng. Hãy chọn sản phẩm của cửa hàng mới.');

@@ -3,6 +3,7 @@ class PageResult<T> {
   final int page;
   final int pageSize;
   final int? totalItems;
+  final int? totalPages;
   final bool hasNextPage;
   const PageResult({
     required this.items,
@@ -10,6 +11,7 @@ class PageResult<T> {
     required this.pageSize,
     required this.hasNextPage,
     this.totalItems,
+    this.totalPages,
   });
 
   factory PageResult.fromResponse(
@@ -58,6 +60,7 @@ class PageResult<T> {
       page: current,
       pageSize: size,
       totalItems: total,
+      totalPages: pages,
       hasNextPage: hasNext,
     );
   }
