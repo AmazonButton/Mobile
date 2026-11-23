@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#0E6BA8">
+  <meta name="color-scheme" content="light">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="SmartOrder Button — Đặt hàng nhu yếu phẩm 1 chạm & quản lý thiết bị IoT.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SmartOrder">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>SmartOrder Button</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://backend-fae8.onrender.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      height: 100dvh;
+      background: #F4F7FB;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+    }
+    button, a, [role="button"] {
+      touch-action: manipulation;
+    }
+    #sob-boot-loader {
+      position: fixed; inset: 0; z-index: 99999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #ffffff; transition: opacity 0.22s cubic-bezier(0.23, 1, 0.32, 1);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    #sob-boot-loader.hidden { opacity: 0; pointer-events: none; }
+    .sob-spinner {
+      width: 38px; height: 38px; border-radius: 50%;
+      border: 3px solid #E0F2FE; border-top-color: #0E6BA8;
+      animation: sob-spin 0.65s linear infinite;
+    }
+    .sob-label {
+      margin-top: 14px; font-size: 13px; font-weight: 700;
+      color: #0E6BA8; letter-spacing: -0.1px;
+    }
+    @keyframes sob-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      #sob-boot-loader { transition-duration: 0.01ms; }
+    }
+  </style>
+</head>
+<body>
+  <div id="sob-boot-loader">
+    <div class="sob-spinner"></div>
+    <div class="sob-label">SmartOrder Button</div>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function() {
+      var el = document.getElementById('sob-boot-loader');
+      if (el) { el.classList.add('hidden'); setTimeout(function() { el.remove(); }, 280); }
+    });
+  </script>
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script>
+    window.__sobBleDevice = null;
+    window.__sobBleServer = null;
+    window.__sobBleDeviceId = null;
+
+    window.disconnectSmartOrderBle = function() {
+      try {
+        if (window.__sobBleDevice && window.__sobBleDevice.gatt && window.__sobBleDevice.gatt.connected) {
+          window.__sobBleDevice.gatt.disconnect();
+        }
+      } catch (_) {}
+      window.__sobBleDevice = null;
+      window.__sobBleServer = null;
+      window.__sobBleDeviceId = null;
+    };
+
+    window.scanSmartOrderBle = async function() {
+      try {
+        if (!navigator.bluetooth) {
+          throw new Error('Trình duyệt chưa hỗ trợ Web Bluetooth. Hãy dùng Chrome hoặc Edge.');
+        }
+        window.disconnectSmartOrderBle();
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [
+            { namePrefix: 'BTN' },
+            { namePrefix: 'SmartOrder' },
+            { namePrefix: 'SmartButton' },
+            { namePrefix: 'ESP' },
+            { namePrefix: 'SOB' },
+          ],
+          optionalServices: [
+            '0000fff0-0000-1000-8000-00805f9b34fb',
+          ],
+        });
+        window.__sobBleDevice = device;
+        let foundId = device.name || '';
+        if (device.gatt) {
+          const server = device.gatt.connected ? device.gatt : await device.gatt.connect();
+          window.__sobBleServer = server;
+          const service = await server.getPrimaryService('0000fff0-0000-1000-8000-00805f9b34fb');
+          const char = await service.getCharacteristic('0000fff1-0000-1000-8000-00805f9b34fb');
+          const val = await char.readValue();
+          const text = new TextDecoder().decode(val);
+          if (text && text.trim().length > 0) {
+            try {
+              const parsed = JSON.parse(text);
+              foundId = parsed.deviceId || text.trim();
+            } catch (_) {
+              foundId = text.trim();
+            }
+          }
+        }
+        if (!foundId) {
+          throw new Error('Không đọc được mã thiết bị từ nút bấm Bluetooth.');
+        }
+        window.__sobBleDeviceId = foundId;
+        return foundId;
+      } catch (err) {
+        if (err && err.name === 'NotFoundError') {
+          return ''; // User cancelled picker
+        }
+        throw err;
+      }
+    };
+
+    window.sendSmartOrderBleWifi = async function(expectedDeviceId, ssid, password) {
+      const cleanSsid = String(ssid || '').trim();
+      const cleanPass = String(password || '');
+      if (!cleanSsid || /[:\r\n]/.test(cleanSsid) || /[\r\n]/.test(cleanPass)) {
+        throw new Error('Tên Wi-Fi không hợp lệ (không chứa dấu hai chấm hoặc xuống dòng).');
+      }
+      const device = window.__sobBleDevice;
+      if (!device || !device.gatt) {
+        return 'NO_BLE_SESSION';
+      }
+      const server = device.gatt.connected ? device.gatt : await device.gatt.connect();
+      window.__sobBleServer = server;
+      const service = await server.getPrimaryService('0000fff0-0000-1000-8000-00805f9b34fb');
+      const wifiChar = await service.getCharacteristic('0000fff2-0000-1000-8000-00805f9b34fb');
+      const payload = new TextEncoder().encode(cleanSsid + ':' + cleanPass);
+      if (typeof wifiChar.writeValueWithResponse === 'function') {
+        await wifiChar.writeValueWithResponse(payload);
+      } else if (typeof wifiChar.writeValue === 'function') {
+        await wifiChar.writeValue(payload);
+      } else {
+        throw new Error('Thiết bị không hỗ trợ ghi cấu hình Wi-Fi qua BLE.');
+      }
+      return 'CREDENTIALS_SENT';
+    };
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

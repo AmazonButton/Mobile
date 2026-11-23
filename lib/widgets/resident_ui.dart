@@ -27,10 +27,20 @@ ThemeData residentTheme(BuildContext context) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: residentBlue,
+        backgroundColor: const Color(0xFF0E6BA8),
         foregroundColor: Colors.white,
-        minimumSize: const Size(0, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+        minimumSize: const Size(double.infinity, 50),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF0E6BA8),
+        side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+        minimumSize: const Size(double.infinity, 48),
+        textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),
   );
@@ -57,17 +67,31 @@ class ResidentScaffold extends StatelessWidget {
       body: AContent(child: body),
       bottomNavigationBar: actions.isEmpty
           ? null
-          : Material(
-              color: Colors.white,
+          : Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                ),
+              ),
               child: SafeArea(
                 top: false,
-                minimum: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: actions
-                      .map((action) => AContent(child: action))
-                      .toList(),
+                minimum: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+                child: Center(
+                  heightFactor: 1.0,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: SampleA.listWidth),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < actions.length; i++) ...[
+                          if (i > 0) const SizedBox(height: 10),
+                          SizedBox(width: double.infinity, child: actions[i]),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),

@@ -1,9 +1,12 @@
+import '../../../widgets/app_motion.dart';
 import '../../../widgets/sample_a.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'signup_theme.dart';
 
-/// Reusable primary CTA button for onboarding steps.
+/// Reusable primary CTA button for onboarding steps with instant tactile press
+/// compression and crisp ocean-blue gradient elevation.
 class SignupPrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -20,46 +23,80 @@ class SignupPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(
-        minHeight: 56,
-        minWidth: double.infinity,
-      ),
-      child: ElevatedButton(
-        onPressed: (isEnabled && !isLoading) ? onTap : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: SignupTheme.figmaBlue,
-          disabledBackgroundColor: SampleA.border,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
+    final active = isEnabled && !isLoading;
+    return TactilePress(
+      scaleDown: active ? 0.97 : 1.0,
+      borderRadius: BorderRadius.circular(18),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: 56,
+          minWidth: double.infinity,
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: active
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF0E6BA8), Color(0xFF2563EB)],
+                  )
+                : null,
+            color: active ? null : SampleA.border,
             borderRadius: BorderRadius.circular(18),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.28),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : const [],
+          ),
+          child: ElevatedButton(
+            onPressed: active
+                ? () {
+                    HapticFeedback.lightImpact();
+                    onTap();
+                  }
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              disabledBackgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            child: isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isEnabled ? Colors.white : const Color(0xFF94A3B8),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.1,
+                      fontFamily: SignupTheme.fontFamily,
+                    ),
+                  ),
           ),
         ),
-        child: isLoading
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: isEnabled ? Colors.white : const Color(0xFF94A3B8),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: SignupTheme.fontFamily,
-                ),
-              ),
       ),
     );
   }
 }
 
-/// Reusable secondary text button for onboarding steps.
+/// Reusable secondary text button for onboarding steps with subtle tactile feedback.
 class SignupSecondaryButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -72,26 +109,36 @@ class SignupSecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(
-        minHeight: 48,
-        minWidth: double.infinity,
-      ),
-      child: TextButton(
-        onPressed: onTap,
-        style: TextButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+    return TactilePress(
+      scaleDown: 0.97,
+      borderRadius: BorderRadius.circular(16),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: 50,
+          minWidth: double.infinity,
         ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: SignupTheme.figmaBlue,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            fontFamily: SignupTheme.fontFamily,
+        child: TextButton(
+          onPressed: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          style: TextButton.styleFrom(
+            backgroundColor: const Color(0xFFF0F7FF),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFFDBEAFE)),
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF0E6BA8),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.1,
+              fontFamily: SignupTheme.fontFamily,
+            ),
           ),
         ),
       ),

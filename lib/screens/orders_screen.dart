@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../models/order_model.dart';
 import '../providers/order_provider.dart';
+import '../providers/user_provider.dart';
 import '../services/services.dart';
 import 'orders/widgets/widgets.dart';
 
@@ -34,7 +35,51 @@ class _OrdersScreenState extends State<OrdersScreen>
   Timer? _countdownTimer;
 
   final Set<String> _reordering = {};
+  final Set<String> _updatingOrders = {};
   final OrderProvider _fallback = OrderProvider();
+
+  (String, String)? _nextStoreAction(OrderModel order) {
+    switch (order.rawStatus.toUpperCase()) {
+      case 'PENDING':
+        return ('CONFIRMED', 'Xác nhận đơn');
+      case 'CONFIRMED':
+        return ('PREPARING', 'Bắt đầu chuẩn bị');
+      case 'PREPARING':
+      case 'PROCESSING':
+        return ('READY_FOR_DELIVERY', 'Sẵn sàng giao');
+      case 'READY_FOR_DELIVERY':
+        return ('SHIPPING', 'Xuất giao hàng');
+      case 'SHIPPING':
+        return ('DELIVERED', 'Xác nhận đã giao');
+      default:
+        return null;
+    }
+  }
+
+  Future<void> _handleStoreAdvanceStatus(
+    OrderModel order,
+    String nextStatus,
+    String actionLabel,
+  ) async {
+    if (!_updatingOrders.add(order.id)) return;
+    if (mounted) setState(() {});
+    try {
+      final provider = _ordersProvider();
+      await provider.updateOrderStatus(order.id, status: nextStatus);
+      if (mounted) {
+        _showFloatingToast('Đã cập nhật ${order.orderCode}: $actionLabel');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showFloatingToast(
+          'Lỗi cập nhật trạng thái: ${e is ApiException ? e.message : e.toString()}',
+        );
+      }
+    } finally {
+      _updatingOrders.remove(order.id);
+      if (mounted) setState(() {});
+    }
+  }
   OrderProvider _ordersProvider({bool listen = false}) {
     try {
       return Provider.of<OrderProvider>(context, listen: listen);
@@ -197,17 +242,26 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   void _showOrderDetail(OrderModel order) {
+    final userProv = context.read<UserProvider?>();
+    final isStoreOwner = userProv?.isStoreOwner ?? false;
+    final isAdmin = userProv?.isAdmin ?? false;
     OrderDetailBottomSheet.show(
       context,
       order: order,
-      onReorder: () => _handleReorder(order),
-      onCancel: () => _handleEmergencyCancel(order),
+      isStoreOwner: isStoreOwner,
+      isAdmin: isAdmin,
+      onStoreAdvanceStatus: isStoreOwner ? _handleStoreAdvanceStatus : null,
+      onReorder: (!isStoreOwner && !isAdmin) ? () => _handleReorder(order) : null,
+      onCancel: (!isStoreOwner && !isAdmin) ? () => _handleEmergencyCancel(order) : null,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = _ordersProvider(listen: true);
+    final userProv = context.watch<UserProvider?>();
+    final isStoreOwner = userProv?.isStoreOwner ?? false;
+    final isAdmin = userProv?.isAdmin ?? false;
     final activeOrders = provider.activeOrders;
     final historyOrders = provider.historyOrders;
     final isLoading = provider.isLoading;
@@ -234,8 +288,31 @@ class _OrdersScreenState extends State<OrdersScreen>
                       ),
                       const SizedBox(width: 12),
                     ],
-                    const Expanded(
-                      child: Text('Đơn hàng', style: SampleA.title),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isAdmin
+                                ? 'Đơn hàng hệ thống'
+                                : isStoreOwner
+                                    ? 'Đơn hàng đại lý'
+                                    : 'Đơn hàng của tôi',
+                            style: SampleA.title,
+                          ),
+                          if (isStoreOwner || isAdmin)
+                            Text(
+                              isAdmin
+                                  ? 'Giám sát đơn toàn hệ thống'
+                                  : 'Tiếp nhận, chuẩn bị và xác nhận giao hàng',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                     AIconButton(
                       icon: LucideIcons.filter,
@@ -283,6 +360,7 @@ class _OrdersScreenState extends State<OrdersScreen>
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
+                  physics: const BouncingScrollPhysics(),
                   children: [
                     RefreshIndicator(
                       color: SampleA.primary,
@@ -515,21 +593,44 @@ class _OrdersScreenState extends State<OrdersScreen>
             child: Text('Gần đây', style: SampleA.section),
           ),
         for (final order in orders)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: OrderCardItem(
-              key: ValueKey(order.id),
-              order: order,
-              cancelCountdown: _cancelCountdown,
-              onEmergencyCancel: () => _handleEmergencyCancel(order),
-              onCancel: () => _handleEmergencyCancel(order),
-              onTrack: () => _showOrderDetail(order),
-              onDetailTap: () => _showOrderDetail(order),
-              isReordering: _reordering.contains(order.deviceId),
-              onReorder: order.deviceId.isEmpty
-                  ? null
-                  : () => _handleReorder(order),
-            ),
+          Builder(
+            builder: (ctx) {
+              final userProv = ctx.watch<UserProvider?>();
+              final isStoreOwner = userProv?.isStoreOwner ?? false;
+              final isAdmin = userProv?.isAdmin ?? false;
+              final nextAction = isStoreOwner ? _nextStoreAction(order) : null;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: OrderCardItem(
+                  key: ValueKey(order.id),
+                  order: order,
+                  isStoreOwner: isStoreOwner,
+                  isAdmin: isAdmin,
+                  storeActionLabel: nextAction?.$2,
+                  isUpdatingStatus: _updatingOrders.contains(order.id),
+                  onAdvanceStatus: nextAction == null
+                      ? null
+                      : () => _handleStoreAdvanceStatus(
+                            order,
+                            nextAction.$1,
+                            nextAction.$2,
+                          ),
+                  cancelCountdown: _cancelCountdown,
+                  onEmergencyCancel: (!isStoreOwner && !isAdmin)
+                      ? () => _handleEmergencyCancel(order)
+                      : null,
+                  onCancel: (!isStoreOwner && !isAdmin)
+                      ? () => _handleEmergencyCancel(order)
+                      : null,
+                  onTrack: () => _showOrderDetail(order),
+                  onDetailTap: () => _showOrderDetail(order),
+                  isReordering: _reordering.contains(order.deviceId),
+                  onReorder: (!isStoreOwner && !isAdmin && order.deviceId.isNotEmpty)
+                      ? () => _handleReorder(order)
+                      : null,
+                ),
+              );
+            },
           ),
         if (paging.hasMore) _loadMoreButton(paging),
       ],

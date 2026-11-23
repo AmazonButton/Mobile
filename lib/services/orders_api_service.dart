@@ -54,18 +54,30 @@ class OrdersApiService {
     );
     final data = batch.items;
     {
-      // Older order responses omit images; resolve by product ID, never by name.
-      final catalog = <String, Map>{};
-      try {
-        final products = await ProductsApiService().getProducts();
-        for (final product in products) {
-          if (product is Map) {
-            final id = product['productId'] ?? product['id'];
-            if (id != null) catalog[id.toString()] = product;
-          }
+      // Older order responses omit images; resolve via 3-min cached product map
+      // only if any order line is missing an image.
+      final needsCatalog = data.any((raw) {
+        final items = raw['items'] is List ? raw['items'] : raw['orderItems'];
+        if (items is! List) return false;
+        return items.any((line) {
+          if (line is! Map) return false;
+          final nested = line['product'];
+          final hasImg =
+              (line['imageUrl'] ?? line['thumbnailUrl']) != null ||
+              (nested is Map &&
+                  (nested['imageUrl'] ?? nested['thumbnailUrl']) != null);
+          return !hasImg;
+        });
+      });
+      var catalog = <String, Map>{};
+      if (needsCatalog) {
+        try {
+          catalog = await ProductsApiService()
+              .getProductMapCached()
+              .timeout(const Duration(seconds: 2), onTimeout: () => {});
+        } catch (_) {
+          // Product lookup must not prevent customers from viewing their orders.
         }
-      } catch (_) {
-        // Product lookup must not prevent customers from viewing their orders.
       }
       final orders = data.map((raw) {
         final item = Map<String, dynamic>.from(raw);
@@ -171,6 +183,46 @@ class OrdersApiService {
       body: {if (reason != null && reason.isNotEmpty) 'reason': reason},
     );
     return response;
+  }
+
+  /// Cập nhật trạng thái đơn hàng (Store Owner / Staff: CONFIRMED, PREPARING, READY_FOR_DELIVERY, SHIPPING, DELIVERED, COMPLETED)
+  Future<Map<String, dynamic>> updateOrderStatus(
+    String id, {
+    required String status,
+    String? note,
+  }) async {
+    final response = await _client.patch(
+      ApiConfig.orderStatus(id),
+      body: {
+        'status': status,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+    );
+    return response['data'] is Map<String, dynamic>
+        ? response['data'] as Map<String, dynamic>
+        : response;
+  }
+
+  /// Tính phí giao hàng Goong 5km freeship trực tiếp từ Backend
+  Future<Map<String, dynamic>> getDeliveryQuote({
+    required dynamic storeId,
+    String? deliveryAddress,
+    double? latitude,
+    double? longitude,
+  }) async {
+    final response = await _client.post(
+      ApiConfig.ordersDeliveryQuote,
+      body: {
+        'storeId': storeId,
+        if (deliveryAddress != null && deliveryAddress.isNotEmpty)
+          'deliveryAddress': deliveryAddress,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
+      },
+    );
+    return response['data'] is Map<String, dynamic>
+        ? response['data'] as Map<String, dynamic>
+        : response;
   }
 
   /// Giả lập sự kiện nút bấm vật lý tạo đơn hàng

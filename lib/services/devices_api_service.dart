@@ -59,13 +59,9 @@ class DevicesApiService {
           .toList();
       if (!devices.any((device) => device.imageUrl == null)) return devices;
       try {
-        final products = await ProductsApiService().getProducts();
-        final byId = <String, Map>{
-          for (final product in products)
-            if (product is Map &&
-                (product['productId'] ?? product['id']) != null)
-              (product['productId'] ?? product['id']).toString(): product,
-        };
+        final byId = await ProductsApiService()
+            .getProductMapCached()
+            .timeout(const Duration(seconds: 2), onTimeout: () => {});
         return devices.map((device) {
           final product = byId[device.productId];
           if (device.imageUrl != null || product == null) return device;
@@ -116,7 +112,7 @@ class DevicesApiService {
     return response['data'] ?? response;
   }
 
-  /// Khách hàng cập nhật cấu hình nút (tên phòng, đổi sản phẩm gán, số lượng đặt, trạng thái)
+  /// Khách hàng cập nhật cấu hình nút (tên phòng, đổi sản phẩm gán, số lượng đặt, khóa trẻ em, trạng thái)
   Future<Map<String, dynamic>> updateCustomerConfig(
     String id, {
     String? buttonName,
@@ -125,6 +121,8 @@ class DevicesApiService {
     int? defaultQuantity,
     int? quantity,
     bool? isActive,
+    bool? canOrder,
+    int? holdDurationMs,
     String? roomLocation,
   }) async {
     final body = <String, dynamic>{};
@@ -135,6 +133,8 @@ class DevicesApiService {
       body['quantity'] = quantity ?? defaultQuantity;
     }
     if (isActive != null) body['isActive'] = isActive;
+    if (canOrder != null) body['canOrder'] = canOrder;
+    if (holdDurationMs != null) body['holdDurationMs'] = holdDurationMs;
     if (roomLocation != null) body['roomLocation'] = roomLocation;
 
     final response = await _client.put(
@@ -187,5 +187,14 @@ class DevicesApiService {
   /// Xóa liên kết sản phẩm khỏi nút bấm
   Future<void> removeProduct(String deviceId) async {
     await _client.delete(ApiConfig.deviceRemoveProduct(deviceId));
+  }
+
+  /// Xóa thiết bị khỏi tài khoản người dùng
+  Future<void> deleteDevice(String deviceId) async {
+    try {
+      await _client.delete(ApiConfig.deviceDetail(deviceId));
+    } catch (_) {
+      // Best-effort remote deletion
+    }
   }
 }

@@ -1,6 +1,7 @@
+import 'dart:math' as math;
+import '../widgets/app_motion.dart';
 import '../widgets/sample_a.dart';
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
 import '../services/services.dart';
 import 'dashboard_screen.dart';
 import 'welcome_screen.dart';
@@ -14,37 +15,63 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
-  late final AnimationController _lottieController;
+  late final AnimationController _glideController;
+  late final AnimationController _pulseController;
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
   bool _isTextShown = false;
   bool _isNavigated = false;
+  late final Future<bool> _authCheckFuture;
+
+  Future<bool> _preloadAuth() async {
+    try {
+      final apiClient = ApiClient();
+      await apiClient.ensureAuthenticated().timeout(const Duration(seconds: 3));
+      return apiClient.isAuthenticated;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
 
-    _lottieController = AnimationController(vsync: this);
+    // Pre-check auth in parallel while splash animation plays
+    _authCheckFuture = _preloadAuth();
 
+    // Snappy logo glide (~760ms, strong ease-out)
+    _glideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 760),
+    );
+
+    // Subtle Wi-Fi wave pulse + gentle float while logo glides
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
+
+    // Wordmark & tagline fade in cleanly while staying completely still
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 320),
     );
 
     _fadeAnimation = CurvedAnimation(
       parent: _fadeController,
-      curve: Curves.easeOut,
+      curve: AppMotion.easeOut,
     );
 
-    _lottieController.addListener(_onLottieProgress);
+    _glideController.addListener(_onGlideProgress);
+    _glideController.forward().then((_) {
+      Future.delayed(const Duration(milliseconds: 140), _navigateNext);
+    });
   }
 
-  void _onLottieProgress() {
-    // Khi xe chạy được 50% thời gian (0.5) và chữ chưa được hiện
-    if (_lottieController.value >= 0.45 && !_isTextShown) {
-      setState(() {
-        _isTextShown = true;
-      });
+  void _onGlideProgress() {
+    if (_glideController.value >= 0.2 && !_isTextShown) {
+      setState(() => _isTextShown = true);
       _fadeController.forward();
     }
   }
@@ -53,15 +80,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (_isNavigated || !mounted) return;
     _isNavigated = true;
 
-    bool isAuthenticated = false;
-    try {
-      final apiClient = ApiClient();
-      await apiClient.ensureAuthenticated();
-      isAuthenticated = apiClient.isAuthenticated;
-    } catch (_) {
-      isAuthenticated = false;
-    }
-
+    final isAuthenticated = await _authCheckFuture;
     if (!mounted) return;
 
     if (isAuthenticated) {
@@ -76,17 +95,28 @@ class _SplashScreenState extends State<SplashScreen>
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: AppMotion.easeOut,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.975, end: 1.0).animate(curved),
+              child: child,
+            ),
+          );
         },
-        transitionDuration: const Duration(milliseconds: 600),
+        transitionDuration: const Duration(milliseconds: 260),
       ),
     );
   }
 
   @override
   void dispose() {
-    _lottieController.removeListener(_onLottieProgress);
-    _lottieController.dispose();
+    _glideController.removeListener(_onGlideProgress);
+    _glideController.dispose();
+    _pulseController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
@@ -97,117 +127,143 @@ class _SplashScreenState extends State<SplashScreen>
       backgroundColor: Colors.white,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: _navigateNext, // Cho phép chạm để chuyển nhanh nếu muốn
+        onTap: _navigateNext,
         child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Spacer(flex: 3),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Spacer(flex: 3),
 
-                        // Chiếc xe chạy ngang qua
-                        SizedBox(
-                          width: 260,
-                          height: 260,
-                          child: Lottie.asset(
-                            'assets/scooter_anim.json',
-                            controller: _lottieController,
-                            onLoaded: (composition) {
-                              _lottieController
-                                ..duration = composition.duration
-                                ..forward().then((_) {
-                                  // Khi xe chạy xong hoàn toàn
-                                  Future.delayed(
-                                    const Duration(milliseconds: 200),
-                                    _navigateNext,
-                                  );
-                                });
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              // Fallback nếu Lottie gặp sự cố
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                _fadeController.forward();
-                                Future.delayed(
-                                  const Duration(seconds: 2),
-                                  _navigateNext,
-                                );
-                              });
-                              return const Icon(
-                                Icons.delivery_dining,
-                                size: 120,
-                                color: Color(0xFFF5862B),
-                              );
-                            },
+              // Phần 1: Biểu tượng Logo của anh chuyển động mượt (chạy từ trái vào + tỏa sóng nhẹ)
+              SizedBox(
+                width: 260,
+                height: 150,
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([
+                    _glideController,
+                    _pulseController,
+                  ]),
+                  builder: (context, _) {
+                    final glideT = AppMotion.easeOut.transform(
+                      _glideController.value.clamp(0.0, 1.0),
+                    );
+                    final slideX = -115.0 * (1.0 - glideT);
+                    final floatY =
+                        math.sin(_pulseController.value * math.pi * 2) * 3.0;
+                    final tilt =
+                        (1.0 - _glideController.value.clamp(0.0, 1.0)) * -0.06;
+                    final pulseScale = 0.85 + (_pulseController.value * 0.45);
+                    final pulseOpacity = (1.0 - _pulseController.value) * 0.22;
+
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Subtle ocean-blue signal ripple behind moving logo
+                        Transform.translate(
+                          offset: Offset(slideX, floatY),
+                          child: Transform.scale(
+                            scale: pulseScale,
+                            child: Container(
+                              width: 112,
+                              height: 112,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFF0E6BA8)
+                                      .withValues(alpha: pulseOpacity),
+                                  width: 2.5,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-
-                        const SizedBox(height: 24),
-
-                        // Khối Tiêu Đề & Mô Tả mờ dần hiện lên (Fade In 800ms)
-                        FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: Column(
-                            children: [
-                              Image.asset(
-                                'assets/smart_order_button_logo.png',
-                                width: 220,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Image.asset(
-                                      'assets/fpt_toggle_button.png',
-                                      width: 180,
-                                      fit: BoxFit.contain,
-                                      errorBuilder:
-                                          (context, error2, stackTrace2) =>
-                                              const SizedBox.shrink(),
-                                    ),
-                              ),
-                              const SizedBox(height: 12),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 36,
-                                ),
-                                child: Text(
-                                  'Gửi hàng, theo dõi và giao mọi món hàng quanh thành phố — chỉ với một nút bấm.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    height: 1.5,
-                                    color: Colors.grey.shade600,
-                                    fontWeight: FontWeight.w400,
-                                    fontFamily: SampleA.fontFamily,
+                        // Top icon slice of assets/smart_order_button_logo.png
+                        Transform.translate(
+                          offset: Offset(slideX, floatY),
+                          child: Transform.rotate(
+                            angle: tilt,
+                            child: ClipRect(
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                heightFactor: 0.72,
+                                child: Image.asset(
+                                  'assets/smart_order_button_logo.png',
+                                  width: 230,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.shopping_cart_rounded,
+                                    size: 84,
+                                    color: Color(0xFF0E6BA8),
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-
-                        const Spacer(flex: 4),
-
-                        // Nút bỏ qua nhỏ ở góc dưới
-                        FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: TextButton(
-                            onPressed: _navigateNext,
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.grey.shade400,
-                              textStyle: const TextStyle(fontSize: 13),
                             ),
-                            child: const Text('Bỏ qua →'),
                           ),
                         ),
-                        const SizedBox(height: 16),
                       ],
+                    );
+                  },
+                ),
+              ),
+
+              // Phần 2: Chữ SMARTOrderBUTTON giữ nguyên vị trí cố định + hiện mượt
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: Column(
+                  children: [
+                    ClipRect(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        heightFactor: 0.28,
+                        child: Image.asset(
+                          'assets/smart_order_button_logo.png',
+                          width: 230,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) => const Text(
+                            'SMARTOrderBUTTON',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0E6BA8),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
+                    const SizedBox(height: 14),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 36),
+                      child: Text(
+                        'Gửi hàng, theo dõi và giao mọi món hàng quanh thành phố — chỉ với một nút bấm.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          height: 1.5,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w400,
+                          fontFamily: SampleA.fontFamily,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Spacer(flex: 4),
+
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: TextButton(
+                  onPressed: _navigateNext,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.grey.shade400,
+                    textStyle: const TextStyle(fontSize: 13),
                   ),
-                ],
-              );
-            },
+                  child: const Text('Bỏ qua →'),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
           ),
         ),
       ),

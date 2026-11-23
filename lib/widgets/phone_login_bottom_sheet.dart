@@ -5,6 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pinput/pinput.dart';
+import 'package:provider/provider.dart';
+import '../providers/address_provider.dart';
+import '../providers/device_provider.dart';
+import '../providers/notification_provider.dart';
+import '../providers/order_provider.dart';
+import '../providers/user_provider.dart';
 import '../services/services.dart';
 import '../utils/utils.dart';
 
@@ -201,19 +207,35 @@ class _PhoneLoginBottomSheetState extends State<PhoneLoginBottomSheet> {
       // 2. Gửi idToken lên backend đăng nhập
       final res = await AuthApiService().loginByPhone(firebaseIdToken: idToken);
 
-      // 3. Cập nhật hồ sơ người dùng
+      // 3. Reset session cũ và cập nhật hồ sơ + role người dùng
       final data = res['data'] ?? res;
       final user = data['user'] ?? data;
-      if (user != null) {
+      if (mounted) {
+        context.read<DeviceProvider?>()?.reset();
+        context.read<OrderProvider?>()?.reset();
+        context.read<AddressProvider?>()?.reset();
+        await context.read<NotificationProvider?>()?.clearAll();
+      }
+      final localProfile = UserProfileService()..reset();
+      if (user is Map) {
         if (user['fullName'] != null) {
-          UserProfileService().updateName(user['fullName'].toString());
+          localProfile.updateName(user['fullName'].toString());
         }
         if (user['phone'] != null) {
-          UserProfileService().updatePhone(user['phone'].toString());
+          localProfile.updatePhone(user['phone'].toString());
         }
         if (user['email'] != null) {
-          UserProfileService().updateEmail(user['email'].toString());
+          localProfile.updateEmail(user['email'].toString());
         }
+        localProfile.updateAvatarUrl(user['avatarUrl']?.toString());
+        if (mounted) {
+          context
+              .read<UserProvider?>()
+              ?.applyLoginUser(Map<String, dynamic>.from(user));
+        }
+      }
+      if (mounted) {
+        context.read<UserProvider?>()?.loadProfile();
       }
 
       // 4. Đồng bộ FCM Token

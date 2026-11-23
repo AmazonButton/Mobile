@@ -15,15 +15,27 @@ class StockService extends ChangeNotifier with WidgetsBindingObserver {
   final Map<String, List<Map<String, dynamic>>> configurations = {};
   final Map<String, Future<void>> _pending = {};
   final Set<String> _tracked = {};
+  final Map<String, DateTime> _lastFetched = {};
+  static const Duration _cacheTtl = Duration(seconds: 45);
+
   ProductStock? stock(String id) => stocks[id];
   void remember(String id, dynamic inventory) {
     stocks[id] = ProductStock.fromJson(inventory);
   }
 
-  Future<void> refreshDevice(String id) =>
-      _pending[id] ??= _refreshDevice(id).whenComplete(() {
-        _pending.remove(id);
-      });
+  Future<void> refreshDevice(String id, {bool force = false}) {
+    if (!force) {
+      final last = _lastFetched[id];
+      if (last != null && DateTime.now().difference(last) < _cacheTtl) {
+        return Future.value();
+      }
+    }
+    return _pending[id] ??= _refreshDevice(id).whenComplete(() {
+      _pending.remove(id);
+      _lastFetched[id] = DateTime.now();
+    });
+  }
+
   Future<void> _refreshDevice(String id) async {
     _tracked.add(id);
     try {
@@ -46,7 +58,7 @@ class StockService extends ChangeNotifier with WidgetsBindingObserver {
           final productId = (item['productId'] ?? item['product']?['productId'])
               ?.toString();
           if (productId == null) return;
-          stocks[productId] = null;
+          // Stale-while-revalidate: keep previous cached stock while loading
           try {
             final product = await ProductsApiService().getProductById(
               productId,
@@ -56,23 +68,26 @@ class StockService extends ChangeNotifier with WidgetsBindingObserver {
               product['status'] == 'ACTIVE' ? product['inventory'] : null,
             );
           } catch (_) {
-            stocks[productId] = null;
+            // Keep existing stock if available to avoid UI flashing
           }
         }),
       );
     } catch (_) {
-      configurations.remove(id);
+      // Don't wipe configuration if already populated
+      if (!configurations.containsKey(id)) {
+        configurations.remove(id);
+      }
     }
     notifyListeners();
   }
 
-  Future<void> refreshAll() async {
-    await Future.wait(_tracked.toList().map(refreshDevice));
+  Future<void> refreshAll({bool force = false}) async {
+    await Future.wait(_tracked.toList().map((id) => refreshDevice(id, force: force)));
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) refreshAll();
+    if (state == AppLifecycleState.resumed) refreshAll(force: true);
   }
 
   String? problem(String id) {

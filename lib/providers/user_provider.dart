@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_api_service.dart';
 import '../services/media_api_service.dart';
 import '../services/api_client.dart';
+import '../services/stores_api_service.dart';
 import '../services/user_profile_service.dart';
 
 class UserProvider extends ChangeNotifier {
@@ -10,11 +11,112 @@ class UserProvider extends ChangeNotifier {
   final UserProfileService _localProfile;
   final MediaApiService _media;
   String? accountId;
+  String _role = 'CUSTOMER';
+  String? _storeId;
+  String? _storeName;
+  String? _storeAddress;
   bool _savingAvatar = false;
   int _avatarRevision = 0;
   int _sessionRevision = 0;
   bool get savingAvatar => _savingAvatar;
   String? get avatarUrl => _localProfile.avatarUrl;
+  String get role => _role;
+  String? get storeId => _storeId;
+  String? get storeName => _storeName;
+  String? get storeAddress => _storeAddress;
+  bool get isAdmin =>
+      _role == 'SUPER_ADMIN' || _role == 'SYSTEM_ADMIN' || _role == 'ADMIN';
+  bool get isSystemStaff => _role == 'SYSTEM_STAFF';
+  bool get isStoreOwner => _role == 'STORE_OWNER';
+  bool get isCustomer => !isAdmin && !isStoreOwner && !isSystemStaff;
+  String get roleLabel => isAdmin
+      ? 'Quản trị viên'
+      : isSystemStaff
+          ? 'Kỹ thuật hệ thống'
+          : isStoreOwner
+              ? 'Chủ cửa hàng'
+              : 'Khách hàng';
+
+  void updateStoreInfo({String? name, String? address, String? storeId}) {
+    if (name != null && name.trim().isNotEmpty) _storeName = name.trim();
+    if (address != null && address.trim().isNotEmpty) {
+      _storeAddress = address.trim();
+    }
+    if (storeId != null && storeId.trim().isNotEmpty) {
+      _storeId = storeId.trim();
+    }
+    notifyListeners();
+  }
+
+  void _extractStoreInfo(Map<String, dynamic> me) {
+    final directStoreId = me['storeId']?.toString().trim();
+    if (directStoreId != null && directStoreId.isNotEmpty) {
+      _storeId = directStoreId;
+    }
+    final storeObj = me['store'];
+    if (storeObj is Map) {
+      if (storeObj['name'] != null) _storeName = storeObj['name'].toString().trim();
+      if (storeObj['address'] != null && storeObj['address'].toString().trim().isNotEmpty) {
+        _storeAddress = storeObj['address'].toString().trim();
+      }
+      if (_storeId == null && (storeObj['storeId'] ?? storeObj['id']) != null) {
+        _storeId = (storeObj['storeId'] ?? storeObj['id']).toString();
+      }
+    }
+    final storeStaffs = me['storeStaffs'];
+    if (storeStaffs is List && storeStaffs.isNotEmpty && storeStaffs.first is Map) {
+      final first = storeStaffs.first as Map;
+      if (_storeId == null && first['storeId'] != null) {
+        _storeId = first['storeId'].toString();
+      }
+      final staffStore = first['store'];
+      if (staffStore is Map) {
+        if ((_storeName == null || _storeName!.isEmpty) && staffStore['name'] != null) {
+          _storeName = staffStore['name'].toString().trim();
+        }
+        if ((_storeAddress == null || _storeAddress!.isEmpty) &&
+            staffStore['address'] != null &&
+            staffStore['address'].toString().trim().isNotEmpty) {
+          _storeAddress = staffStore['address'].toString().trim();
+        }
+        if (_storeId == null && (staffStore['storeId'] ?? staffStore['id']) != null) {
+          _storeId = (staffStore['storeId'] ?? staffStore['id']).toString();
+        }
+      }
+    }
+    final ownedStores = me['ownedStores'];
+    if (ownedStores is List && ownedStores.isNotEmpty && ownedStores.first is Map) {
+      final first = ownedStores.first as Map;
+      if ((_storeName == null || _storeName!.isEmpty) && first['name'] != null) {
+        _storeName = first['name'].toString().trim();
+      }
+      if ((_storeAddress == null || _storeAddress!.isEmpty) &&
+          first['address'] != null &&
+          first['address'].toString().trim().isNotEmpty) {
+        _storeAddress = first['address'].toString().trim();
+      }
+      if (_storeId == null && (first['storeId'] ?? first['id']) != null) {
+        _storeId = (first['storeId'] ?? first['id']).toString();
+      }
+    }
+  }
+
+  /// Đồng bộ ngay role & storeId từ payload đăng nhập (không bị nháy giao diện role cũ)
+  void applyLoginUser(Map<String, dynamic> user) {
+    _sessionRevision++;
+    accountId = (user['id'] ?? user['userId'])?.toString();
+    final rawRole = user['role']?.toString().trim().toUpperCase();
+    if (rawRole != null && rawRole.isNotEmpty) {
+      _role = rawRole;
+    } else {
+      _role = 'CUSTOMER';
+    }
+    _storeId = null;
+    _storeName = null;
+    _storeAddress = null;
+    _extractStoreInfo(user);
+    notifyListeners();
+  }
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -48,7 +150,39 @@ class UserProvider extends ChangeNotifier {
     try {
       final me = await _authService.getMe();
       if (session != _sessionRevision) return;
-      accountId = (me['id'] ?? me['userId'])?.toString();
+      if (me.isNotEmpty) {
+        accountId = (me['id'] ?? me['userId'])?.toString();
+        final rawRole = me['role']?.toString().trim().toUpperCase();
+        if (rawRole != null && rawRole.isNotEmpty) {
+          _role = rawRole;
+        }
+        _storeId = null;
+        _storeName = null;
+        _storeAddress = null;
+        _extractStoreInfo(me);
+      }
+      if (isStoreOwner &&
+          (_storeName == null ||
+              _storeName!.isEmpty ||
+              _storeAddress == null ||
+              _storeAddress!.isEmpty)) {
+        try {
+          final myStore = await StoresApiService().getMyStore();
+          if (session == _sessionRevision) {
+            if (myStore['name'] != null) {
+              _storeName = myStore['name'].toString().trim();
+            }
+            if (myStore['address'] != null &&
+                myStore['address'].toString().trim().isNotEmpty) {
+              _storeAddress = myStore['address'].toString().trim();
+            }
+            if (_storeId == null && (myStore['storeId'] ?? myStore['id']) != null) {
+              _storeId = (myStore['storeId'] ?? myStore['id']).toString();
+            }
+          }
+        } catch (_) {}
+      }
+      if (session != _sessionRevision) return;
       if (avatarRevision == _avatarRevision) {
         _localProfile.updateAvatarUrl(me['avatarUrl']?.toString());
       }
@@ -79,10 +213,13 @@ class UserProvider extends ChangeNotifier {
       }
       _errorMessage = null;
     } catch (e) {
+      if (session != _sessionRevision) return;
       _errorMessage = e.toString();
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (session == _sessionRevision) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -191,6 +328,10 @@ class UserProvider extends ChangeNotifier {
   void reset() {
     _sessionRevision++;
     accountId = null;
+    _role = 'CUSTOMER';
+    _storeId = null;
+    _storeName = null;
+    _storeAddress = null;
     _avatarRevision++;
     _localProfile.reset();
     _errorMessage = null;

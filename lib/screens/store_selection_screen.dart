@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../services/devices_api_service.dart';
@@ -35,11 +36,29 @@ class _StoreSelectionScreenState extends State<StoreSelectionScreen> {
   String? _currentStoreId;
   String? _selectedStoreId;
   String _search = '';
+  final TextEditingController _searchCtrl = TextEditingController();
+  Timer? _debounceTimer;
   bool _loading = true;
   bool _saving = false;
   String? _loadError;
   String? _saveError;
   bool _needsLogin = false;
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) {
+        setState(() => _search = value.trim().toLowerCase());
+      }
+    });
+  }
 
   static const _sessionMessage =
       'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để đổi cửa hàng.';
@@ -70,11 +89,33 @@ class _StoreSelectionScreenState extends State<StoreSelectionScreen> {
       ]);
       if (!mounted) return;
       final device = results[0] as Map<String, dynamic>;
+      bool isTestStore(Map s) {
+        final name = (s['name'] ?? '').toString().toUpperCase();
+        final code = (s['code'] ?? s['storeCode'] ?? '').toString().toUpperCase();
+        return name.contains('E2E ') ||
+            name.contains('AUDIT STORE') ||
+            name.contains('TEST STORE') ||
+            code.startsWith('STR_E2E_') ||
+            code.startsWith('STR_WDR_') ||
+            code.startsWith('STR_BV_') ||
+            code.startsWith('STORE-CAT-');
+      }
+
+      int storePriority(Map s) {
+        final id = (s['storeId'] ?? s['id'] ?? '').toString();
+        if (id == '1') return 0;
+        if (id == '2') return 1;
+        if (id == '67') return 2;
+        if (id == '381') return 3;
+        return 10;
+      }
+
       final stores = (results[1] as List)
           .whereType<Map>()
-          .where((s) => s['status'] == 'ACTIVE')
+          .where((s) => s['status'] == 'ACTIVE' && !isTestStore(s))
           .map((s) => Map<String, dynamic>.from(s))
-          .toList();
+          .toList()
+        ..sort((a, b) => storePriority(a).compareTo(storePriority(b)));
       setState(() {
         _stores = stores;
         _currentStoreId = device['storeId']?.toString();
@@ -150,14 +191,23 @@ class _StoreSelectionScreenState extends State<StoreSelectionScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextField(
+                  controller: _searchCtrl,
                   enabled: !_saving,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchCtrl.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              _onSearchChanged('');
+                            },
+                          )
+                        : null,
                     hintText: 'Tìm cửa hàng, địa chỉ',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
-                  onChanged: (value) =>
-                      setState(() => _search = value.trim().toLowerCase()),
+                  onChanged: _onSearchChanged,
                 ),
                 const SizedBox(height: 8),
                 Expanded(

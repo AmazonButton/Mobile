@@ -13,12 +13,19 @@ import 'payos_qr_payment_sheet.dart';
 class OrderDetailBottomSheet extends StatefulWidget {
   final OrderModel order;
   final VoidCallback? onReorder, onCancel;
+  final bool isStoreOwner;
+  final bool isAdmin;
+  final Future<void> Function(OrderModel order, String nextStatus, String label)?
+      onStoreAdvanceStatus;
   final OrdersApiService? service;
   const OrderDetailBottomSheet({
     super.key,
     required this.order,
     this.onReorder,
     this.onCancel,
+    this.isStoreOwner = false,
+    this.isAdmin = false,
+    this.onStoreAdvanceStatus,
     this.service,
   });
   static Future<void> show(
@@ -26,12 +33,19 @@ class OrderDetailBottomSheet extends StatefulWidget {
     required OrderModel order,
     VoidCallback? onReorder,
     VoidCallback? onCancel,
+    bool isStoreOwner = false,
+    bool isAdmin = false,
+    Future<void> Function(OrderModel order, String nextStatus, String label)?
+        onStoreAdvanceStatus,
   }) => Navigator.of(context).push<void>(
     MaterialPageRoute(
       builder: (_) => OrderDetailBottomSheet(
         order: order,
         onReorder: onReorder,
         onCancel: onCancel,
+        isStoreOwner: isStoreOwner,
+        isAdmin: isAdmin,
+        onStoreAdvanceStatus: onStoreAdvanceStatus,
       ),
     ),
   );
@@ -44,10 +58,40 @@ class _OrderDetailBottomSheetState extends State<OrderDetailBottomSheet>
   late OrderModel _order = widget.order;
   late final _api = widget.service ?? OrdersApiService();
   List<OrderTimelineEntry> _timeline = [];
-  bool _loading = true, _reloadAgain = false;
+  bool _loading = true, _reloadAgain = false, _advancing = false;
   String? _detailError, _timelineError;
   StreamSubscription<String?>? _updates;
   Timer? _debounce;
+
+  (String, String)? _nextAction(OrderModel order) {
+    switch (order.rawStatus.toUpperCase()) {
+      case 'PENDING':
+        return ('CONFIRMED', 'Xác nhận đơn');
+      case 'CONFIRMED':
+        return ('PREPARING', 'Bắt đầu chuẩn bị');
+      case 'PREPARING':
+      case 'PROCESSING':
+        return ('READY_FOR_DELIVERY', 'Sẵn sàng giao');
+      case 'READY_FOR_DELIVERY':
+        return ('SHIPPING', 'Xuất giao hàng');
+      case 'SHIPPING':
+        return ('DELIVERED', 'Xác nhận đã giao');
+      default:
+        return null;
+    }
+  }
+
+  Future<void> _handleStoreAdvance() async {
+    final next = _nextAction(_order);
+    if (next == null || _advancing || widget.onStoreAdvanceStatus == null) return;
+    setState(() => _advancing = true);
+    try {
+      await widget.onStoreAdvanceStatus!(_order, next.$1, next.$2);
+      await _reload();
+    } finally {
+      if (mounted) setState(() => _advancing = false);
+    }
+  }
   @override
   void initState() {
     super.initState();
@@ -123,21 +167,33 @@ class _OrderDetailBottomSheetState extends State<OrderDetailBottomSheet>
   }
 
   @override
-  Widget build(BuildContext context) => _OrderDetailContent(
-    order: _order,
-    onReorder: widget.onReorder,
-    onCancel: widget.onCancel,
-    entries: _timeline,
-    loading: _loading,
-    detailError: _detailError,
-    timelineError: _timelineError,
-    reload: _reload,
-  );
+  Widget build(BuildContext context) {
+    final next = widget.isStoreOwner ? _nextAction(_order) : null;
+    return _OrderDetailContent(
+      order: _order,
+      onReorder: widget.onReorder,
+      onCancel: widget.onCancel,
+      isStoreOwner: widget.isStoreOwner,
+      isAdmin: widget.isAdmin,
+      storeActionLabel: next?.$2,
+      advancing: _advancing,
+      onAdvanceStatus: next != null && widget.onStoreAdvanceStatus != null
+          ? _handleStoreAdvance
+          : null,
+      entries: _timeline,
+      loading: _loading,
+      detailError: _detailError,
+      timelineError: _timelineError,
+      reload: _reload,
+    );
+  }
 }
 
 class _OrderDetailContent extends StatelessWidget {
   final OrderModel order;
-  final VoidCallback? onReorder, onCancel;
+  final VoidCallback? onReorder, onCancel, onAdvanceStatus;
+  final bool isStoreOwner, isAdmin, advancing;
+  final String? storeActionLabel;
   final List<OrderTimelineEntry> entries;
   final bool loading;
   final String? detailError, timelineError;
@@ -146,6 +202,11 @@ class _OrderDetailContent extends StatelessWidget {
     required this.order,
     this.onReorder,
     this.onCancel,
+    this.isStoreOwner = false,
+    this.isAdmin = false,
+    this.storeActionLabel,
+    this.advancing = false,
+    this.onAdvanceStatus,
     required this.entries,
     required this.loading,
     this.detailError,
@@ -293,7 +354,15 @@ class _OrderDetailContent extends StatelessWidget {
                 style: SampleA.caption,
               ),
               const SizedBox(height: 24),
-              if (order.canPay) ...[
+              if (isStoreOwner && storeActionLabel != null && onAdvanceStatus != null) ...[
+                AButton(
+                  label: storeActionLabel!,
+                  busy: advancing,
+                  onPressed: advancing ? null : onAdvanceStatus,
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (!isStoreOwner && !isAdmin && order.canPay) ...[
                 AButton(
                   label: order.isPayos
                       ? 'Thanh toán'
@@ -303,7 +372,7 @@ class _OrderDetailContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
               ],
-              if (order.isEmergencyCancellable && onCancel != null) ...[
+              if (!isStoreOwner && !isAdmin && order.isEmergencyCancellable && onCancel != null) ...[
                 AButton(
                   label: 'Hủy đơn hàng này',
                   kind: AButtonKind.danger,
@@ -314,7 +383,7 @@ class _OrderDetailContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
               ],
-              if (order.isCompleted && onReorder != null) ...[
+              if (!isStoreOwner && !isAdmin && order.isCompleted && onReorder != null) ...[
                 AButton(
                   label: 'Đặt lại đơn này',
                   onPressed: () {

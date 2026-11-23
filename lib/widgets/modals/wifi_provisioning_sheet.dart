@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import '../../services/ble_pairing_bridge.dart';
 import '../sample_a.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -51,11 +55,15 @@ class _TactileBounceState extends State<_TactileBounce> {
 /// - Tactile button interactions (0.96 scale) and staggered flutter_animate transitions
 class WifiProvisioningSheet extends StatefulWidget {
   final String initialSsid;
+  final String? deviceId;
+  final BluetoothDevice? bleDevice;
   final Function(String newSsid)? onConnected;
 
   const WifiProvisioningSheet({
     super.key,
     this.initialSsid = '',
+    this.deviceId,
+    this.bleDevice,
     this.onConnected,
   });
 
@@ -63,6 +71,8 @@ class WifiProvisioningSheet extends StatefulWidget {
   static Future<bool?> show({
     required BuildContext context,
     String initialSsid = '',
+    String? deviceId,
+    BluetoothDevice? bleDevice,
     Function(String newSsid)? onConnected,
   }) {
     return showModalBottomSheet<bool>(
@@ -72,6 +82,8 @@ class WifiProvisioningSheet extends StatefulWidget {
       barrierColor: Colors.black.withValues(alpha: 0.4),
       builder: (ctx) => WifiProvisioningSheet(
         initialSsid: initialSsid,
+        deviceId: deviceId,
+        bleDevice: bleDevice,
         onConnected: onConnected,
       ),
     );
@@ -152,13 +164,50 @@ class _WifiProvisioningSheetState extends State<WifiProvisioningSheet> {
     HapticFeedback.mediumImpact();
     setState(() => _isConnecting = true);
 
-    // Simulate IoT BLE handshake & Wi-Fi provisioning
-    await Future.delayed(const Duration(milliseconds: 1400));
+    try {
+      final cleanSsid = ssid.trim();
+      if (kIsWeb) {
+        // Ghi thật Wi-Fi SSID:password qua Web Bluetooth GATT FFF2 nếu có phiên BLE đang mở
+        await sendWebBleWifi(widget.deviceId ?? '', cleanSsid, password);
+      } else if (widget.bleDevice != null) {
+        final dev = widget.bleDevice!;
+        try {
+          await dev.connect(timeout: const Duration(seconds: 5));
+        } catch (_) {}
+        final services = await dev.discoverServices();
+        for (final s in services) {
+          if (s.uuid.toString().toLowerCase().contains('fff0')) {
+            for (final c in s.characteristics) {
+              if (c.uuid.toString().toLowerCase().contains('fff2')) {
+                final payload = utf8.encode('$cleanSsid:$password');
+                await c.write(payload, withoutResponse: false);
+              }
+            }
+          }
+        }
+      } else {
+        await Future.delayed(const Duration(milliseconds: 600));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isConnecting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFFDC2626),
+          content: Text(
+            'Gửi Wi-Fi qua Bluetooth thất bại: $e',
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+      );
+      return;
+    }
 
     if (!mounted) return;
     setState(() => _isConnecting = false);
 
-    widget.onConnected?.call(ssid);
+    widget.onConnected?.call(ssid.trim());
     Navigator.of(context).pop(true);
   }
 

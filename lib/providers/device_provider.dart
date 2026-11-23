@@ -30,7 +30,7 @@ class DeviceProvider extends ChangeNotifier {
     }
   }
 
-  /// Tải danh sách thiết bị từ backend
+  /// Tải danh sách thiết bị từ backend và lọc sạch data rác/trùng lặp ở dưới
   Future<void> loadDevices() async {
     _isLoading = true;
     _errorMessage = null;
@@ -38,9 +38,22 @@ class DeviceProvider extends ChangeNotifier {
 
     try {
       final fetched = await _apiService.getDevices();
-      _devices = fetched;
+      // Lọc sạch data rác/trùng lặp ở dưới: giữ tất cả các nút đã gán sản phẩm,
+      // và chỉ giữ tối đa 1 nút mới chưa gán để người dùng cấu hình
+      final cleaned = <DeviceModel>[];
+      final seenUnassigned = <String>{};
+      for (final d in fetched) {
+        final isUnassigned = d.product == 'Chưa gán sản phẩm' || d.product.trim().isEmpty;
+        if (!isUnassigned) {
+          cleaned.add(d);
+        } else if (seenUnassigned.isEmpty) {
+          cleaned.add(d);
+          seenUnassigned.add(d.id);
+        }
+      }
+      _devices = cleaned.isNotEmpty ? cleaned : fetched;
       await Future.wait(
-        fetched.map((d) => StockService.instance.refreshDevice(d.id)),
+        _devices.map((d) => StockService.instance.refreshDevice(d.id)),
       );
       _errorMessage = null;
     } catch (e) {
@@ -50,6 +63,15 @@ class DeviceProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Xóa nút bấm khỏi danh sách và gửi yêu cầu xóa lên máy chủ
+  Future<void> removeDevice(String deviceId) async {
+    _devices.removeWhere((d) => d.id == deviceId);
+    notifyListeners();
+    try {
+      await _apiService.deleteDevice(deviceId);
+    } catch (_) {}
   }
 
   /// Đổi cửa hàng và nhận lại cấu hình nút đã xóa sản phẩm cũ từ backend.
@@ -180,6 +202,14 @@ class DeviceProvider extends ChangeNotifier {
     } catch (_) {
       // Best-effort remote update
     }
+  }
+
+  /// Xóa dữ liệu thiết bị khi đăng xuất hoặc đổi tài khoản
+  void reset() {
+    _devices = [];
+    _isLoading = false;
+    _errorMessage = null;
+    notifyListeners();
   }
 
   /// Làm mới danh sách thiết bị

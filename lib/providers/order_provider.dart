@@ -318,6 +318,31 @@ class OrderProvider extends ChangeNotifier with WidgetsBindingObserver {
     return newOrder;
   }
 
+  /// Cập nhật trạng thái đơn hàng dành cho Chủ cửa hàng / Nhân viên
+  Future<OrderModel> updateOrderStatus(
+    String orderId, {
+    required String status,
+    String? note,
+  }) async {
+    final raw = await _apiService.updateOrderStatus(
+      orderId,
+      status: status,
+      note: note,
+    );
+    final updated = OrderModel.fromJson(raw);
+    final index = _orders.indexWhere(
+      (o) => o.id == orderId || o.orderCode == orderId,
+    );
+    if (index != -1) {
+      _orders[index] = updated;
+      notifyListeners();
+    } else {
+      await loadOrders(silent: true, preservePages: true);
+    }
+    OrderUpdates.notify(orderId);
+    return updated;
+  }
+
   /// Làm mới danh sách đơn hàng
   Future<void> refreshOrders() => loadOrders(preservePages: true);
 }

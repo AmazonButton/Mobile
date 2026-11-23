@@ -8,6 +8,7 @@ class HomeFloatingToast extends StatelessWidget {
   final Animation<double> scaleAnimation;
   final String message;
   final VoidCallback? onUndo;
+  final VoidCallback? onDismiss;
 
   const HomeFloatingToast({
     super.key,
@@ -16,6 +17,7 @@ class HomeFloatingToast extends StatelessWidget {
     required this.scaleAnimation,
     required this.message,
     this.onUndo,
+    this.onDismiss,
   });
 
   @override
@@ -24,13 +26,21 @@ class HomeFloatingToast extends StatelessWidget {
       bottom: 18,
       left: 16,
       right: 16,
-      child: SlideTransition(
-        position: slideAnimation,
-        child: FadeTransition(
-          opacity: fadeAnimation,
-          child: ScaleTransition(
-            scale: scaleAnimation,
-            child: Container(
+      child: GestureDetector(
+        onVerticalDragEnd: onDismiss == null
+            ? null
+            : (details) {
+                if ((details.primaryVelocity ?? 0) > 120) {
+                  onDismiss?.call();
+                }
+              },
+        child: SlideTransition(
+          position: slideAnimation,
+          child: FadeTransition(
+            opacity: fadeAnimation,
+            child: ScaleTransition(
+              scale: scaleAnimation,
+              child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: const Color(0xFF1E293B),
@@ -104,6 +114,7 @@ class HomeFloatingToast extends StatelessWidget {
                     ),
                   ],
                 ],
+              ),
               ),
             ),
           ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../constants/app_colors.dart';
+import 'app_motion.dart';
 
 /// Colors shared by device and order components, matching the homepage palette.
 abstract final class SampleA {
@@ -68,7 +69,7 @@ class ACard extends StatelessWidget {
     super.key,
     required this.child,
     this.color = Colors.white,
-    this.padding = const EdgeInsets.all(12),
+    this.padding = const EdgeInsets.all(14),
     this.border = true,
   });
   @override
@@ -77,7 +78,8 @@ class ACard extends StatelessWidget {
     decoration: BoxDecoration(
       color: color,
       borderRadius: BorderRadius.circular(SampleA.cardRadius),
-      border: border ? Border.all(color: SampleA.border, width: 2) : null,
+      border: border ? Border.all(color: SampleA.border, width: 1) : null,
+      boxShadow: AppMotion.cardShadow,
     ),
     child: child,
   );
@@ -111,80 +113,102 @@ class _AButtonState extends State<AButton> {
     final primary = widget.kind == AButtonKind.primary;
     final danger = widget.kind == AButtonKind.danger;
     final enabled = widget.onPressed != null && !widget.busy;
+    final reducedMotion = MediaQuery.disableAnimationsOf(context);
     final foreground = primary
         ? Colors.white
         : danger
         ? SampleA.danger
-        : SampleA.primary;
+        : const Color(0xFF0E6BA8);
     final background = !enabled
-        ? SampleA.border
+        ? const Color(0xFFE2E8F0)
         : primary
-        ? SampleA.primary
+        ? const Color(0xFF0E6BA8)
         : danger
         ? SampleA.dangerLight
         : Colors.white;
     final edge = primary
-        ? SampleA.primaryDark
+        ? const Color(0xFF0B5586)
         : danger
         ? const Color(0xFFFECACA)
         : SampleA.border;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Listener(
-        onPointerDown: enabled ? (_) => setState(() => _pressed = true) : null,
-        onPointerUp: (_) => setState(() => _pressed = false),
-        onPointerCancel: (_) => setState(() => _pressed = false),
-        child: Transform.translate(
-          offset: Offset(0, _pressed && enabled ? 4 : 0),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(SampleA.buttonRadius),
-              boxShadow: _pressed || !enabled
-                  ? []
-                  : [BoxShadow(color: edge, offset: const Offset(0, 4))],
-            ),
-            child: FilledButton(
-              onPressed: enabled
-                  ? () {
-                      HapticFeedback.lightImpact();
-                      widget.onPressed!();
-                    }
-                  : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: background,
-                disabledBackgroundColor: background,
-                foregroundColor: foreground,
-                disabledForegroundColor: SampleA.muted,
-                minimumSize: const Size(48, 48),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(SampleA.buttonRadius),
-                  side: BorderSide(color: edge, width: 2),
-                ),
-                textStyle: const TextStyle(
-                  fontFamily: SampleA.fontFamily,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                ),
+    return Listener(
+      onPointerDown: enabled ? (_) => setState(() => _pressed = true) : null,
+      onPointerUp: (_) => setState(() => _pressed = false),
+      onPointerCancel: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: (_pressed && enabled && !reducedMotion) ? 0.97 : 1.0,
+        duration: AppMotion.pressDuration,
+        curve: AppMotion.easeOut,
+        child: AnimatedContainer(
+          duration: AppMotion.fastDuration,
+          curve: AppMotion.easeOut,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: (!enabled || _pressed)
+                ? const []
+                : primary
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF0E6BA8).withValues(alpha: 0.22),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : const [
+                    BoxShadow(
+                      color: Color(0x0A0F172A),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: FilledButton(
+            onPressed: enabled
+                ? () {
+                    HapticFeedback.lightImpact();
+                    widget.onPressed!();
+                  }
+                : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: background,
+              disabledBackgroundColor: background,
+              foregroundColor: foreground,
+              disabledForegroundColor: SampleA.muted,
+              minimumSize: const Size(48, 48),
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: primary ? Colors.transparent : edge, width: 1),
               ),
+              textStyle: const TextStyle(
+                fontFamily: SampleA.fontFamily,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+            ),
+            child: AnimatedSwitcher(
+              duration: AppMotion.fastDuration,
+              switchInCurve: AppMotion.easeOut,
+              switchOutCurve: AppMotion.easeOut,
               child: Row(
+                key: ValueKey<String>('${widget.busy}:${widget.label}'),
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (widget.busy) ...[
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                    SizedBox(
+                      width: 17,
+                      height: 17,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(foreground),
+                      ),
                     ),
                     const SizedBox(width: 8),
                   ] else if (widget.icon != null) ...[
-                    Icon(widget.icon, size: 20),
+                    Icon(widget.icon, size: 19),
                     const SizedBox(width: 8),
                   ],
                   Flexible(

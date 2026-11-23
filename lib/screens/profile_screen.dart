@@ -1,3 +1,4 @@
+import '../widgets/app_motion.dart';
 import '../widgets/sample_a.dart';
 import '../widgets/user_avatar.dart';
 import 'customer_bank_accounts_screen.dart';
@@ -10,9 +11,16 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/address_provider.dart';
+import '../providers/device_provider.dart';
+import '../providers/notification_provider.dart';
+import '../providers/order_provider.dart';
 import '../services/services.dart';
 import 'address/address_list_screen.dart';
 import 'login_screen.dart';
+import 'main_layout.dart';
+import 'store_wallet_screen.dart';
+import 'system_staff/system_staff_returns_screen.dart';
+import 'system_staff/system_staff_warranty_screen.dart';
 import 'change_password_screen.dart';
 import 'identity_verification_screen.dart';
 
@@ -50,11 +58,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _userService.addListener(_onProfileChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       try {
-        Provider.of<UserProvider>(context, listen: false).loadProfile();
-      } catch (_) {}
-      try {
-        Provider.of<AddressProvider>(context, listen: false).loadAddresses();
+        final userProv = Provider.of<UserProvider>(context, listen: false);
+        if (!userProv.isLoading) {
+          userProv.loadProfile();
+        }
+        if (userProv.isCustomer) {
+          Provider.of<AddressProvider>(context, listen: false).loadAddresses();
+        }
       } catch (_) {}
     });
   }
@@ -185,13 +197,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ElevatedButton(
             onPressed: () async {
               UserProvider? userProv;
+              DeviceProvider? deviceProv;
+              OrderProvider? orderProv;
+              AddressProvider? addrProv;
+              NotificationProvider? notifProv;
               try {
                 userProv = Provider.of<UserProvider>(context, listen: false);
+                deviceProv = Provider.of<DeviceProvider>(context, listen: false);
+                orderProv = Provider.of<OrderProvider>(context, listen: false);
+                addrProv = Provider.of<AddressProvider>(context, listen: false);
+                notifProv = Provider.of<NotificationProvider>(context, listen: false);
               } catch (_) {}
               Navigator.pop(ctx);
-              await NotificationService().unregisterTokenOnLogout();
-              await AuthApiService().logout();
+              try {
+                await NotificationService().unregisterTokenOnLogout();
+              } catch (_) {}
+              try {
+                await AuthApiService().logout();
+              } catch (_) {}
               userProv?.reset();
+              deviceProv?.reset();
+              orderProv?.reset();
+              addrProv?.reset();
+              await notifProv?.clearAll();
               _userService.reset();
               if (mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
@@ -228,203 +256,592 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
-    appBar: AppBar(
-      title: const Text('Tài khoản'),
-      centerTitle: true,
-      automaticallyImplyLeading: widget.showBackButton,
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.transparent,
-    ),
-    body: AContent(
-      maxWidth: SampleA.detailWidth,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                UserAvatar(
-                  size: 72,
-                  initials: userInitials,
-                  file: _avatarFile,
-                  url: _avatarUrl,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      InkWell(
-                        onTap: _openEditNameModal,
-                        child: Text(
-                          userName,
-                          style: const TextStyle(
-                            fontSize: 23,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
+  void _showPolicyDialog(String title, List<String> paragraphs, {VoidCallback? onReplayTour}) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: paragraphs
+                .map(
+                  (p) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      p,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        height: 1.5,
+                        color: Color(0xFF475569),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        userPhone,
-                        style: const TextStyle(color: Color(0xFF475569)),
-                      ),
-                      TextButton.icon(
-                        onPressed: _editProfile,
-                        icon: const Icon(Icons.edit_outlined, size: 18),
-                        label: const Text('Chỉnh sửa hồ sơ'),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _groupTitle('Thông tin cá nhân'),
-            ActionTile(
-              key: widget.tour?.key(TourStep.addresses),
-              icon: LucideIcons.mapPin,
-              title: 'Địa chỉ giao hàng',
-              onTap: _openEditAddressModal,
-            ),
-            const Divider(height: 1),
-            ActionTile(
-              key: widget.tour?.key(TourStep.identity),
-              icon: LucideIcons.shieldCheck,
-              title: 'Xác minh danh tính',
-              onTap: () async {
-                final tour = widget.tour;
-                tour?.openIdentity();
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => IdentityVerificationScreen(tour: tour),
-                  ),
-                );
-                tour?.identityClosed();
-              },
-            ),
-            const SizedBox(height: 16),
-            _groupTitle('Nút & hoàn cọc'),
-            ActionTile(
-              key: widget.tour?.key(TourStep.deposit),
-              icon: LucideIcons.package,
-              title: 'Nút và tiền cọc',
-              onTap: () async {
-                final tour = widget.tour;
-                tour?.openDeposit();
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => CustomerButtonsScreen(tour: tour),
-                  ),
-                );
-                tour?.depositClosed();
-              },
-            ),
-            const Divider(height: 1),
-            ActionTile(
-              key: widget.tour?.key(TourStep.bank),
-              icon: LucideIcons.landmark,
-              title: 'Tài khoản hoàn cọc',
-              onTap: () async {
-                final tour = widget.tour;
-                tour?.openBank();
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => CustomerBankAccountsScreen(tour: tour),
-                  ),
-                );
-                tour?.bankClosed();
-              },
-            ),
-            const SizedBox(height: 16),
-            _groupTitle('Hỗ trợ & bảo mật'),
-            ActionTile(
-              icon: LucideIcons.lock,
-              title: 'Đổi mật khẩu',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => const ChangePasswordScreen(),
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-            if (widget.tour != null)
-              ActionTile(
-                icon: LucideIcons.bookOpen,
-                title: 'Xem lại hướng dẫn',
-                onTap: widget.tour!.replay,
-              ),
-            const Divider(height: 1),
-            ActionTile(
-              icon: LucideIcons.headphones,
-              title: 'Hỗ trợ',
-              onTap: () => _showFloatingToast('Tổng đài hỗ trợ: 1900 6868'),
-            ),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
+                )
+                .toList(),
+          ),
+        ),
+        actions: [
+          if (onReplayTour != null)
             TextButton(
-              onPressed: _confirmLogout,
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Đăng xuất'),
+              onPressed: () {
+                Navigator.pop(ctx);
+                onReplayTour();
+              },
+              child: const Text('Xem hướng dẫn tương tác'),
+            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0E6BA8),
+            ),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _menuRow({
+    Key? key,
+    required IconData icon,
+    required String title,
+    Color iconColor = const Color(0xFF2563EB),
+    Color? titleColor,
+    required VoidCallback onTap,
+  }) {
+    return TactilePress(
+      key: key,
+      scaleDown: 0.985,
+      haptic: true,
+      borderRadius: BorderRadius.zero,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
+                  color: titleColor ?? const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            Icon(
+              LucideIcons.chevronRight,
+              size: 16,
+              color: titleColor != null
+                  ? titleColor.withValues(alpha: 0.5)
+                  : const Color(0xFFCBD5E1),
             ),
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
 
-  Widget _groupTitle(String text) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF1F3F6),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Text(
-      text,
-      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-    ),
-  );
+  @override
+  Widget build(BuildContext context) {
+    final userProv = context.watch<UserProvider?>();
+    final isAdmin = userProv?.isAdmin ?? false;
+    final isSystemStaff = userProv?.isSystemStaff ?? false;
+    final isStoreOwner = userProv?.isStoreOwner ?? false;
+    final isCustomer = !isAdmin && !isStoreOwner && !isSystemStaff;
+    final roleLabel = userProv?.roleLabel ?? 'Khách hàng';
+    final badgeBg = isAdmin
+        ? const Color(0xFFEEF2FF)
+        : isSystemStaff
+            ? const Color(0xFFECFEFF)
+            : isStoreOwner
+                ? const Color(0xFFECFDF5)
+                : const Color(0xFFE0F2FE);
+    final badgeFg = isAdmin
+        ? const Color(0xFF4338CA)
+        : isSystemStaff
+            ? const Color(0xFF0E7490)
+            : isStoreOwner
+                ? const Color(0xFF047857)
+                : const Color(0xFF0369A1);
 
-  void _editProfile() => showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          InfoTile(
-            icon: LucideIcons.user,
-            title: 'Họ và tên',
-            value: userName,
-            isEditable: true,
-            onTap: () {
-              Navigator.pop(sheetContext);
-              _openEditNameModal();
-            },
+    const rowDivider = Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9));
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text(
+          'Tài khoản',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
+        centerTitle: true,
+        automaticallyImplyLeading: widget.showBackButton,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+        ),
+      ),
+      body: AContent(
+        maxWidth: SampleA.detailWidth,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Compact Clean Account Identity Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: AppMotion.cardShadow,
+                ),
+                child: Row(
+                  children: [
+                    UserAvatar(
+                      size: 58,
+                      initials: userInitials,
+                      file: _avatarFile,
+                      url: _avatarUrl,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            userEmail.isNotEmpty ? userEmail : userPhone,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 9,
+                                  vertical: 2.5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: badgeBg,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  roleLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: badgeFg,
+                                  ),
+                                ),
+                              ),
+                              if (isStoreOwner &&
+                                  (userProv?.storeName?.isNotEmpty == true))
+                                Text(
+                                  userProv!.storeName!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Unified Flat Clean Account Menu List (All Roles)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: AppMotion.cardShadow,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    _menuRow(
+                      icon: LucideIcons.circleUserRound,
+                      title: 'Thông tin tài khoản',
+                      onTap: _editProfile,
+                    ),
+                    rowDivider,
+                    _menuRow(
+                      icon: LucideIcons.keyRound,
+                      title: 'Thay đổi mật khẩu',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ChangePasswordScreen(),
+                        ),
+                      ),
+                    ),
+                    if (isCustomer) ...[
+                      rowDivider,
+                      _menuRow(
+                        key: widget.tour?.key(TourStep.addresses),
+                        icon: LucideIcons.mapPin,
+                        title: 'Địa chỉ giao hàng',
+                        onTap: _openEditAddressModal,
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        key: widget.tour?.key(TourStep.identity),
+                        icon: LucideIcons.shieldCheck,
+                        title: 'Xác minh danh tính (eKYC)',
+                        onTap: () async {
+                          final tour = widget.tour;
+                          tour?.openIdentity();
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  IdentityVerificationScreen(tour: tour),
+                            ),
+                          );
+                          tour?.identityClosed();
+                        },
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        key: widget.tour?.key(TourStep.deposit),
+                        icon: LucideIcons.package,
+                        title: 'Nút và tiền cọc',
+                        onTap: () async {
+                          final tour = widget.tour;
+                          tour?.openDeposit();
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  CustomerButtonsScreen(tour: tour),
+                            ),
+                          );
+                          tour?.depositClosed();
+                        },
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        key: widget.tour?.key(TourStep.bank),
+                        icon: LucideIcons.landmark,
+                        title: 'Tài khoản hoàn cọc',
+                        onTap: () async {
+                          final tour = widget.tour;
+                          tour?.openBank();
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  CustomerBankAccountsScreen(tour: tour),
+                            ),
+                          );
+                          tour?.bankClosed();
+                        },
+                      ),
+                    ] else if (isStoreOwner) ...[
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.wallet,
+                        iconColor: const Color(0xFF047857),
+                        title: 'Ví doanh thu & Rút tiền',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const StoreWalletScreen(),
+                          ),
+                        ),
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.package,
+                        iconColor: const Color(0xFF047857),
+                        title: 'Sản phẩm & tồn kho',
+                        onTap: () => MainLayout.switchToTab(context, 1),
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.cpu,
+                        iconColor: const Color(0xFF0E6BA8),
+                        title: 'Danh sách nút bấm IoT',
+                        onTap: () => MainLayout.switchToTab(context, 2),
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.receiptText,
+                        iconColor: const Color(0xFFD97706),
+                        title: 'Đơn hàng đại lý',
+                        onTap: () => MainLayout.switchToTab(context, 3),
+                      ),
+                    ] else if (isSystemStaff) ...[
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.cpu,
+                        iconColor: const Color(0xFF0E7490),
+                        title: 'Kho & cấp phát nút',
+                        onTap: () => MainLayout.switchToTab(context, 1),
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.shieldCheck,
+                        iconColor: const Color(0xFF0E7490),
+                        title: 'Bảo hành thiết bị',
+                        onTap: () => MainLayout.switchToTab(context, 2),
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.rotateCcw,
+                        iconColor: const Color(0xFFD97706),
+                        title: 'Nhận nút trả',
+                        onTap: () => MainLayout.switchToTab(context, 3),
+                      ),
+                    ] else if (isAdmin) ...[
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.store,
+                        iconColor: const Color(0xFF4338CA),
+                        title: 'Danh sách cửa hàng đối tác',
+                        onTap: () => MainLayout.switchToTab(context, 1),
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.cpu,
+                        iconColor: const Color(0xFF0E6BA8),
+                        title: 'Kho nút bấm toàn hệ thống',
+                        onTap: () => MainLayout.switchToTab(context, 2),
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.receiptText,
+                        iconColor: const Color(0xFFD97706),
+                        title: 'Đơn hàng toàn hệ thống',
+                        onTap: () => MainLayout.switchToTab(context, 3),
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.shieldCheck,
+                        iconColor: const Color(0xFF0E7490),
+                        title: 'Phiếu bảo hành thiết bị',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SystemStaffWarrantyScreen(),
+                          ),
+                        ),
+                      ),
+                      rowDivider,
+                      _menuRow(
+                        icon: LucideIcons.rotateCcw,
+                        iconColor: const Color(0xFF7C3AED),
+                        title: 'Thu hồi nút & Hoàn cọc',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SystemStaffReturnsScreen(),
+                          ),
+                        ),
+                      ),
+                    ],
+                    rowDivider,
+                    _menuRow(
+                      icon: LucideIcons.bookOpen,
+                      title: 'Hướng dẫn sử dụng',
+                      onTap: () => _showPolicyDialog(
+                        'Hướng dẫn sử dụng',
+                        isSystemStaff
+                            ? const [
+                                '1. Kho & cấp phát nút: đăng ký mới, sinh lô, nhập CSV, cấp phát về custodyStoreId của đại lý và quản lý mẫu nút.',
+                                '2. Bảo hành thiết bị: lập phiếu, duyệt đổi 1-1 kế thừa hợp đồng thuê hoặc khóa nút lỗi chuyển hoàn cọc chờ Admin duyệt.',
+                                '3. Nhận nút trả: kiểm tra ngoại quan thiết bị khách hoàn trả và xác nhận nhập lại kho.',
+                              ]
+                            : isStoreOwner
+                                ? const [
+                                    '1. Sản phẩm & tồn kho: theo dõi danh mục sản phẩm, giá bán và tồn kho đại lý.',
+                                    '2. Nút IoT: giám sát tình trạng kết nối, pin và sản phẩm gắn trên từng nút bấm.',
+                                    '3. Đơn hàng: tiếp nhận đơn một chạm, xác nhận giao hàng và đối soát.',
+                                  ]
+                                : isAdmin
+                                    ? const [
+                                        '1. Giám sát cửa hàng đối tác, kho thiết bị IoT và đơn hàng toàn hệ thống.',
+                                        '2. Các nghiệp vụ duyệt rút tiền PayOS, hoàn cọc và phân quyền RBAC được thực hiện trên cổng Web Admin.',
+                                      ]
+                                    : const [
+                                        '1. Chọn cửa hàng và sản phẩm quen dùng hoặc ghép nối nút bấm qua Bluetooth (BLE).',
+                                        '2. Nhấn 1 chạm trên nút vật lý hoặc trong mục Nút của tôi để đặt hàng tự động.',
+                                        '3. Theo dõi trạng thái giao hàng, xác minh danh tính và hoàn tiền cọc trong mục Tài khoản.',
+                                      ],
+                        onReplayTour: isCustomer ? widget.tour?.replay : null,
+                      ),
+                    ),
+                    rowDivider,
+                    _menuRow(
+                      icon: LucideIcons.fileText,
+                      title: 'Chính sách bảo mật',
+                      onTap: () => _showPolicyDialog(
+                        'Chính sách bảo mật',
+                        const [
+                          'SmartOrder Button chỉ thu thập thông tin cần thiết để xác thực tài khoản, xử lý đơn hàng, bàn giao thiết bị IoT và bảo hành.',
+                          'Mật khẩu được mã hóa một chiều bằng bcrypt; phiên đăng nhập sử dụng JWT và tự động thu hồi khi thay đổi quyền hoặc đổi mật khẩu.',
+                          'Thông tin ngân hàng và định danh eKYC được bảo vệ và chỉ dùng cho mục đích xác minh chính chủ và hoàn cọc theo quy định.',
+                        ],
+                      ),
+                    ),
+                    rowDivider,
+                    _menuRow(
+                      icon: LucideIcons.fileText,
+                      title: 'Điều khoản dịch vụ',
+                      onTap: () => _showPolicyDialog(
+                        'Điều khoản dịch vụ',
+                        const [
+                          'Người dùng chịu trách nhiệm bảo mật thông tin đăng nhập, mã ghép nối thiết bị và kiểm tra chính xác sản phẩm gắn trên nút bấm.',
+                          'Mọi thao tác thuê nút, bảo hành đổi 1-1 và hoàn cọc tuân thủ đúng quy trình đối soát giữa khách hàng, cửa hàng và nền tảng.',
+                          'Tổng đài hỗ trợ kỹ thuật SmartOrder: 1900 6868.',
+                        ],
+                      ),
+                    ),
+                    rowDivider,
+                    _menuRow(
+                      icon: LucideIcons.logOut,
+                      iconColor: const Color(0xFFDC2626),
+                      titleColor: const Color(0xFFDC2626),
+                      title: 'Đăng xuất',
+                      onTap: _confirmLogout,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          InfoTile(
-            icon: LucideIcons.phone,
-            title: 'Số điện thoại',
-            value: userPhone,
-            isEditable: true,
-            onTap: () {
-              Navigator.pop(sheetContext);
-              _openEditPhoneModal();
-            },
+        ),
+      ),
+    );
+  }
+
+  void _editProfile() {
+    final userProv = context.read<UserProvider?>();
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Thông tin tài khoản',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF0F172A),
           ),
-          InfoTile(icon: LucideIcons.mail, title: 'Email', value: userEmail),
+        ),
+        contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+        content: SizedBox(
+          width: 340,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InfoTile(
+                icon: LucideIcons.user,
+                title: 'Họ và tên',
+                value: userName,
+                isEditable: true,
+                onTap: () {
+                  Navigator.pop(dialogContext);
+                  _openEditNameModal();
+                },
+              ),
+              InfoTile(
+                icon: LucideIcons.phone,
+                title: 'Số điện thoại',
+                value: userPhone.isNotEmpty ? userPhone : 'Chưa cập nhật',
+                isEditable: true,
+                onTap: () {
+                  Navigator.pop(dialogContext);
+                  _openEditPhoneModal();
+                },
+              ),
+              InfoTile(
+                icon: LucideIcons.mail,
+                title: 'Email',
+                value: userEmail,
+              ),
+              InfoTile(
+                icon: LucideIcons.shieldCheck,
+                title: 'Vai trò',
+                value: userProv?.roleLabel ?? 'Khách hàng',
+              ),
+              if (userProv?.isStoreOwner == true &&
+                  (userProv?.storeName?.isNotEmpty == true))
+                InfoTile(
+                  icon: LucideIcons.store,
+                  title: 'Đại lý quản lý',
+                  value: userProv!.storeName!,
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0E6BA8),
+            ),
+            child: const Text('Đóng'),
+          ),
         ],
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// Reusable InfoTile Widget for Contact Info & Attributes

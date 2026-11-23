@@ -7,6 +7,10 @@ import 'package:provider/provider.dart';
 
 import '../../login_screen.dart';
 import '../../main_layout.dart';
+import '../../../providers/address_provider.dart';
+import '../../../providers/device_provider.dart';
+import '../../../providers/notification_provider.dart';
+import '../../../providers/order_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../services/services.dart';
 
@@ -92,13 +96,25 @@ class HomeAccountSheet extends StatelessWidget {
           ElevatedButton(
             onPressed: () async {
               UserProvider? userProv;
+              DeviceProvider? deviceProv;
+              OrderProvider? orderProv;
+              AddressProvider? addrProv;
+              NotificationProvider? notifProv;
               try {
                 userProv = Provider.of<UserProvider>(context, listen: false);
+                deviceProv = Provider.of<DeviceProvider>(context, listen: false);
+                orderProv = Provider.of<OrderProvider>(context, listen: false);
+                addrProv = Provider.of<AddressProvider>(context, listen: false);
+                notifProv = Provider.of<NotificationProvider>(context, listen: false);
               } catch (_) {}
               Navigator.pop(ctx);
               await NotificationService().unregisterTokenOnLogout();
               await AuthApiService().logout();
               userProv?.reset();
+              deviceProv?.reset();
+              orderProv?.reset();
+              addrProv?.reset();
+              await notifProv?.clearAll();
               UserProfileService().reset();
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
@@ -141,6 +157,28 @@ class HomeAccountSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final userProv = context.watch<UserProvider?>();
+    final isAdmin = userProv?.isAdmin ?? false;
+    final isSystemStaff = userProv?.isSystemStaff ?? false;
+    final isStoreOwner = userProv?.isStoreOwner ?? false;
+    final roleLabel = userProv?.roleLabel ?? 'Khách hàng';
+    final infoIcon = isAdmin
+        ? Icons.admin_panel_settings_outlined
+        : isSystemStaff
+            ? Icons.build_circle_outlined
+            : isStoreOwner
+                ? Icons.storefront_outlined
+                : Icons.location_on_outlined;
+    final infoText = isAdmin
+        ? 'Quản trị toàn hệ thống SmartOrder'
+        : isSystemStaff
+            ? 'Kho nút bấm & Bảo hành kỹ thuật'
+            : isStoreOwner
+                ? (userProv?.storeName?.isNotEmpty == true
+                    ? userProv!.storeName!
+                    : 'Không gian chủ cửa hàng')
+                : userAddress;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -151,9 +189,15 @@ class HomeAccountSheet extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Tài khoản cá nhân',
-                  style: TextStyle(
+                Text(
+                  isAdmin
+                      ? 'Tài khoản quản trị'
+                      : isSystemStaff
+                          ? 'Tài khoản nhân viên hệ thống'
+                          : isStoreOwner
+                              ? 'Tài khoản đại lý'
+                              : 'Tài khoản cá nhân',
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1E293B),
@@ -175,26 +219,67 @@ class HomeAccountSheet extends StatelessWidget {
                   url: userAvatarUrl,
                 ),
                 const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      userName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              userName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isAdmin
+                                  ? const Color(0xFFEEF2FF)
+                                  : isSystemStaff
+                                      ? const Color(0xFFECFEFF)
+                                      : isStoreOwner
+                                          ? const Color(0xFFECFDF5)
+                                          : const Color(0xFFE0F2FE),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              roleLabel,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: isAdmin
+                                    ? const Color(0xFF4338CA)
+                                    : isSystemStaff
+                                        ? const Color(0xFF0E7490)
+                                        : isStoreOwner
+                                            ? const Color(0xFF047857)
+                                            : const Color(0xFF0369A1),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      userEmail,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF64748B),
+                      const SizedBox(height: 2),
+                      Text(
+                        userEmail,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -209,15 +294,15 @@ class HomeAccountSheet extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.location_on_outlined,
+                  Icon(
+                    infoIcon,
                     size: 18,
-                    color: Color(0xFF94A3B8),
+                    color: const Color(0xFF64748B),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      userAddress,
+                      infoText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -236,7 +321,10 @@ class HomeAccountSheet extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  MainLayout.switchToTab(context, 3);
+                  MainLayout.switchToTab(
+                    context,
+                    (isStoreOwner || isSystemStaff) ? 4 : 3,
+                  );
                 },
                 icon: const Icon(
                   CupertinoIcons.person_crop_circle,

@@ -1,6 +1,7 @@
 import '../../../widgets/sample_a.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../models/device_model.dart';
 import '../../../widgets/devices/smart_button_card.dart';
 
@@ -40,13 +41,34 @@ class HomeSmartButtonsGrid extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (isLoading && devices.isEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: const Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(SampleA.primary),
-              ),
+          Shimmer.fromColors(
+            baseColor: const Color(0xFFF1F5F9),
+            highlightColor: const Color(0xFFFFFFFF),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 220,
+                    margin: const EdgeInsets.only(right: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    height: 220,
+                    margin: const EdgeInsets.only(left: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           )
         else if (devices.isEmpty)

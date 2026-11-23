@@ -159,10 +159,105 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  /// Clears all notifications.
+  /// Clears all notifications (in memory and persisted storage).
   Future<void> clearAll() async {
-    if (_notifications.isNotEmpty) {
-      _notifications.clear();
+    _notifications.clear();
+    notifyListeners();
+    await _saveToStorage();
+  }
+
+  /// Đồng bộ cảnh báo Hết hàng (OUT_OF_STOCK) & Sắp hết hàng (LOW_STOCK) cho Chủ cửa hàng
+  Future<void> syncInventoryAlerts(List<Map<String, dynamic>> products) async {
+    if (products.isEmpty) return;
+
+    bool changed = false;
+    final activeStockAlertIds = <String>{};
+
+    for (final p in products) {
+      final inv = p['inventory'];
+      final onHand = int.tryParse(
+            ((inv is Map ? inv['quantityOnHand'] : null) ??
+                    p['stockQuantity'] ??
+                    p['stock'] ??
+                    0)
+                .toString(),
+          ) ??
+          0;
+      final reserved = int.tryParse(
+            ((inv is Map
+                        ? (inv['reservedQuantity'] ?? inv['quantityReserved'])
+                        : null) ??
+                    p['reservedQuantity'] ??
+                    p['reservedStock'] ??
+                    0)
+                .toString(),
+          ) ??
+          0;
+      final available = (onHand - reserved) < 0 ? 0 : (onHand - reserved);
+      final minAlert = int.tryParse(
+            ((inv is Map ? inv['minStockAlert'] : null) ??
+                    p['minStockAlert'] ??
+                    p['lowStockThreshold'] ??
+                    5)
+                .toString(),
+          ) ??
+          5;
+      final pId = (p['productId'] ?? p['id'] ?? p['sku'] ?? '').toString();
+      final pName = (p['name'] ?? p['productName'] ?? 'Sản phẩm').toString();
+      if (pId.isEmpty) continue;
+
+      if (available <= 0) {
+        final id = 'stock_out_$pId';
+        activeStockAlertIds.add(id);
+        if (!_notifications.any((n) => n.id == id)) {
+          _notifications.insert(
+            0,
+            NotificationItem(
+              id: id,
+              title: 'Hết hàng: $pName',
+              body:
+                  'Sản phẩm "$pName" đã hết hàng (0) trong kho. Vui lòng nhập thêm để khách có thể đặt hàng.',
+              createdAt: DateTime.now(),
+              type: 'OUT_OF_STOCK',
+              isRead: false,
+            ),
+          );
+          changed = true;
+        }
+      } else if (available <= minAlert) {
+        final id = 'stock_low_${pId}_$available';
+        activeStockAlertIds.add(id);
+        if (!_notifications.any((n) => n.id == id)) {
+          _notifications.insert(
+            0,
+            NotificationItem(
+              id: id,
+              title: 'Sắp hết hàng: $pName',
+              body:
+                  'Tồn kho "$pName" chỉ còn $available (ngưỡng cảnh báo $minAlert). Nên nhập thêm sớm.',
+              createdAt: DateTime.now(),
+              type: 'LOW_STOCK',
+              isRead: false,
+            ),
+          );
+          changed = true;
+        }
+      }
+    }
+
+    // Remove resolved stock alerts once restocked
+    final beforeLen = _notifications.length;
+    _notifications.removeWhere(
+      (n) =>
+          (n.type == 'OUT_OF_STOCK' || n.type == 'LOW_STOCK') &&
+          !activeStockAlertIds.contains(n.id),
+    );
+    if (_notifications.length != beforeLen) changed = true;
+
+    if (changed) {
+      if (_notifications.length > 50) {
+        _notifications = _notifications.sublist(0, 50);
+      }
       notifyListeners();
       await _saveToStorage();
     }

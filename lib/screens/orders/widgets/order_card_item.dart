@@ -8,6 +8,11 @@ class OrderCardItem extends StatelessWidget {
   final OrderModel order;
   final int cancelCountdown;
   final bool isReordering;
+  final bool isStoreOwner;
+  final bool isAdmin;
+  final String? storeActionLabel;
+  final bool isUpdatingStatus;
+  final VoidCallback? onAdvanceStatus;
   final VoidCallback? onEmergencyCancel,
       onCancel,
       onReorder,
@@ -19,6 +24,11 @@ class OrderCardItem extends StatelessWidget {
     required this.order,
     this.cancelCountdown = 60,
     this.isReordering = false,
+    this.isStoreOwner = false,
+    this.isAdmin = false,
+    this.storeActionLabel,
+    this.isUpdatingStatus = false,
+    this.onAdvanceStatus,
     this.onEmergencyCancel,
     this.onCancel,
     this.onReorder,
@@ -31,11 +41,15 @@ class OrderCardItem extends StatelessWidget {
       : cancelCountdown.clamp(0, 60);
   @override
   Widget build(BuildContext context) {
-    final showPayment = order.canPay && order.isPayos && order.isPending;
-    final showReorder = order.isCompleted && onReorder != null;
+    final isCustomer = !isStoreOwner && !isAdmin;
+    final showPayment =
+        isCustomer && order.canPay && order.isPayos && order.isPending;
+    final showReorder = isCustomer && order.isCompleted && onReorder != null;
+    final showStoreAction =
+        isStoreOwner && storeActionLabel != null && onAdvanceStatus != null;
     final openDetails = onDetailTap ?? onTrack;
-    final cancel = onEmergencyCancel ?? onCancel;
-    final emergency = order.isPending && _seconds > 0;
+    final cancel = isCustomer ? (onEmergencyCancel ?? onCancel) : null;
+    final emergency = isCustomer && order.isPending && _seconds > 0;
     return ACard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -50,14 +64,44 @@ class OrderCardItem extends StatelessWidget {
               OrderStatusBadge(order: order),
             ],
           ),
-          if (order.storeName.isNotEmpty) ...[
+          if (order.storeName.isNotEmpty && !isStoreOwner) ...[
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.storefront_outlined, size: 18),
+                const Icon(Icons.storefront_outlined, size: 17, color: Color(0xFF0E6BA8)),
                 const SizedBox(width: 6),
                 Expanded(child: Text(order.storeName, style: SampleA.caption)),
               ],
+            ),
+          ],
+          if (isStoreOwner || isAdmin) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(LucideIcons.user, size: 15, color: Color(0xFF64748B)),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      '${order.customerName}${order.apartment.isNotEmpty ? ' • ${order.apartment}' : ''}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
           const SizedBox(height: 12),
@@ -116,12 +160,40 @@ class OrderCardItem extends StatelessWidget {
           const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, constraints) {
+              if (showStoreAction) {
+                final primary = AButton(
+                  label: storeActionLabel!,
+                  kind: AButtonKind.primary,
+                  busy: isUpdatingStatus,
+                  onPressed: isUpdatingStatus ? null : onAdvanceStatus,
+                );
+                if (openDetails == null) return primary;
+                final secondary = AButton(
+                  label: 'Chi tiết',
+                  onPressed: openDetails,
+                  kind: AButtonKind.secondary,
+                );
+                if (constraints.maxWidth < 330 ||
+                    MediaQuery.textScalerOf(context).scale(14) > 20) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [primary, const SizedBox(height: 8), secondary],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(flex: 3, child: primary),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 2, child: secondary),
+                  ],
+                );
+              }
               final primary = AButton(
                 label: showPayment
                     ? 'Thanh toán'
                     : showReorder
                     ? 'Đặt lại'
-                    : order.isTerminal
+                    : (isAdmin || isStoreOwner || order.isTerminal)
                     ? 'Xem chi tiết'
                     : 'Theo dõi đơn',
                 kind: showPayment || showReorder
@@ -133,7 +205,7 @@ class OrderCardItem extends StatelessWidget {
                           () => PayosQrPaymentSheet.show(context, order: order)
                     : showReorder
                     ? onReorder
-                    : order.isTerminal
+                    : (isAdmin || isStoreOwner || order.isTerminal)
                     ? openDetails
                     : onTrack ?? openDetails,
               );

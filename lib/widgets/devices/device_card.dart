@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../sample_a.dart';
+import '../app_motion.dart';
 
-/// Device management card; ordering remains on Home and device detail.
+/// Thẻ quản lý thiết bị nhỏ gọn, hiện đại với logo nhỏ và nút xóa tiện lợi.
 class DeviceCard extends StatelessWidget {
   final String id, name, room, product, price, badgeText, signal, state;
   final int batteryLevel;
   final String? imageUrl, storeName;
   final bool isOnline, showOrderButton;
-  final VoidCallback? onTap, onSettings, onOrder, onSelectProduct;
+  final VoidCallback? onTap, onSettings, onOrder, onSelectProduct, onDelete;
+
   const DeviceCard({
     super.key,
     required this.id,
@@ -26,123 +28,249 @@ class DeviceCard extends StatelessWidget {
     this.onSettings,
     this.onOrder,
     this.onSelectProduct,
+    this.onDelete,
     this.state = 'idle',
     this.showOrderButton = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final unassigned = product == 'Chưa gán sản phẩm';
+    final unassigned = product == 'Chưa gán sản phẩm' || product.trim().isEmpty;
     final battery = batteryLevel.clamp(0, 100);
-    final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
-    return Material(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: SampleA.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: ColoredBox(
-                  color: const Color(0xFFF0F3F8),
-                  child: unassigned
-                      ? SizedBox(
-                          width: largeText ? 60 : 90,
-                          height: largeText ? 80 : 108,
-                          child: const Icon(
-                            LucideIcons.circleDot,
-                            size: 45,
-                            color: SampleA.muted,
-                          ),
-                        )
-                      : AProductImage(
-                          product: product,
-                          imageUrl: imageUrl,
-                          size: largeText ? 60 : 90,
-                        ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name, style: SampleA.section.copyWith(fontSize: 17)),
-                    const SizedBox(height: 7),
-                    _line(LucideIcons.package, product),
-                    if (!unassigned && storeName?.isNotEmpty == true) ...[
-                      const SizedBox(height: 4),
-                      _line(LucideIcons.store, storeName!),
-                    ],
-                    if (unassigned)
-                      TextButton(
-                        onPressed: onSelectProduct,
-                        child: const Text('Chọn sản phẩm'),
-                      )
-                    else ...[
-                      const SizedBox(height: 9),
-                      Wrap(
-                        spacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 44,
-                            child: LinearProgressIndicator(
-                              value: battery / 100,
-                              minHeight: 8,
-                              borderRadius: BorderRadius.circular(4),
-                              color: battery <= 20
-                                  ? SampleA.warning
-                                  : SampleA.success,
-                              backgroundColor: SampleA.border,
+    final isLowBattery = battery <= 20;
+
+    return TactilePress(
+      scaleDown: 0.985,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: AppMotion.cardShadow,
+        ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // ── LOGO THUMBNAIL NHỎ GỌN (52x52) ──
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: unassigned
+                          ? [const Color(0xFFF1F5F9), const Color(0xFFE2E8F0)]
+                          : [const Color(0xFFEFF6FF), const Color(0xFFDBEAFE)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: unassigned ? const Color(0xFFCBD5E1) : const Color(0xFFBFDBFE),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(13),
+                    child: imageUrl != null && imageUrl!.trim().isNotEmpty
+                        ? Image.network(
+                            imageUrl!.trim(),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Center(
+                              child: Icon(
+                                unassigned ? LucideIcons.radio : LucideIcons.packageCheck,
+                                size: 24,
+                                color: unassigned ? const Color(0xFF64748B) : const Color(0xFF2563EB),
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: Icon(
+                              unassigned ? LucideIcons.radio : LucideIcons.packageCheck,
+                              size: 24,
+                              color: unassigned ? const Color(0xFF64748B) : const Color(0xFF2563EB),
                             ),
                           ),
-                          Text(
-                            'Pin $battery%',
-                            style: SampleA.caption.copyWith(fontSize: 12),
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                // ── NỘI DUNG CHI TIẾT NÚT ──
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            margin: const EdgeInsets.only(left: 4),
+                            decoration: BoxDecoration(
+                              color: isOnline ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                              shape: BoxShape.circle,
+                            ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 3),
+                      if (unassigned) ...[
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 2,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            const Text(
+                              'Chưa gán sản phẩm',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                            if (onSelectProduct != null)
+                              InkWell(
+                                onTap: () {
+                                  HapticFeedback.lightImpact();
+                                  onSelectProduct?.call();
+                                },
+                                borderRadius: BorderRadius.circular(6),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
+                                  child: Text(
+                                    'Gán món ngay',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF2563EB),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ] else ...[
+                        Text(
+                          product,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                        if (storeName?.isNotEmpty == true) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            storeName!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              isLowBattery ? LucideIcons.batteryLow : LucideIcons.batteryMedium,
+                              size: 13,
+                              color: isLowBattery ? const Color(0xFFEF4444) : const Color(0xFF16A34A),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Pin $battery%',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isLowBattery ? const Color(0xFFEF4444) : const Color(0xFF059669),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
-                    if (!isOnline)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          'Mất kết nối',
-                          style: TextStyle(color: SampleA.danger, fontSize: 12),
+                  ),
+                ),
+
+                const SizedBox(width: 6),
+
+                // ── NÚT XÓA BỚT DATA NÚT RỖNG / THÙNG RÁC ──
+                if (onDelete != null)
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      onDelete?.call();
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          LucideIcons.trash2,
+                          size: 15,
+                          color: Color(0xFFEF4444),
                         ),
                       ),
-                  ],
+                    ),
+                  ),
+
+                // Mũi tên xem chi tiết
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      LucideIcons.chevronRight,
+                      size: 16,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
                 ),
-              ),
-              IconButton(
-                tooltip: 'Cài đặt $name',
-                onPressed: onSettings ?? onTap,
-                icon: const Icon(LucideIcons.chevronRight, size: 20),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
+      ),
     );
   }
-
-  Widget _line(IconData icon, String text) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Icon(icon, size: 16, color: SampleA.ink),
-      const SizedBox(width: 6),
-      Expanded(
-        child: Text(text, style: SampleA.caption.copyWith(fontSize: 13)),
-      ),
-    ],
-  );
 }
